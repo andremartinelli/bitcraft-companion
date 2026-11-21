@@ -7,6 +7,266 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class BuildingTypeSchema extends BaseModel {
+  static $columns = ['id', 'name'] as const
+  $columns = BuildingTypeSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+}
+
+export class GameDataImportSchema extends BaseModel {
+  static $columns = [
+    'commitSha',
+    'counts',
+    'createdAt',
+    'finishedAt',
+    'id',
+    'renamed',
+    'source',
+    'sourceDate',
+    'updatedAt',
+  ] as const
+  $columns = GameDataImportSchema.$columns
+  @column()
+  declare commitSha: string | null
+  @column({
+    prepare: (value) => (value === null ? null : JSON.stringify(value)),
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
+  })
+  declare counts: Record<string, number> | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare finishedAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column({
+    prepare: (value) => (value === null ? null : JSON.stringify(value)),
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
+  })
+  declare renamed: { kind: string; gameId: number; from: string; to: string }[] | null
+  @column()
+  declare source: string
+  @column.dateTime()
+  declare sourceDate: DateTime | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class ItemListPossibilitySchema extends BaseModel {
+  static $columns = ['id', 'itemListId', 'probability'] as const
+  $columns = ItemListPossibilitySchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemListId: number
+  @column()
+  declare probability: number
+}
+
+export class ItemListPossibilityItemSchema extends BaseModel {
+  static $columns = ['id', 'itemId', 'possibilityId', 'quantity'] as const
+  $columns = ItemListPossibilityItemSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare possibilityId: number
+  @column()
+  declare quantity: number
+}
+
+export class ItemListSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'gameId',
+    'id',
+    'lastImportId',
+    'name',
+    'removedAt',
+    'updatedAt',
+  ] as const
+  $columns = ItemListSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare gameId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastImportId: number | null
+  @column()
+  declare name: string
+  @column.dateTime()
+  declare removedAt: DateTime | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class ItemSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'description',
+    'gameId',
+    'id',
+    'itemListGameId',
+    'kind',
+    'lastImportId',
+    'name',
+    'rarity',
+    'removedAt',
+    'tag',
+    'tier',
+    'updatedAt',
+  ] as const
+  $columns = ItemSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string | null
+  @column()
+  declare gameId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemListGameId: number | null
+  @column()
+  declare kind: string
+  @column()
+  declare lastImportId: number | null
+  @column()
+  declare name: string
+  @column()
+  declare rarity: string | null
+  @column.dateTime()
+  declare removedAt: DateTime | null
+  @column()
+  declare tag: string | null
+  @column()
+  declare tier: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class RecipeInputSchema extends BaseModel {
+  static $columns = ['id', 'itemId', 'quantity', 'recipeId'] as const
+  $columns = RecipeInputSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare quantity: number
+  @column()
+  declare recipeId: number
+}
+
+export class RecipeOutputSchema extends BaseModel {
+  static $columns = ['id', 'itemId', 'quantity', 'recipeId'] as const
+  $columns = RecipeOutputSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare quantity: number
+  @column()
+  declare recipeId: number
+}
+
+export class RecipeSchema extends BaseModel {
+  static $columns = [
+    'actionsRequired',
+    'buildingTier',
+    'buildingTypeId',
+    'createdAt',
+    'gameId',
+    'hiddenWithoutKnowledge',
+    'id',
+    'isPassive',
+    'kind',
+    'lastImportId',
+    'name',
+    'pavingTier',
+    'removedAt',
+    'shards',
+    'skillId',
+    'skillLevel',
+    'staminaPerAction',
+    'timePerAction',
+    'toolTier',
+    'toolTypeId',
+    'updatedAt',
+    'verb',
+  ] as const
+  $columns = RecipeSchema.$columns
+  @column()
+  declare actionsRequired: number
+  @column()
+  declare buildingTier: number | null
+  @column()
+  declare buildingTypeId: number | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare gameId: number
+  @column({ consume: (value) => Boolean(value) })
+  declare hiddenWithoutKnowledge: boolean
+  @column({ isPrimary: true })
+  declare id: number
+  @column({ consume: (value) => Boolean(value) })
+  declare isPassive: boolean
+  @column()
+  declare kind: string
+  @column()
+  declare lastImportId: number | null
+  @column()
+  declare name: string
+  @column()
+  declare pavingTier: number | null
+  @column.dateTime()
+  declare removedAt: DateTime | null
+  @column()
+  declare shards: number
+  @column()
+  declare skillId: number | null
+  @column()
+  declare skillLevel: number | null
+  @column()
+  declare staminaPerAction: number
+  @column()
+  declare timePerAction: number
+  @column()
+  declare toolTier: number | null
+  @column()
+  declare toolTypeId: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare verb: string
+}
+
+export class SkillSchema extends BaseModel {
+  static $columns = ['id', 'name'] as const
+  $columns = SkillSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+}
+
+export class ToolTypeSchema extends BaseModel {
+  static $columns = ['id', 'name'] as const
+  $columns = ToolTypeSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
   $columns = UserSchema.$columns
