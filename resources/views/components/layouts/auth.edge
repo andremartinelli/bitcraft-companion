@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html
-  lang="en-us"
+  lang="pt-BR"
   data-theme="{{
     request.plainCookie('app_theme', {
       defaultValue: 'light',
@@ -11,7 +11,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AdonisJS — Starter Kit</title>
+    <title>Entrar - BitCraft Companion</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('dumper')
   </head>
@@ -28,22 +28,7 @@
           @!themeToggle()
         </div>
 
-        <p class="auth__quote">Auth, kept intentionally minimal so you can build it your way.</p>
-
-        <div>
-          <div class="pitch__t">Looking for production-ready auth?</div>
-          <p class="pitch__p">
-            Check out Feature packs, production-ready full-stack components from the creator of AdonisJS.
-          </p>
-          <a
-            class="il pitch__a"
-            href="https://plus.adonisjs.com/feature-packs"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Explore Feature packs →
-          </a>
-        </div>
+        <p class="auth__quote">Receitas, custos e planejamento de craft para o BitCraft Online.</p>
       </aside>
     </div>
     @include('partials/flash_alerts')

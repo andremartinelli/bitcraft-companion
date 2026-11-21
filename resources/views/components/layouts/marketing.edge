@@ -1,6 +1,9 @@
+{{--
+  Layout for pages outside the app shell (error pages).
+--}}
 <!DOCTYPE html>
 <html
-  lang="en-us"
+  lang="pt-BR"
   data-theme="{{
     request.plainCookie('app_theme', {
       defaultValue: 'light',
@@ -11,7 +14,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AdonisJS — Starter Kit</title>
+    <title>BitCraft Companion</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('dumper')
   </head>
@@ -22,15 +25,12 @@
         <div class="header__right">
           @!themeToggle()
           @if(auth?.user)
-            @link({ route: 'dashboard', class: 'btn btn--primary btn--sm' })
-              Dashboard
+            @link({ route: 'recipes.index', class: 'btn btn--primary btn--sm' })
+              Receitas
             @end
           @else
-            @link({ route: 'session.create', class: 'btn btn--ghost btn--sm' })
-              Sign in
-            @end
-            @link({ route: 'new_account.create', class: 'btn btn--primary btn--sm' })
-              Get started
+            @link({ route: 'session.create', class: 'btn btn--primary btn--sm' })
+              Entrar
             @end
           @end
         </div>

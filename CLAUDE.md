@@ -45,4 +45,6 @@ node ace bitcraft:import     # importa os dados do jogo (último commit do BitCr
 node ace users:create        # cria um usuário (não existe cadastro aberto)
 ```
 
+Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm run dev` (ou `node ace serve`). Depois de mexer em `start/routes.ts`, suba o dev uma vez antes do `typecheck`.
+
 Para rodar em produção (para jogar), use `scripts/play.ps1`. Detalhes no README.
