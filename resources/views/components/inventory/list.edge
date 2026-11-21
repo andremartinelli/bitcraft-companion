@@ -1,0 +1,44 @@
+{{--
+  The stock, one table per section (the group, a player, a place). Rendered
+  inside the panel and alone for the item search (htmx swaps #inventory-list).
+  State: filters { tab, q }, listing { sections }, empty.
+--}}
+<div id="inventory-list">
+  @if(empty)
+    <div class="empty">
+      @if(filters.q)
+        <p>Nenhum item com "{{ filters.q }}" no inventário.</p>
+      @else
+        <p>Nada no inventário ainda. Clique em "Sincronizar agora".</p>
+      @end
+    </div>
+  @else
+    @each(section in listing.sections)
+      <section class="inventory__section">
+        @if(filters.tab !== 'group')
+          <h2 class="inventory__title">{{ section.title }}</h2>
+          @if(section.subtitle)
+            <p class="inventory__subtitle">{{ section.subtitle }}</p>
+          @end
+        @end
+        <div class="ledger">
+          <table class="stock">
+            <tbody>
+              @each(line in section.lines)
+                <tr>
+                  <td>
+                    @!itemChip({ item: line.item })
+                  </td>
+                  <td class="num">{{ formatNumber(line.quantity) }}</td>
+                  @if(filters.tab === 'group')
+                    <td class="stock__places">{{ line.places === 1 ? '1 local' : `${line.places} locais` }}</td>
+                  @end
+                </tr>
+              @end
+            </tbody>
+          </table>
+        </div>
+      </section>
+    @end
+  @end
+</div>

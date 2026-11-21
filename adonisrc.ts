@@ -68,6 +68,8 @@ export default defineConfig({
     () => import('#start/kernel'),
     () => import('#start/validator'),
     () => import('#start/view'),
+    // Automatic inventory sync: web server only, never in ace commands or tests
+    { file: () => import('#start/scheduler'), environment: ['web'] },
   ],
 
   /*

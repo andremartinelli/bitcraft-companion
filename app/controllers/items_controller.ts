@@ -1,6 +1,8 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import Item from '#models/item'
+import SyncRun from '#models/sync_run'
+import { itemStock } from '#services/inventory/stock'
 
 const searchValidator = vine.create({ q: vine.string().trim().maxLength(100).optional() })
 
@@ -51,11 +53,14 @@ export default class ItemsController {
       .where('id', Number(params.id) || 0)
       .firstOrFail()
 
-    const [producers, consumers] = await Promise.all([
+    const [producers, consumers, synced] = await Promise.all([
       item.producingRecipes(),
       item.consumingRecipes(),
+      SyncRun.lastSuccessful(),
     ])
+    // "Vocês têm: N" only once the inventory was read at least once
+    const stock = synced ? await itemStock(item.id) : null
 
-    return view.render('pages/items/show', { item, producers, consumers })
+    return view.render('pages/items/show', { item, producers, consumers, stock })
   }
 }

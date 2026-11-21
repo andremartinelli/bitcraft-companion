@@ -29,4 +29,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Database
   DB_DATABASE: Env.schema.string(),
   DB_DEBUG: Env.schema.boolean.optional(),
+
+  // Inventory: minutes between automatic syncs with BitJita (default 15, 0 turns it off)
+  INVENTORY_SYNC_MINUTES: Env.schema.number.optional(),
 })

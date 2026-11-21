@@ -5,6 +5,8 @@
 
 export const controllers = {
   Calculator: () => import('#controllers/calculator_controller'),
+  GamePlayers: () => import('#controllers/game_players_controller'),
+  Inventory: () => import('#controllers/inventory_controller'),
   Items: () => import('#controllers/items_controller'),
   Plans: () => import('#controllers/plans_controller'),
   Recipes: () => import('#controllers/recipes_controller'),

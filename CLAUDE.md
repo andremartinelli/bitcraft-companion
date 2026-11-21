@@ -1,6 +1,6 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0, usado por duas pessoas. Serve para consultar receitas e itens; depois vão entrar a calculadora de custo, o inventário e o sync com o jogo. Roda numa máquina Windows, e a outra pessoa acessa pelo Tailscale.
+Companion app para o BitCraft Online 1.0, usado por duas pessoas. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário do grupo, lido da API pública da BitJita. Roda numa máquina Windows, e a outra pessoa acessa pelo Tailscale.
 
 - Design aprovado: `docs/design/2026-11-21-estrutura-base.md`
 - Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`
@@ -45,6 +45,7 @@ npm run lint
 node ace migration:run
 node ace bitcraft:import     # importa os dados do jogo (último commit do BitCraft_GameData)
 node ace users:create        # cria um usuário (não existe cadastro aberto)
+node ace inventory:sync      # lê os inventários na BitJita (o servidor web repete a cada INVENTORY_SYNC_MINUTES)
 ```
 
 Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm run dev` (ou `node ace serve`). Depois de mexer em `start/routes.ts`, suba o dev uma vez antes do `typecheck`.

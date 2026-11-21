@@ -16,6 +16,11 @@ export type ScannedRoutes = {
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'inventory.index': { paramsTuple?: []; params?: {} }
+    'inventory.sync': { paramsTuple?: []; params?: {} }
+    'game_players.index': { paramsTuple?: []; params?: {} }
+    'game_players.store': { paramsTuple?: []; params?: {} }
+    'game_players.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'session.destroy': { paramsTuple?: []; params?: {} }
   }
   GET: {
@@ -27,6 +32,8 @@ export type ScannedRoutes = {
     'calculator.show': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'inventory.index': { paramsTuple?: []; params?: {} }
+    'game_players.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'session.create': { paramsTuple?: []; params?: {} }
@@ -37,10 +44,14 @@ export type ScannedRoutes = {
     'calculator.show': { paramsTuple?: []; params?: {} }
     'plans.index': { paramsTuple?: []; params?: {} }
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'inventory.index': { paramsTuple?: []; params?: {} }
+    'game_players.index': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'session.store': { paramsTuple?: []; params?: {} }
     'plans.store': { paramsTuple?: []; params?: {} }
+    'inventory.sync': { paramsTuple?: []; params?: {} }
+    'game_players.store': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
   }
   PUT: {
@@ -51,6 +62,7 @@ export type ScannedRoutes = {
   }
   DELETE: {
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'game_players.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

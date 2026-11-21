@@ -28,6 +28,10 @@ router
     router
       .resource('plans', controllers.Plans)
       .only(['index', 'store', 'show', 'update', 'destroy'])
+    router.get('inventory', [controllers.Inventory, 'index']).as('inventory.index')
+    // The "Sincronizar agora" button: reads BitJita now
+    router.post('inventory/sync', [controllers.Inventory, 'sync']).as('inventory.sync')
+    router.resource('game_players', controllers.GamePlayers).only(['index', 'store', 'destroy'])
     router.post('logout', [controllers.Session, 'destroy'])
   })
   .use([middleware.auth(), middleware.gameData()])

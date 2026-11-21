@@ -24,6 +24,26 @@
       <p class="item-description">{{ item.description }}</p>
     @end
 
+    @if(stock)
+      <section class="item-section item-stock">
+        <p class="item-stock__total">
+          Vocês têm: <strong>{{ formatNumber(stock.total) }}</strong>
+          <a href="{{ route('inventory.index') }}" class="muted">ver inventário</a>
+        </p>
+        @if(stock.places.length)
+          <ul class="item-stock__places">
+            @each(place in stock.places)
+              <li>
+                <span class="item-stock__qty">{{ formatNumber(place.quantity) }}</span>
+                {{ place.container }}
+                <span class="muted">· {{ place.owner }}</span>
+              </li>
+            @end
+          </ul>
+        @end
+      </section>
+    @end
+
     <section class="item-section">
       <h2 class="item-section__title">Como obter ({{ producers.length }})</h2>
       @if(producers.length)

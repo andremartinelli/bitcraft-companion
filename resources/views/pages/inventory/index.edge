@@ -1,0 +1,8 @@
+@layouts.app({ title: 'Inventário' })
+  @page({ title: 'Inventário', description: 'O que vocês têm no jogo, lido da API pública da BitJita. Busque um item ou veja por jogador e por local.' })
+    @slot('actions')
+      <a href="{{ route('game_players.index') }}" class="btn btn--secondary btn--sm">Personagens</a>
+    @end
+    @include('components/inventory/panel')
+  @end
+@end

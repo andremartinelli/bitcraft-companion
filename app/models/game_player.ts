@@ -14,4 +14,9 @@ export default class GamePlayer extends GamePlayerSchema {
 
   @hasMany(() => InventoryContainer)
   declare containers: HasMany<typeof InventoryContainer>
+
+  /** "Vila A, Vila B", as of the last read */
+  get claimNames() {
+    return (this.claims ?? []).map((claim) => claim.name).join(', ')
+  }
 }

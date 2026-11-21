@@ -1,6 +1,6 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0: consulta de receitas e itens, com os dados estáticos do jogo. Ele roda numa máquina Windows e a outra pessoa acessa pelo navegador, via Tailscale.
+Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculadora de custo, planos e o inventário do grupo. Ele roda numa máquina Windows e a outra pessoa acessa pelo navegador, via Tailscale.
 
 Stack: AdonisJS 7, SQLite, Edge e htmx. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md).
 
@@ -37,6 +37,16 @@ node ace users:create --email=voce@exemplo.com --name="Seu nome"
 ```
 
 Para desenvolvimento, `node ace db:seed` cria o usuário `dev@example.com` com senha `dev-password`. Esse seeder só roda em `NODE_ENV=development`.
+
+## Inventário
+
+O app lê os inventários dos personagens na API pública da [BitJita](https://bitjita.com), sem senha nem token do jogo.
+
+1. Em **Inventário → Personagens**, adicione cada personagem pelo nick exato do jogo. O nick é conferido na BitJita antes de salvar.
+2. Clique em **Sincronizar agora**. Enquanto o servidor estiver rodando, ele também sincroniza sozinho a cada 15 minutos. A variável `INVENTORY_SYNC_MINUTES` muda o intervalo, e `0` desliga.
+3. Pela linha de comando: `node ace inventory:sync`.
+
+A BitJita é mantida pela comunidade e não diz quão atuais são os dados. Se ela estiver fora do ar, o app mantém os dados da última sincronização que funcionou. Se aparecer o aviso de itens desconhecidos, rode `node ace bitcraft:import`.
 
 ## Desenvolvimento
 
@@ -85,4 +95,4 @@ Na primeira vez, o Windows pode pedir para liberar o Node.js no firewall. Permit
 
 ## Regras do jogo
 
-O app só lê dados. Ele não modifica o cliente do jogo nem automatiza nada. Quando o sync com o jogo entrar, cada pessoa vai usar o próprio token: compartilhar o token de um jogador é "account sharing" e dá ban.
+O app só lê dados. Ele não modifica o cliente do jogo nem automatiza nada. Os inventários vêm da API pública da BitJita: o app nunca conecta nos servidores do jogo com o token de um jogador (isso derruba a sessão do jogo da pessoa) e não guarda token de ninguém. Compartilhar o token de um jogador é "account sharing" e dá ban.

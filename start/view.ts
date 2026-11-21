@@ -29,3 +29,7 @@ edge.global('formatPercent', (value: number) => percentFormat.format(value))
 edge.global('formatDate', (value: DateTime | null) =>
   value ? value.setLocale('pt-BR').toFormat('dd/MM/yyyy') : ''
 )
+/** "há 5 minutos": no time zone to get wrong (the server runs in UTC) */
+edge.global('formatAgo', (value: DateTime | null) =>
+  value ? (value.setLocale('pt-BR').toRelative() ?? '') : ''
+)
