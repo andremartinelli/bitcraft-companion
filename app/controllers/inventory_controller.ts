@@ -13,7 +13,9 @@ interface Filters {
   q?: string
 }
 
+/** The first tab is the default */
 const TABS: { value: InventoryTab; label: string }[] = [
+  { value: 'professions', label: 'Por profissão' },
   { value: 'group', label: 'Grupo' },
   { value: 'players', label: 'Por jogador' },
   { value: 'places', label: 'Por local' },
@@ -28,7 +30,9 @@ const RESULTS: Record<Exclude<SyncStatus, 'running'>, string> = {
 const isHtmx = (request: HttpContext['request']) =>
   Boolean(request.header('HX-Request')) && !request.header('HX-Boosted')
 
-/** Invalid filters fall back to the group tab without a search */
+const DEFAULT_TAB = TABS[0].value
+
+/** Invalid filters fall back to the first tab without a search */
 async function readFilters(input: Record<string, unknown>): Promise<Filters> {
   const present = Object.fromEntries(
     Object.entries(input).filter(
@@ -37,9 +41,9 @@ async function readFilters(input: Record<string, unknown>): Promise<Filters> {
   )
   try {
     const { tab, q } = await inventorySearchValidator.validate(present)
-    return { tab: tab ?? 'group', q: q || undefined }
+    return { tab: tab ?? DEFAULT_TAB, q: q || undefined }
   } catch (error) {
-    if (error instanceof vineErrors.E_VALIDATION_ERROR) return { tab: 'group' }
+    if (error instanceof vineErrors.E_VALIDATION_ERROR) return { tab: DEFAULT_TAB }
     throw error
   }
 }
@@ -116,7 +120,7 @@ export default class InventoryController {
 
   #query(filters: Filters) {
     return {
-      ...(filters.tab === 'group' ? {} : { tab: filters.tab }),
+      ...(filters.tab === DEFAULT_TAB ? {} : { tab: filters.tab }),
       ...(filters.q ? { q: filters.q } : {}),
     }
   }

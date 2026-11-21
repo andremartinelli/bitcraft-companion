@@ -1,6 +1,7 @@
 {{--
-  The stock, one table per section (the group, a player, a place). Rendered
-  inside the panel and alone for the item search (htmx swaps #inventory-list).
+  The stock, one table per section (a profession, the group, a player, a
+  place). Rendered inside the panel and alone for the item search (htmx
+  swaps #inventory-list).
   State: filters { tab, q }, listing { sections }, empty.
 --}}
 <div id="inventory-list">
@@ -26,12 +27,24 @@
             <tbody>
               @each(line in section.lines)
                 <tr>
-                  <td>
+                  <td class="stock__item">
                     @!itemChip({ item: line.item })
                   </td>
                   <td class="num">{{ formatNumber(line.quantity) }}</td>
-                  @if(filters.tab === 'group')
-                    <td class="stock__places">{{ line.places === 1 ? '1 local' : `${line.places} locais` }}</td>
+                  @if(filters.tab === 'professions')
+                    <td>
+                      <div class="stock__where">
+                        @each(place in line.where)
+                          <span class="stock__place">
+                            <span class="stock__place-qty">{{ formatNumber(place.quantity) }}</span>
+                            {{ place.container }}
+                            <span class="muted">· {{ place.owner }}</span>
+                          </span>
+                        @end
+                      </div>
+                    </td>
+                  @elseif(filters.tab === 'group')
+                    <td class="stock__places">{{ line.where.length === 1 ? '1 local' : `${line.where.length} locais` }}</td>
                   @end
                 </tr>
               @end

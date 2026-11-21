@@ -30,7 +30,10 @@ test.group('Inventory page', (group) => {
   })
   group.each.teardown(() => app.container.restore(BitJitaInventorySource))
 
-  test('shows the group stock and the last sync', async ({ client, assert }) => {
+  test('opens on the first tab: items by the profession that makes them', async ({
+    client,
+    assert,
+  }) => {
     const response = await client.get('/inventory').loginAs(user)
 
     response.assertStatus(200)
@@ -38,21 +41,35 @@ test.group('Inventory page', (group) => {
     response.assertTextIncludes('concluída')
     response.assertTextIncludes('BitJita')
     response.assertTextIncludes('Sincronizar agora')
+    assert.match(response.text(), /aria-current="page"\s*>Por profissão/)
+    response.assertTextIncludes('Carpentry')
+    response.assertTextIncludes('Forestry')
+    response.assertTextIncludes('Sem receita (coleta, drop ou loja)')
+    // Each line says where the item is and whose it is
+    response.assertTextIncludes('Baú de madeira')
+    response.assertTextIncludes('Claim Vila Teste')
+    response.assertTextIncludes('Depósito A')
+    response.assertTextIncludes('Quartz')
+    assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
+  })
+
+  test('the group tab sums both players and the claim', async ({ client }) => {
+    const response = await client.get('/inventory?tab=group').loginAs(user)
+
+    response.assertStatus(200)
     response.assertTextIncludes('Rough Plank')
     // 40 + 10 + 6 + 12 + 100: the shared claim counted once
     response.assertTextIncludes('168')
     response.assertTextIncludes('5 locais')
-    assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
   })
 
-  test('per player, with the claim chests apart', async ({ client }) => {
+  test('per player shows only what is theirs, not the claim chests', async ({ client, assert }) => {
     const response = await client.get('/inventory?tab=players').loginAs(user)
 
     response.assertStatus(200)
     response.assertTextIncludes('Nimbus')
     response.assertTextIncludes('Quartz')
-    response.assertTextIncludes('Claim Vila Teste')
-    response.assertTextIncludes('baús compartilhados pelo grupo')
+    assert.notInclude(response.text(), 'Claim Vila Teste')
   })
 
   test('per place: chests, cart, house, bank', async ({ client }) => {
@@ -79,11 +96,11 @@ test.group('Inventory page', (group) => {
     assert.notInclude(response.text(), 'Sincronizar agora')
   })
 
-  test('an unknown tab falls back to the group', async ({ client }) => {
+  test('an unknown tab falls back to the first one', async ({ client }) => {
     const response = await client.get('/inventory?tab=nope').loginAs(user)
 
     response.assertStatus(200)
-    response.assertTextIncludes('5 locais')
+    response.assertTextIncludes('Sem receita (coleta, drop ou loja)')
   })
 
   test('"Sincronizar agora" reads the source from the container and redraws the panel', async ({

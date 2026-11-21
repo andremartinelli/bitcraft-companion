@@ -1,26 +1,28 @@
 import db from '@adonisjs/lucid/services/db'
 import { CONTAINER_KINDS, type ContainerKind } from '#models/inventory_container'
 import Item from '#models/item'
+import { defaultProducer, producersOf } from '#services/calculator/production_planner'
+import RecipeGraph from '#services/calculator/recipe_graph'
 
-export type InventoryTab = 'group' | 'players' | 'places'
+export type InventoryTab = 'professions' | 'group' | 'players' | 'places'
+
+export interface ItemPlace {
+  container: string
+  owner: string
+  quantity: number
+}
 
 export interface StockLine {
   item: Item
   quantity: number
-  /** How many places hold it (group tab) */
-  places: number
+  /** Where it is and whose it is, the largest pile first */
+  where: ItemPlace[]
 }
 
 export interface StockSection {
   title: string
   subtitle: string | null
   lines: StockLine[]
-}
-
-export interface ItemPlace {
-  container: string
-  owner: string
-  quantity: number
 }
 
 interface EntryRow {
@@ -35,6 +37,16 @@ interface EntryRow {
 }
 
 const KIND_ORDER = Object.keys(CONTAINER_KINDS)
+
+/** Items no recipe makes: gathered, dropped or bought */
+export const NO_PROFESSION = 'Sem receita (coleta, drop ou loja)'
+
+/** The game's "ANY" skill: recipes any profession can do */
+export const ANY_PROFESSION = 'Qualquer profissão'
+
+/** Named professions first, alphabetically; then "any"; then "no recipe" */
+const professionRank = (name: string) =>
+  name === NO_PROFESSION ? 2 : name === ANY_PROFESSION ? 1 : 0
 
 /** "Nimbus" for a player's container, "Claim Vila" for a shared chest */
 const ownerOf = (row: EntryRow) =>
@@ -71,19 +83,22 @@ async function itemsById(ids: Iterable<number>) {
 }
 
 function toLines(rows: EntryRow[], items: Map<number, Item>): StockLine[] {
-  const totals = new Map<number, { quantity: number; places: Set<number> }>()
+  const byItem = new Map<number, ItemPlace[]>()
   for (const row of rows) {
-    const total = totals.get(row.item_id) ?? { quantity: 0, places: new Set<number>() }
-    total.quantity += Number(row.quantity)
-    total.places.add(row.container_id)
-    totals.set(row.item_id, total)
+    const places = byItem.get(row.item_id) ?? []
+    places.push({
+      container: row.container_name,
+      owner: ownerOf(row),
+      quantity: Number(row.quantity),
+    })
+    byItem.set(row.item_id, places)
   }
-  return [...totals]
+  return [...byItem]
     .filter(([itemId]) => items.has(itemId))
-    .map(([itemId, total]) => ({
+    .map(([itemId, where]) => ({
       item: items.get(itemId)!,
-      quantity: total.quantity,
-      places: total.places.size,
+      quantity: where.reduce((sum, place) => sum + place.quantity, 0),
+      where: where.sort((a, b) => b.quantity - a.quantity || a.owner.localeCompare(b.owner)),
     }))
     .sort((a, b) => a.item.name.localeCompare(b.item.name) || a.item.id - b.item.id)
 }
@@ -98,27 +113,57 @@ function groupBy<K>(rows: EntryRow[], key: (row: EntryRow) => K) {
 }
 
 /**
- * The inventory page: the group's stock (one line per item), per player
- * (claim chests apart, since they belong to everyone) or per place.
+ * The profession (skill) that makes an item: the one of the recipe the
+ * calculator uses by default; failing that, of any recipe that makes it.
+ */
+function professionOf(graph: RecipeGraph, itemId: number) {
+  const producer = defaultProducer(graph, itemId) ?? producersOf(graph, itemId)[0]
+  if (!producer) return NO_PROFESSION
+  const skill = graph.recipes.get(producer.recipeId)?.skillName
+  if (!skill || skill === 'ANY') return ANY_PROFESSION
+  return skill
+}
+
+/**
+ * The inventory page. Tabs: by the profession that makes each item, the
+ * group's total, each player's own things (the claim chests belong to
+ * everyone, so they stay out), or each place.
  */
 export async function inventoryListing(tab: InventoryTab, q?: string) {
   const rows = await entries(q)
   const items = await itemsById(rows.map((row) => row.item_id))
+
+  if (tab === 'professions') {
+    const graph = await RecipeGraph.current()
+    const byProfession = groupBy(rows, (row) => professionOf(graph, row.item_id))
+    const sections: StockSection[] = [...byProfession]
+      .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
+      .map(([profession, professionRows]) => {
+        const lines = toLines(professionRows, items)
+        return {
+          title: profession,
+          subtitle: lines.length === 1 ? '1 item' : `${lines.length} itens`,
+          lines,
+        }
+      })
+    return { sections }
+  }
 
   if (tab === 'group') {
     return { sections: [{ title: 'Grupo', subtitle: null, lines: toLines(rows, items) }] }
   }
 
   if (tab === 'players') {
-    const byOwner = groupBy(rows, (row) =>
-      row.player_id !== null ? `p:${row.username}` : `c:${row.claim_name ?? ''}`
+    const byPlayer = groupBy(
+      rows.filter((row) => row.player_id !== null),
+      (row) => row.player_id
     )
-    const sections: StockSection[] = [...byOwner.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, ownerRows]) => ({
-        title: ownerOf(ownerRows[0]),
-        subtitle: key.startsWith('c:') ? 'baús compartilhados pelo grupo' : null,
-        lines: toLines(ownerRows, items),
+    const sections: StockSection[] = [...byPlayer.values()]
+      .sort((a, b) => ownerOf(a[0]).localeCompare(ownerOf(b[0])))
+      .map((playerRows) => ({
+        title: ownerOf(playerRows[0]),
+        subtitle: 'mochila, cinto, carteira, banco, stash, casa e veículos',
+        lines: toLines(playerRows, items),
       }))
     return { sections }
   }

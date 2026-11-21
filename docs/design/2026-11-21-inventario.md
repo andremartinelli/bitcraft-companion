@@ -141,8 +141,9 @@ As fixtures dos testes (`tests/fixtures/bitjita/`) foram geradas dessas resposta
 - **`/inventory` (`InventoryController.index`):**
   - **No topo:** a última sincronização (quando, o status e a fonte "BitJita"), o botão **"Sincronizar agora"** (`POST /inventory/sync`, que redesenha o painel com htmx) e os avisos, como "Fulano: não foi possível ler" ou "N itens desconhecidos: rode `bitcraft:import`".
   - **Abas:**
+    - **Por profissão** (a primeira e a padrão): os itens separados pela profissão que os cria, a da receita que a calculadora usa por padrão. Na linha de cada item aparecem o local e o dono, como "40 Settlement Stash · Nimbus". A skill `ANY` do jogo aparece como "Qualquer profissão", e os itens sem receita vêm por último.
     - **Grupo:** a soma de tudo por item.
-    - **Por jogador.**
+    - **Por jogador:** só o que é de cada um (mochila, cinto, carteira, banco, Settlement Stash, casa e veículos). Os baús da claim ficam de fora, porque são do grupo.
     - **Por local:** cada baú, o banco, a carroça…
   - **Busca:** por item; os chips abrem a página do item.
 - **`/game_players`** (resource: `index`, `store`, `destroy`): adicionar personagens pelo nick, que é confirmado na BitJita antes de salvar, e removê-los. Mostra a região e a claim de cada um.
