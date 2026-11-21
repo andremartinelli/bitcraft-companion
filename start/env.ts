@@ -28,4 +28,5 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Database
   DB_DATABASE: Env.schema.string(),
+  DB_DEBUG: Env.schema.boolean.optional(),
 })

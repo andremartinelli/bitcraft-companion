@@ -30,7 +30,9 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 ## Regras do jogo (não negociáveis)
 
 - Nada de modificar o cliente, macros, automação de jogabilidade ou ler a memória do jogo.
-- O sync com o jogo, quando entrar, só lê dados, e cada jogador usa o próprio token. Compartilhar token é "account sharing" e dá ban.
+- O sync com o jogo só lê dados públicos e nunca chama reducers.
+- **Nunca conectar nos servidores do jogo (SpacetimeDB) com o token de um jogador.** A conexão conta como um novo login e derruba a sessão do jogo dessa pessoa (testado em 21/11/2026). Também não guardar token de jogador: compartilhar token é "account sharing" e dá ban.
+- A fonte dos inventários é a API pública da BitJita (sem token). Uma fonte oficial só com token do Developer Program da Clockwork Labs. Plano: `docs/design/2026-11-21-inventario.md`.
 
 ## Comandos
 

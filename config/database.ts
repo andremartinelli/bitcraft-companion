@@ -43,7 +43,8 @@ const dbConfig = defineConfig({
       /**
        * Emit SQL queries to the logger in development.
        */
-      debug: app.inDev,
+      // Off by default: query logs print values (password hashes, encrypted tokens)
+      debug: app.inDev && env.get('DB_DEBUG', false),
     },
 
     /**
