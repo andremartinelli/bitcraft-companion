@@ -26,5 +26,15 @@ export default {
         renamed: jsonColumn('{ kind: string; gameId: number; from: string; to: string }[]'),
       },
     },
+    game_players: {
+      columns: {
+        claims: jsonColumn('{ entityId: string; name: string }[]'),
+      },
+    },
+    sync_runs: {
+      columns: {
+        counts: jsonColumn('Record<string, number>'),
+      },
+    },
   },
 } satisfies SchemaRules

@@ -1,0 +1,255 @@
+{
+  "inventories": [
+    {
+      "entityId": "300000000000000001",
+      "playerOwnerEntityId": "100000000000000001",
+      "ownerEntityId": "400000000000000002",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "itemId": 1030,
+            "itemType": 0,
+            "quantity": 40
+          }
+        },
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "itemId": 1010,
+            "itemType": 1,
+            "quantity": 3
+          }
+        }
+      ],
+      "inventoryIndex": 0,
+      "cargoIndex": 64,
+      "buildingName": "Settlement Stash",
+      "claimEntityId": "200000000000000001",
+      "claimName": "Vila Teste",
+      "claimLocationX": 1000,
+      "claimLocationZ": 2000,
+      "claimLocationDimension": 1,
+      "regionId": 14,
+      "inventoryName": "Settlement Stash",
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000002",
+      "playerOwnerEntityId": "100000000000000001",
+      "ownerEntityId": "100000000000000001",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 6000,
+          "contents": {
+            "itemId": 1060,
+            "itemType": 0,
+            "quantity": 7
+          }
+        }
+      ],
+      "inventoryIndex": 2,
+      "cargoIndex": 2,
+      "buildingName": null,
+      "claimEntityId": null,
+      "claimName": null,
+      "claimLocationX": null,
+      "claimLocationZ": null,
+      "claimLocationDimension": null,
+      "regionId": 14,
+      "inventoryName": "Wallet",
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000003",
+      "playerOwnerEntityId": "100000000000000001",
+      "ownerEntityId": "100000000000000001",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 6000,
+          "contents": {
+            "itemId": 5000,
+            "itemType": 0,
+            "quantity": 1
+          }
+        }
+      ],
+      "inventoryIndex": 1,
+      "cargoIndex": 16,
+      "buildingName": null,
+      "claimEntityId": null,
+      "claimName": null,
+      "claimLocationX": null,
+      "claimLocationZ": null,
+      "claimLocationDimension": null,
+      "regionId": 14,
+      "inventoryName": "Toolbelt",
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000004",
+      "playerOwnerEntityId": "100000000000000001",
+      "ownerEntityId": "0",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "itemId": 1030,
+            "itemType": 0,
+            "quantity": 10
+          }
+        }
+      ],
+      "inventoryIndex": 0,
+      "cargoIndex": 64,
+      "buildingName": null,
+      "claimEntityId": null,
+      "claimName": null,
+      "claimLocationX": null,
+      "claimLocationZ": null,
+      "claimLocationDimension": null,
+      "regionId": 14,
+      "inventoryName": null,
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000005",
+      "playerOwnerEntityId": "100000000000000001",
+      "ownerEntityId": "100000000000000001",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 6000,
+          "contents": {
+            "itemId": 1020,
+            "itemType": 0,
+            "quantity": 5
+          }
+        },
+        {
+          "locked": false,
+          "volume": 6000,
+          "contents": {
+            "itemId": 1050,
+            "itemType": 0,
+            "quantity": 2
+          }
+        },
+        {
+          "locked": false,
+          "volume": 6000,
+          "contents": {
+            "itemId": 1020,
+            "itemType": 0,
+            "quantity": 4
+          }
+        }
+      ],
+      "inventoryIndex": 0,
+      "cargoIndex": 25,
+      "buildingName": null,
+      "claimEntityId": null,
+      "claimName": null,
+      "claimLocationX": null,
+      "claimLocationZ": null,
+      "claimLocationDimension": null,
+      "regionId": 14,
+      "inventoryName": "Inventory",
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000006",
+      "ownerEntityId": "300000000000000006",
+      "inventoryName": "Nimbus's Cart (II)",
+      "playerOwnerEntityId": "100000000000000001",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 600000,
+          "contents": {
+            "itemId": 1010,
+            "itemType": 0,
+            "quantity": 20
+          }
+        }
+      ],
+      "inventoryIndex": 0,
+      "cargoIndex": 12,
+      "regionId": 14,
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    }
+  ],
+  "items": {
+    "1010": {
+      "name": "Rough Wood Log",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Wood Log"
+    },
+    "1020": {
+      "name": "Rough Stripped Wood",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Stripped Wood"
+    },
+    "1030": {
+      "name": "Rough Plank",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Plank"
+    },
+    "1050": {
+      "name": "Rough Tree Bark",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Bark"
+    },
+    "1060": {
+      "name": "Rough Wood Scraps",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Scrap"
+    },
+    "5000": {
+      "name": "Simple Plank",
+      "iconAssetName": "",
+      "tier": 2,
+      "rarityStr": "Uncommon",
+      "tag": "Plank"
+    }
+  },
+  "cargos": {
+    "1010": {
+      "name": "Rough Wood Trunk",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Trunk"
+    }
+  },
+  "availableRegions": [
+    14
+  ]
+}

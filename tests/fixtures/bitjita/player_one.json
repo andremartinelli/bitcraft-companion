@@ -1,0 +1,68 @@
+{
+  "player": {
+    "entityId": "100000000000000001",
+    "username": "Nimbus",
+    "signedIn": true,
+    "timePlayed": 1000,
+    "timeSignedIn": 2000,
+    "teleportLocationX": 1000,
+    "teleportLocationZ": 2000,
+    "teleportLocationDimension": 1,
+    "teleportLocationType": "home_location",
+    "sessionStartTimestamp": "0",
+    "signInTimestamp": "0",
+    "travelerTasksExpiration": "0",
+    "createdAt": "2026-11-20 12:00:00.000000+00",
+    "updatedAt": "2026-11-20 12:00:00.000000+00",
+    "experience": [],
+    "lastLoginTimestamp": "2026-11-20 12:00:00.000000+00",
+    "role": null,
+    "locationX": 1000,
+    "locationZ": 2000,
+    "regionId": 14,
+    "location": {
+      "entityId": "200000000000000001",
+      "name": "Vila Teste",
+      "regionId": 14,
+      "locationX": 1000,
+      "locationZ": 2000
+    },
+    "skillMap": {},
+    "claims": [
+      {
+        "entityId": "200000000000000001",
+        "name": "Vila Teste",
+        "neutral": false,
+        "regionId": 14,
+        "regionName": "Evara",
+        "supplies": "1000",
+        "buildingMaintenance": 0,
+        "numTiles": 100,
+        "numTileNeighbors": 400,
+        "locationX": 1000,
+        "locationZ": 2000,
+        "locationDimension": 1,
+        "treasury": "0",
+        "xpGainedSinceLastCoinMinting": "0",
+        "suppliesPurchaseThreshold": "0",
+        "suppliesPurchasePrice": 0.2,
+        "buildingDescriptionId": "405",
+        "createdAt": "2026-11-20 12:00:00.000000+00",
+        "updatedAt": "2026-11-20 12:00:00.000000+00",
+        "isOwner": false,
+        "memberPermissions": {
+          "inventoryPermission": 0,
+          "buildPermission": 0,
+          "officerPermission": 0,
+          "coOwnerPermission": 0
+        },
+        "tileCost": 0.025,
+        "upkeepCost": 82.5,
+        "suppliesRunOut": 0
+      }
+    ],
+    "empireMemberships": [],
+    "placeableCount": 1,
+    "exploration": {}
+  }
+}

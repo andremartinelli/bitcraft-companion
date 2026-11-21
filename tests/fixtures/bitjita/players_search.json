@@ -1,0 +1,25 @@
+{
+  "players": [
+    {
+      "entityId": "100000000000000009",
+      "username": "NimbusJr",
+      "signedIn": false,
+      "timePlayed": 1000,
+      "timeSignedIn": 2000,
+      "createdAt": "2026-11-20 12:00:00.000000+00",
+      "updatedAt": "2026-11-20 12:00:00.000000+00",
+      "lastLoginTimestamp": "2026-11-20 12:00:00.000000+00"
+    },
+    {
+      "entityId": "100000000000000001",
+      "username": "Nimbus",
+      "signedIn": true,
+      "timePlayed": 1000,
+      "timeSignedIn": 2000,
+      "createdAt": "2026-11-20 12:00:00.000000+00",
+      "updatedAt": "2026-11-20 12:00:00.000000+00",
+      "lastLoginTimestamp": "2026-11-20 12:00:00.000000+00"
+    }
+  ],
+  "total": 2
+}

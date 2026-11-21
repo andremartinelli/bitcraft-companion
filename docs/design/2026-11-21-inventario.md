@@ -65,6 +65,7 @@ Observações:
 - `username`: o nick no jogo.
 - `entity_id`: string.
 - `region_id`.
+- `claims` (JSON): as claims do personagem na última leitura, `[{ entityId, name }]`, para a tela `/game_players`.
 - `user_id`: pode ser nulo; liga o personagem a uma conta do app.
 - `last_synced_at` e `last_error`.
 
@@ -103,13 +104,23 @@ Observações:
 
 **Validar essa tabela na implementação** contra a resposta real. Na dúvida, o inventário vira `other`, com o nome que vier.
 
+**Validada em 21/11/2026** com os dois personagens, sem diferença em relação à tabela:
+- Mochila, cinto e carteira têm `ownerEntityId` igual ao jogador.
+- O Settlement Stash traz `inventoryName` **e** `buildingName` "Settlement Stash", com a claim. Cada jogador tem o seu (ids diferentes), e ele não aparece em `/api/claims/{id}/inventories`.
+- O banco vem sem nome e com `ownerEntityId` "0".
+- Carroças e o "<Nick>'s Personal Cache (I)" têm `ownerEntityId` igual ao próprio `entityId`: entram como `deployable`.
+- Os depósitos da casa usam o formato da claim (`item_id`/`item_type` "item"), e a casa não aparece nos baús da claim.
+- Todos os ids vêm como string. Todos os 245 itens das respostas existiam no nosso banco pelo par (`kind`, `game_id`).
+
+As fixtures dos testes (`tests/fixtures/bitjita/`) foram geradas dessas respostas, com ids, nicks, nomes, quantidades e itens trocados por valores fictícios.
+
 ## Sincronização (`app/services/game_sync/`)
 
 - **`bitjita_client.ts`:**
   - usa o `fetch` nativo com `User-Agent: bitcraft-companion` e timeout de 15 segundos;
   - espaça as chamadas para ficar bem abaixo das 250 por minuto (no máximo 2 por segundo);
   - erros com tipos próprios: `NotFoundError` (404), `RateLimitedError` (429) e `UpstreamError`.
-- **`inventory_source.ts`:** a interface `InventorySource { fetchPlayer(entityId): Promise<PlayerSnapshot>; fetchClaim(claimId): Promise<ClaimSnapshot> }`, com uma implementação BitJita.
+- **`inventory_source.ts`:** a interface `InventorySource { findPlayer(username); fetchPlayer(entityId): Promise<PlayerSnapshot>; fetchClaim(claimId): Promise<ClaimSnapshot> }`, com uma implementação BitJita. O `findPlayer` confirma o nick no cadastro de `/game_players`.
   - Um snapshot é uma lista de `{ kind, gameEntityId, name, claim?, items: { kind: 'item'|'cargo', gameId, quantity }[] }`.
   - A interface deixa espaço para uma futura fonte oficial com token de desenvolvedor.
 - **`inventory_sync.ts`, a classe `InventorySync.run(trigger)`:**

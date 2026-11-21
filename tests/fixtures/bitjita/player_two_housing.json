@@ -1,0 +1,19 @@
+[
+  {
+    "buildingEntityId": "500000000000000001",
+    "buildingName": "Sturdy Large Residential House",
+    "playerEntityId": "100000000000000002",
+    "rank": 1,
+    "lockedUntil": "2026-11-20 12:00:00.000000+00",
+    "isEmpty": false,
+    "regionId": 14,
+    "entranceDimensionId": 100,
+    "claimName": "Vila Teste",
+    "claimRegionId": 14,
+    "claimEntityId": "200000000000000001",
+    "locationX": 1000,
+    "locationZ": 2000,
+    "locationDimension": 1,
+    "locationRegionId": 14
+  }
+]

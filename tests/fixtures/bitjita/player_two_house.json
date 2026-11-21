@@ -1,0 +1,70 @@
+{
+  "buildingEntityId": "500000000000000001",
+  "buildingName": "Sturdy Large Residential House",
+  "playerEntityId": "100000000000000002",
+  "rank": 1,
+  "lockedUntil": "2026-11-20 12:00:00.000000+00",
+  "isEmpty": false,
+  "regionId": 14,
+  "entranceDimensionId": 100,
+  "claimName": "Vila Teste",
+  "claimRegionId": 14,
+  "claimEntityId": "200000000000000001",
+  "locationX": "1000",
+  "locationZ": "2000",
+  "locationDimension": "1",
+  "inventories": [
+    {
+      "entityId": "500000000000000002",
+      "inventory": [
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "item_id": 1030,
+            "quantity": 12,
+            "item_type": "item"
+          }
+        }
+      ],
+      "buildingName": "Wicker Item Storage",
+      "buildingNickname": "Depósito A"
+    },
+    {
+      "entityId": "500000000000000003",
+      "inventory": [
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "item_id": 1010,
+            "quantity": 5,
+            "item_type": "item"
+          }
+        }
+      ],
+      "buildingName": "Wicker Item Storage",
+      "buildingNickname": "Depósito B"
+    }
+  ],
+  "items": [
+    {
+      "id": 1030,
+      "name": "Rough Plank",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Plank"
+    },
+    {
+      "id": 1010,
+      "name": "Rough Wood Log",
+      "iconAssetName": "",
+      "tier": 1,
+      "rarityStr": "Common",
+      "tag": "Wood Log"
+    }
+  ],
+  "cargos": [],
+  "locationRegionId": 14
+}

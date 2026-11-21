@@ -39,6 +39,73 @@ export class GameDataImportSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class GamePlayerSchema extends BaseModel {
+  static $columns = ['claims', 'createdAt', 'entityId', 'id', 'lastError', 'lastSyncedAt', 'regionId', 'updatedAt', 'userId', 'username'] as const
+  $columns = GamePlayerSchema.$columns
+  @column({ prepare: (value) => (value === null ? null : JSON.stringify(value)), consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value) })
+  declare claims: { entityId: string; name: string }[] | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare entityId: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastError: string | null
+  @column.dateTime()
+  declare lastSyncedAt: DateTime | null
+  @column()
+  declare regionId: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
+  @column()
+  declare username: string
+}
+
+export class InventoryContainerSchema extends BaseModel {
+  static $columns = ['claimEntityId', 'claimName', 'createdAt', 'gameEntityId', 'gamePlayerId', 'id', 'kind', 'lastSeenAt', 'name', 'updatedAt'] as const
+  $columns = InventoryContainerSchema.$columns
+  @column()
+  declare claimEntityId: string | null
+  @column()
+  declare claimName: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare gameEntityId: string
+  @column()
+  declare gamePlayerId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column.dateTime()
+  declare lastSeenAt: DateTime | null
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class InventoryEntrySchema extends BaseModel {
+  static $columns = ['containerId', 'id', 'itemId', 'quantity', 'source', 'syncedAt'] as const
+  $columns = InventoryEntrySchema.$columns
+  @column()
+  declare containerId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare quantity: number
+  @column()
+  declare source: string
+  @column.dateTime()
+  declare syncedAt: DateTime | null
+}
+
 export class ItemListPossibilitySchema extends BaseModel {
   static $columns = ['id', 'itemListId', 'probability'] as const
   $columns = ItemListPossibilitySchema.$columns
@@ -255,6 +322,27 @@ export class SkillSchema extends BaseModel {
   declare id: number
   @column()
   declare name: string
+}
+
+export class SyncRunSchema extends BaseModel {
+  static $columns = ['counts', 'finishedAt', 'id', 'message', 'source', 'startedAt', 'status', 'trigger'] as const
+  $columns = SyncRunSchema.$columns
+  @column({ prepare: (value) => (value === null ? null : JSON.stringify(value)), consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value) })
+  declare counts: Record<string, number> | null
+  @column.dateTime()
+  declare finishedAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare message: string | null
+  @column()
+  declare source: string
+  @column.dateTime()
+  declare startedAt: DateTime
+  @column()
+  declare status: string
+  @column()
+  declare trigger: string
 }
 
 export class ToolTypeSchema extends BaseModel {
