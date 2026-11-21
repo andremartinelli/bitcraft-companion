@@ -1,0 +1,82 @@
+{{--
+  One recipe as a table row. Uses `recipe` (with details preloaded) and an optional `note`.
+--}}
+<tr>
+  <td>
+    <div class="recipe__name">{{ recipe.name }}</div>
+    <span class="recipe__verb">{{ recipe.verb }}</span>
+    @if(recipe.isPassive)
+      <span class="flag" title="Roda sozinho na estação">passiva</span>
+    @end
+    @if(recipe.hiddenWithoutKnowledge)
+      <span class="flag" title="Só aparece no jogo depois do conhecimento necessário">oculta</span>
+    @end
+    @if(note)
+      <div class="recipe__note">{{ note }}</div>
+    @end
+  </td>
+  <td>
+    @if(recipe.kind === 'construction')
+      <span class="chip chip--out chip--static">{{ recipe.name }}</span>
+    @end
+    @each(output in recipe.outputs)
+      @let(list = output.item.itemList)
+      @if(list && list.possibilities.length > 1)
+        @each(possibility in list.possibilities)
+          <div class="odds">{{ formatPercent(possibility.probability) }}</div>
+          <div class="chips">
+            @each(entry in possibility.items)
+              @!itemChip({ item: entry.item, quantity: entry.quantity * output.quantity, output: true })
+            @end
+          </div>
+        @end
+      @elseif(list && list.possibilities.length === 1)
+        <div class="chips">
+          @each(entry in list.possibilities[0].items)
+            @!itemChip({ item: entry.item, quantity: entry.quantity * output.quantity, output: true })
+          @end
+        </div>
+      @else
+        <div class="chips">@!itemChip({ item: output.item, quantity: output.quantity, output: true })</div>
+      @end
+    @end
+  </td>
+  <td>
+    <div class="chips">
+      @each(input in recipe.inputs)
+        @!itemChip({ item: input.item, quantity: input.quantity })
+      @else
+        <span class="muted">—</span>
+      @end
+    </div>
+    @if(recipe.shards)
+      <div class="recipe__note">+ {{ recipe.shards }} shards</div>
+    @end
+  </td>
+  <td class="nowrap">
+    @if(recipe.skill)
+      {{ recipe.skill.name }} <small>Nv {{ recipe.skillLevel }}</small>
+    @else
+      —
+    @end
+  </td>
+  <td class="nowrap">
+    @if(recipe.toolType)
+      {{ recipe.toolType.name }} <small>T{{ recipe.toolTier }}</small>
+    @else
+      Mãos
+    @end
+  </td>
+  <td class="nowrap">
+    @if(recipe.buildingType)
+      {{ recipe.buildingType.name }} <small>T{{ recipe.buildingTier }}</small>
+    @elseif(recipe.pavingTier)
+      <small>Pavimento T{{ recipe.pavingTier }}</small>
+    @else
+      —
+    @end
+  </td>
+  <td class="num">{{ formatNumber(recipe.actionsRequired) }}</td>
+  <td class="num">{{ formatNumber(recipe.timePerAction) }}</td>
+  <td class="num">{{ formatNumber(recipe.staminaPerAction) }}</td>
+</tr>

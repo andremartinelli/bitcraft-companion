@@ -1,0 +1,60 @@
+@layouts.app({ title: item.name })
+  @page({ title: item.name })
+    <div class="item-meta">
+      @if(item.tier > 0)
+        <span class="badge badge--tier">T{{ item.tier }}</span>
+      @end
+      @if(rarityLabel(item.rarity))
+        <span class="badge badge--rarity">{{ rarityLabel(item.rarity) }}</span>
+      @end
+      <span class="muted">{{ item.kind === 'cargo' ? 'Cargo' : 'Item' }}</span>
+      @if(item.tag)
+        <span class="muted">· {{ item.tag }}</span>
+      @end
+    </div>
+    @if(item.description)
+      <p class="item-description">{{ item.description }}</p>
+    @end
+
+    <section class="item-section">
+      <h2 class="item-section__title">Como obter ({{ producers.length }})</h2>
+      @if(producers.length)
+        <div class="ledger">
+          <table class="recipes">
+            @include('components/recipes/table_head')
+            <tbody>
+              @each(entry in producers)
+                @let(recipe = entry.recipe)
+                @let(note = entry.chance === null
+                  ? `Rende ${formatNumber(entry.quantity)} por craft`
+                  : `Saída aleatória: ${formatPercent(entry.chance)} de chance, ${formatNumber(entry.quantity)} em média por craft`)
+                @include('components/recipes/row')
+              @end
+            </tbody>
+          </table>
+        </div>
+      @else
+        <p class="muted">Nenhuma receita produz este item: ele vem de coleta, drop ou loja.</p>
+      @end
+    </section>
+
+    <section class="item-section">
+      <h2 class="item-section__title">Usado em ({{ consumers.length }})</h2>
+      @if(consumers.length)
+        <div class="ledger">
+          <table class="recipes">
+            @include('components/recipes/table_head')
+            <tbody>
+              @each(recipe in consumers)
+                @let(note = null)
+                @include('components/recipes/row')
+              @end
+            </tbody>
+          </table>
+        </div>
+      @else
+        <p class="muted">Não é ingrediente de nenhuma receita.</p>
+      @end
+    </section>
+  @end
+@end

@@ -1,0 +1,47 @@
+{{--
+  The recipe list. Rendered inside pages/recipes/index and alone for htmx
+  requests (filters and pagination), which swap #recipe-list.
+--}}
+<div id="recipe-list">
+  <p class="list-count">
+    {{ formatNumber(recipes.total) }} {{ recipes.total === 1 ? 'receita' : 'receitas' }}
+    @if(recipes.lastPage > 1)
+      · página {{ recipes.currentPage }} de {{ recipes.lastPage }}
+    @end
+  </p>
+
+  @if(recipes.total === 0)
+    <div class="empty">
+      <p>Nenhuma receita com esses filtros.</p>
+    </div>
+  @else
+    <div class="ledger">
+      <table class="recipes">
+        @include('components/recipes/table_head')
+        <tbody>
+          @each(recipe in recipes)
+            @let(note = null)
+            @include('components/recipes/row')
+          @end
+        </tbody>
+      </table>
+    </div>
+
+    @if(recipes.lastPage > 1)
+      <nav class="pager" aria-label="Páginas">
+        @if(recipes.getPreviousPageUrl())
+          <a class="btn btn--secondary btn--sm" href="{{ recipes.getPreviousPageUrl() }}"
+             hx-get="{{ recipes.getPreviousPageUrl() }}" hx-target="#recipe-list" hx-swap="outerHTML" hx-push-url="true">
+            Anterior
+          </a>
+        @end
+        @if(recipes.getNextPageUrl())
+          <a class="btn btn--secondary btn--sm" href="{{ recipes.getNextPageUrl() }}"
+             hx-get="{{ recipes.getNextPageUrl() }}" hx-target="#recipe-list" hx-swap="outerHTML" hx-push-url="true">
+            Próxima
+          </a>
+        @end
+      </nav>
+    @end
+  @end
+</div>

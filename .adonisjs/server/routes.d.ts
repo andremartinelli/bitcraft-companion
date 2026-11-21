@@ -8,17 +8,20 @@ export type ScannedRoutes = {
     'session.store': { paramsTuple?: []; params?: {} }
     'home': { paramsTuple?: []; params?: {} }
     'recipes.index': { paramsTuple?: []; params?: {} }
+    'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'session.destroy': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'session.create': { paramsTuple?: []; params?: {} }
     'home': { paramsTuple?: []; params?: {} }
     'recipes.index': { paramsTuple?: []; params?: {} }
+    'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   HEAD: {
     'session.create': { paramsTuple?: []; params?: {} }
     'home': { paramsTuple?: []; params?: {} }
     'recipes.index': { paramsTuple?: []; params?: {} }
+    'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
     'session.store': { paramsTuple?: []; params?: {} }

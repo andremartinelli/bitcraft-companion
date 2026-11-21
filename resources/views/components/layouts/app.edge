@@ -26,6 +26,13 @@
       <div class="header__inner">
         @!logo({ size: 28 })
         <div class="header__right">
+          <span class="game-data">
+            @if(gameData)
+              Dados do jogo de {{ formatDate(gameData.sourceDate ?? gameData.finishedAt) }}
+            @else
+              Sem dados do jogo: rode <span class="kbd">node ace bitcraft:import</span>
+            @end
+          </span>
           @!themeToggle()
           @form({ route: 'session.destroy', method: 'POST' })
             <button type="submit" class="btn btn--secondary btn--sm">

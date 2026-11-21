@@ -1,5 +1,66 @@
 @layouts.app({ title: 'Receitas' })
-  @page({ title: 'Receitas' })
-    <p>Nenhum dado do jogo importado ainda.</p>
+  @page({ title: 'Receitas', description: 'Busque por receita, produto ou ingrediente. Clique num item para ver como obter e onde ele é usado.' })
+    <nav class="tabs" aria-label="Tipo de receita">
+      <a href="{{ route('recipes.index') }}" class="tabs__item" aria-current="{{ filters.kind === 'crafting' ? 'page' : 'false' }}">Crafting</a>
+      <a href="{{ route('recipes.index', [], { qs: { kind: 'construction' } }) }}" class="tabs__item" aria-current="{{ filters.kind === 'construction' ? 'page' : 'false' }}">Construção</a>
+    </nav>
+
+    <form
+      class="filters"
+      method="GET"
+      action="{{ route('recipes.index') }}"
+      hx-get="{{ route('recipes.index') }}"
+      hx-target="#recipe-list"
+      hx-swap="outerHTML"
+      hx-trigger="input delay:300ms, submit"
+      hx-push-url="true"
+    >
+      <input type="hidden" name="kind" value="{{ filters.kind }}" />
+      <input
+        id="filter-q"
+        class="field__input filters__search"
+        type="search"
+        name="q"
+        value="{{ filters.q ?? '' }}"
+        placeholder="Buscar receita, produto ou ingrediente (ex.: plank, ingot)"
+        autocomplete="off"
+        aria-label="Buscar"
+      />
+      <select id="filter-skill" class="field__input" name="skill" aria-label="Skill">
+        <option value="">Todas as skills</option>
+        @each(skill in options.skills)
+          <option value="{{ skill.id }}" {{ filters.skill === skill.id ? 'selected' : '' }}>{{ skill.name }}</option>
+        @end
+      </select>
+      @if(options.stations.length)
+        <select id="filter-station" class="field__input" name="station" aria-label="Estação">
+          <option value="">Todas as estações</option>
+          @each(station in options.stations)
+            <option value="{{ station.id }}" {{ filters.station === station.id ? 'selected' : '' }}>{{ station.name }}</option>
+          @end
+        </select>
+      @end
+      @if(options.tiers.length)
+        <select id="filter-tier" class="field__input" name="tier" aria-label="Tier da estação">
+          <option value="">Todos os tiers</option>
+          @each(tier in options.tiers)
+            <option value="{{ tier }}" {{ filters.tier === tier ? 'selected' : '' }}>Estação T{{ tier }}</option>
+          @end
+        </select>
+      @end
+      <select id="filter-verb" class="field__input" name="verb" aria-label="Tipo">
+        <option value="">Todos os tipos</option>
+        @each(verb in options.verbs)
+          <option value="{{ verb }}" {{ filters.verb === verb ? 'selected' : '' }}>{{ verb }}</option>
+        @end
+      </select>
+      <label class="filters__check">
+        <input id="filter-all" type="checkbox" name="all" value="true" {{ filters.all ? 'checked' : '' }} />
+        Incluir desmontar, recriar e embalar
+      </label>
+      <noscript><button class="btn btn--primary btn--sm" type="submit">Filtrar</button></noscript>
+    </form>
+
+    @include('components/recipes/list')
   @end
 @end
