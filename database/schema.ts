@@ -222,7 +222,7 @@ export class PlanOwnedItemSchema extends BaseModel {
 }
 
 export class PlanSchema extends BaseModel {
-  static $columns = ['createdAt', 'createdById', 'id', 'name', 'notes', 'updatedAt', 'updatedById'] as const
+  static $columns = ['createdAt', 'createdById', 'id', 'name', 'notes', 'updatedAt', 'updatedById', 'useInventory'] as const
   $columns = PlanSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -238,6 +238,8 @@ export class PlanSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare updatedById: number | null
+  @column({ consume: (value) => Boolean(value) })
+  declare useInventory: boolean
 }
 
 export class RecipeInputSchema extends BaseModel {

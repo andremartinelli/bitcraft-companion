@@ -84,6 +84,24 @@
     @each(entry in panel.owned)
       <input type="hidden" name="owned[i{{ entry.itemId }}]" value="{{ entry.quantity }}" />
     @end
+
+    @if(panel.inventory.available)
+      <div class="calc__inventory">
+        <input type="hidden" name="inventory" value="{{ panel.useInventory ? '1' : '0' }}" x-ref="inventoryField" />
+        <label for="calc-inventory" class="calc__inventory-toggle">
+          <input
+            id="calc-inventory"
+            type="checkbox"
+            {{ panel.useInventory ? 'checked' : '' }}
+            x-on:change="$refs.inventoryField.value = $event.target.checked ? '1' : '0'"
+          />
+          Usar inventário do grupo
+        </label>
+        <span class="muted">
+          sincronizado {{ formatAgo(panel.inventory.syncedAt) }} · o "já tenho" digitado tem prioridade
+        </span>
+      </div>
+    @end
     <noscript><button type="submit" class="btn btn--primary btn--sm">Calcular</button></noscript>
   </form>
 

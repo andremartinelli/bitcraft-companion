@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import RecipeGraph from '#services/calculator/recipe_graph'
+import { withInventory } from '#services/calculator/inventory_owned'
 import { plan } from '#services/calculator/production_planner'
 import { present } from '#services/calculator/presenter'
 import { readState, stateToFields, stateToQuery } from '#services/calculator/state_params'
@@ -19,8 +20,13 @@ export default class CalculatorController {
     if (changed && !isHtmx(request)) return response.redirect().clearQs().toPath(canonicalUrl)
 
     const graph = await RecipeGraph.current()
+    const { planState, sources, totals, inventory } = await withInventory(state)
     const data = {
-      panel: present(graph, state, plan(graph, state)),
+      panel: present(graph, state, plan(graph, planState), {
+        sources,
+        inventoryTotals: totals,
+        inventory,
+      }),
       errors,
       form: { method: 'get', action: '/calculator' },
       saveFields: stateToFields(state),

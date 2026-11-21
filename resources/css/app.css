@@ -1214,6 +1214,20 @@ a.chip:hover {
 .calc__save .field__input {
   flex: 1 1 240px;
 }
+.calc__inventory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.calc__inventory-toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 560;
+}
 .calc__errors,
 .calc__warnings {
   border: 1px solid var(--line);

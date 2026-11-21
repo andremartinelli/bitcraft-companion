@@ -16,6 +16,8 @@ export const calculatorStateValidator = vine.create({
     .optional(),
   choices: vine.record(vine.string().regex(/^(raw|\d+)$/)).optional(),
   owned: vine.record(vine.number().withoutDecimals().min(0).max(1_000_000)).optional(),
+  // "Usar inventário do grupo": "0" turns it off; absent or "1" leaves it on
+  inventory: vine.enum(['0', '1'] as const).optional(),
   // Buttons of the form: add an item from the search, remove a target by position
   add: vine.number().withoutDecimals().positive().optional(),
   remove: vine.number().withoutDecimals().min(0).optional(),

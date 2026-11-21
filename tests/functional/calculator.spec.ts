@@ -50,7 +50,7 @@ test.group('Quick calculator', (group) => {
       .loginAs(user)
 
     response.assertStatus(200)
-    response.assertTextIncludes('usando 5 que vocês já têm')
+    response.assertTextIncludes('usando 5 que vocês informaram')
     assert.notInclude(response.text(), 'Rough Wood Trunk')
   })
 

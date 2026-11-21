@@ -111,6 +111,7 @@ test.group('Plans', (group) => {
       targets: [{ itemId: plank, quantity: 4 }],
       choices: { [stripped]: 'raw' },
       owned: { [stripped]: 3 },
+      useInventory: true,
     })
   })
 

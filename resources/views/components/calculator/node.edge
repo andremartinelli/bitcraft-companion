@@ -44,7 +44,8 @@
           type="number"
           min="0"
           value="{{ node.owned ?? '' }}"
-          placeholder="0"
+          placeholder="{{ node.inventoryQuantity ?? 0 }}"
+          title="{{ node.inventoryQuantity === null ? '' : `${formatNumber(node.inventoryQuantity)} no inventário do grupo; digite um valor para usar outro` }}"
           aria-label="Quantos {{ node.item.name }} vocês já têm"
           x-on:change="calcSet('owned', {{ node.item.id }}, $event.target.value)"
         />
@@ -53,7 +54,7 @@
   </div>
 
   @if(node.fromOwned > 0)
-    <div class="node__note">usando {{ formatNumber(node.fromOwned) }} que vocês já têm · faltam {{ approx }}{{ formatNumber(node.missing) }}</div>
+    <div class="node__note">usando {{ formatNumber(node.fromOwned) }} {{ node.ownedSource === 'inventory' ? 'do inventário' : 'que vocês informaram' }} · faltam {{ approx }}{{ formatNumber(node.missing) }}</div>
   @end
 
   @if(node.children.length)

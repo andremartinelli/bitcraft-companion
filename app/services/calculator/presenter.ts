@@ -1,11 +1,19 @@
 import type RecipeGraph from '#services/calculator/recipe_graph'
 import type { GraphItem, GraphRecipe } from '#services/calculator/recipe_graph'
+import type { InventoryOption, OwnedSource } from '#services/calculator/inventory_owned'
 import type {
   CalculatorState,
   NodeReason,
   PlanNode,
   PlanResult,
 } from '#services/calculator/production_planner'
+
+/** Where "já tenho" came from, per item, and the inventory option (see withInventory) */
+export interface PresentOptions {
+  sources?: Record<number, OwnedSource>
+  inventoryTotals?: Map<number, number> | null
+  inventory?: InventoryOption
+}
 
 export interface PresentedNode {
   item: GraphItem
@@ -19,7 +27,12 @@ export interface PresentedNode {
   recipe: GraphRecipe | null
   /** Recipe dropdown: automatic, raw material, then each recipe */
   options: { value: string; label: string; selected: boolean }[]
+  /** The value typed by hand, for the "já tenho" input */
   owned: number | null
+  /** Where the quantity taken from "já tenho" came from */
+  ownedSource: OwnedSource | null
+  /** The group's total in the inventory, when the option is on */
+  inventoryQuantity: number | null
   children: PresentedNode[]
 }
 
@@ -49,8 +62,15 @@ function recipeLabel(recipe: GraphRecipe) {
  * Turns the planner result into what the views print: items and recipes
  * resolved, labels in Portuguese.
  */
-export function present(graph: RecipeGraph, state: CalculatorState, result: PlanResult) {
+export function present(
+  graph: RecipeGraph,
+  state: CalculatorState,
+  result: PlanResult,
+  extras: PresentOptions = {}
+) {
   const item = (id: number) => graph.items.get(id) ?? unknownItem(id)
+  const sources = extras.sources ?? {}
+  const totals = extras.inventoryTotals ?? null
 
   const node = (n: PlanNode): PresentedNode => {
     const choice = n.choice === null ? '' : String(n.choice)
@@ -79,6 +99,8 @@ export function present(graph: RecipeGraph, state: CalculatorState, result: Plan
       recipe: n.recipeId ? (graph.recipes.get(n.recipeId) ?? null) : null,
       options,
       owned: state.owned[n.itemId] ?? null,
+      ownedSource: sources[n.itemId] ?? (state.owned[n.itemId] !== undefined ? 'manual' : null),
+      inventoryQuantity: totals ? (totals.get(n.itemId) ?? 0) : null,
       children: n.children.map(node),
     }
   }
@@ -98,6 +120,9 @@ export function present(graph: RecipeGraph, state: CalculatorState, result: Plan
       value: String(value),
     })),
     owned: Object.entries(state.owned).map(([itemId, quantity]) => ({ itemId, quantity })),
+    /** The user's choice (the hidden field); `inventory.enabled` says whether it applies */
+    useInventory: state.useInventory !== false,
+    inventory: extras.inventory ?? { available: false, enabled: false, syncedAt: null },
   }
 }
 

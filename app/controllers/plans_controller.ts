@@ -1,12 +1,13 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Plan from '#models/plan'
 import RecipeGraph from '#services/calculator/recipe_graph'
+import { withInventory } from '#services/calculator/inventory_owned'
 import { plan as runPlan } from '#services/calculator/production_planner'
 import { present } from '#services/calculator/presenter'
 import { readState } from '#services/calculator/state_params'
 import { planNameValidator } from '#validators/plan'
 
-const STATE_KEYS = ['targets', 'choices', 'owned', 'add', 'remove']
+const STATE_KEYS = ['targets', 'choices', 'owned', 'inventory', 'add', 'remove']
 
 const isHtmx = (request: HttpContext['request']) =>
   Boolean(request.header('HX-Request')) && !request.header('HX-Boosted')
@@ -103,9 +104,14 @@ export default class PlansController {
 
   async #panelData(plan: Plan, state: ReturnType<Plan['toCalculatorState']>, errors: string[]) {
     const graph = await RecipeGraph.current()
+    const { planState, sources, totals, inventory } = await withInventory(state)
     return {
       plan,
-      panel: present(graph, state, runPlan(graph, state)),
+      panel: present(graph, state, runPlan(graph, planState), {
+        sources,
+        inventoryTotals: totals,
+        inventory,
+      }),
       errors,
       form: { method: 'patch', action: `/plans/${plan.id}` },
       saveFields: null,

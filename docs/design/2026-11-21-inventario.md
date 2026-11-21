@@ -1,6 +1,6 @@
 # BitCraft Companion: inventários do jogo
 
-Data: 2026-11-21 · Status: plano aprovado, **ainda não implementado**
+Data: 2026-11-21 · Status: **implementado** (etapas 1 a 3, 21/11/2026)
 
 ## Intenção
 
@@ -158,6 +158,9 @@ As fixtures dos testes (`tests/fixtures/bitjita/`) foram geradas dessas resposta
 - **Regra do "já tenho":** o valor digitado à mão tem prioridade. Sem ele, vale o total do grupo no inventário.
   - O controller monta o `owned` já mesclado, e o `production_planner` continua sendo uma função pura.
   - Cada nó indica de onde veio o valor (`manual` ou `inventory`). A árvore mostra "usando N do inventário" ou "usando N que vocês informaram".
+  - Um **0 digitado também conta**: ele faz a calculadora ignorar o inventário naquele item. Serve, por exemplo, para fazer mais unidades de um item que vocês já têm.
+  - A regra vale também para os itens pedidos: com 942 Simple Plank no inventário, pedir 1.000 resulta em 58 crafts.
+  - Na URL da calculadora só vai `inventory=0` (desligado); sem o parâmetro, a opção fica ligada.
 - **Pontos de mudança:**
   - `CalculatorState` em `app/services/calculator/production_planner.ts`;
   - `presenter.ts`;

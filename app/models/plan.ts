@@ -39,6 +39,7 @@ export default class Plan extends PlanSchema {
       targets: this.items.map((item) => ({ itemId: item.itemId, quantity: item.quantity })),
       choices,
       owned,
+      useInventory: this.useInventory,
     }
   }
 
@@ -76,6 +77,7 @@ export default class Plan extends PlanSchema {
       if (owned.length) await trx.insertQuery().table('plan_owned_items').multiInsert(owned)
 
       this.useTransaction(trx)
+      if (state.useInventory !== undefined) this.useInventory = state.useInventory
       this.updatedById = user.id
       // touch updated_at even when only the state changed
       this.updatedAt = DateTime.now()

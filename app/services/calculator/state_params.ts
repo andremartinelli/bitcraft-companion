@@ -52,7 +52,7 @@ export async function readState(input: Record<string, unknown>): Promise<ReadSta
       return key ? MESSAGES[key] : 'Alguns dados do cálculo são inválidos.'
     })
     return {
-      state: { targets: [], choices: {}, owned: {} },
+      state: { targets: [], choices: {}, owned: {}, useInventory: true },
       errors: [...new Set(messages)],
       changed: false,
     }
@@ -77,13 +77,15 @@ export async function readState(input: Record<string, unknown>): Promise<ReadSta
     const id = itemIdFromKey(itemId)
     if (id) choices[id] = value === 'raw' ? 'raw' : Number(value)
   }
+  // 0 is kept: typed by hand, it overrides the inventory for that item
   const owned: CalculatorState['owned'] = {}
   for (const [itemId, quantity] of Object.entries(data.owned ?? {})) {
     const id = itemIdFromKey(itemId)
-    if (id && quantity > 0) owned[id] = quantity
+    if (id) owned[id] = quantity
   }
 
-  return { state: { targets, choices, owned }, errors: [], changed }
+  const useInventory = data.inventory !== '0'
+  return { state: { targets, choices, owned, useInventory }, errors: [], changed }
 }
 
 /** The state as form fields, in the same bracket format readState reads */
@@ -99,6 +101,8 @@ export function stateToFields(state: CalculatorState): [string, string][] {
     fields.push([`choices[i${itemId}]`, String(choice)])
   for (const [itemId, quantity] of Object.entries(state.owned))
     fields.push([`owned[i${itemId}]`, String(quantity)])
+  // On is the default: only "off" goes in the URL
+  if (state.useInventory === false) fields.push(['inventory', '0'])
   return fields
 }
 
