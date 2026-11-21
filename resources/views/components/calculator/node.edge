@@ -1,0 +1,66 @@
+{{-- One step of the production tree, recursive. Props: node, depth. --}}
+@let(node = $props.get('node'))
+@let(depth = $props.get('depth'))
+@let(approx = node.approximate ? '≈ ' : '')
+@let(uid = `${node.item.id}-${depth}-${Math.round(node.needed * 1000)}`)
+
+<div class="node {{ node.children.length ? '' : 'node--leaf' }}">
+  <div class="node__line">
+    <span class="node__qty">{{ approx }}{{ formatNumber(node.needed) }}</span>
+    @!itemChip({ item: node.item })
+
+    @if(node.recipe)
+      <span class="node__recipe">
+        {{ approx }}{{ formatNumber(node.crafts) }}× {{ node.recipe.name }}
+        @if(node.recipe.stationName)
+          <small>· {{ node.recipe.stationName }} T{{ node.recipe.stationTier }}</small>
+        @end
+        @if(node.recipe.skillName)
+          <small>· {{ node.recipe.skillName }} Nv {{ node.recipe.skillLevel }}</small>
+        @end
+      </span>
+    @elseif(node.reasonLabel)
+      <span class="node__reason">{{ node.reasonLabel }}</span>
+    @end
+
+    <span class="node__controls">
+      @if(node.options.length > 1)
+        <select
+          id="choice-{{ uid }}"
+          class="field__input node__select"
+          aria-label="Receita para {{ node.item.name }}"
+          x-on:change="calcSet('choices', {{ node.item.id }}, $event.target.value)"
+        >
+          @each(option in node.options)
+            <option value="{{ option.value }}" {{ option.selected ? 'selected' : '' }}>{{ option.label }}</option>
+          @end
+        </select>
+      @end
+      <label class="node__owned">
+        já tenho
+        <input
+          id="owned-{{ uid }}"
+          class="field__input"
+          type="number"
+          min="0"
+          value="{{ node.owned ?? '' }}"
+          placeholder="0"
+          aria-label="Quantos {{ node.item.name }} vocês já têm"
+          x-on:change="calcSet('owned', {{ node.item.id }}, $event.target.value)"
+        />
+      </label>
+    </span>
+  </div>
+
+  @if(node.fromOwned > 0)
+    <div class="node__note">usando {{ formatNumber(node.fromOwned) }} que vocês já têm · faltam {{ approx }}{{ formatNumber(node.missing) }}</div>
+  @end
+
+  @if(node.children.length)
+    <div class="node__children">
+      @each(child in node.children)
+        @!calculator.node({ node: child, depth: depth + 1 })
+      @end
+    </div>
+  @end
+</div>

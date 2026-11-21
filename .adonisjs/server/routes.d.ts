@@ -8,24 +8,49 @@ export type ScannedRoutes = {
     'session.store': { paramsTuple?: []; params?: {} }
     'home': { paramsTuple?: []; params?: {} }
     'recipes.index': { paramsTuple?: []; params?: {} }
+    'items.index': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'calculator.show': { paramsTuple?: []; params?: {} }
+    'plans.index': { paramsTuple?: []; params?: {} }
+    'plans.store': { paramsTuple?: []; params?: {} }
+    'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'session.destroy': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'session.create': { paramsTuple?: []; params?: {} }
     'home': { paramsTuple?: []; params?: {} }
     'recipes.index': { paramsTuple?: []; params?: {} }
+    'items.index': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'calculator.show': { paramsTuple?: []; params?: {} }
+    'plans.index': { paramsTuple?: []; params?: {} }
+    'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   HEAD: {
     'session.create': { paramsTuple?: []; params?: {} }
     'home': { paramsTuple?: []; params?: {} }
     'recipes.index': { paramsTuple?: []; params?: {} }
+    'items.index': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'calculator.show': { paramsTuple?: []; params?: {} }
+    'plans.index': { paramsTuple?: []; params?: {} }
+    'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
     'session.store': { paramsTuple?: []; params?: {} }
+    'plans.store': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
+  }
+  PUT: {
+    'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  PATCH: {
+    'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  DELETE: {
+    'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

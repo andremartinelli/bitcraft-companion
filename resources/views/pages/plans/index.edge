@@ -1,0 +1,36 @@
+@layouts.app({ title: 'Planos' })
+  @page({ title: 'Planos', description: 'Cálculos salvos, compartilhados entre vocês. Para criar um, monte o cálculo na calculadora e salve como plano.' })
+    @slot('actions')
+      <a href="{{ route('calculator.show') }}" class="btn btn--primary btn--sm">Nova calculadora</a>
+    @end
+
+    @if(plans.length)
+      <div class="ledger">
+        <table class="plans">
+          <thead>
+            <tr><th>Plano</th><th class="num">Itens</th><th>Atualizado</th></tr>
+          </thead>
+          <tbody>
+            @each(plan in plans)
+              <tr>
+                <td><a href="{{ route('plans.show', { id: plan.id }) }}" class="plans__name">{{ plan.name }}</a></td>
+                <td class="num">{{ plan.$extras.items_count }}</td>
+                <td class="muted">
+                  {{ formatDate(plan.updatedAt) }}
+                  @if(plan.updatedBy)
+                    por {{ plan.updatedBy.fullName ?? plan.updatedBy.email }}
+                  @end
+                </td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+      </div>
+    @else
+      <div class="empty">
+        <p>Nenhum plano ainda.</p>
+        <a href="{{ route('calculator.show') }}" class="btn btn--secondary btn--sm">Abrir a calculadora</a>
+      </div>
+    @end
+  @end
+@end

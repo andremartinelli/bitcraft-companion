@@ -1,0 +1,62 @@
+{{-- Calculator result: summary first, production tree after. Uses `panel`. --}}
+@if(!panel.targets.length)
+  <div class="empty calc__empty">
+    <p>Adicione um ou mais itens para ver a matéria-prima e o esforço até o fim da cadeia.</p>
+    <p class="muted">Em cada etapa dá para trocar a receita ou marcar o que vocês já têm.</p>
+  </div>
+@else
+  <div class="calc__summary">
+    <section class="calc__box">
+      <h2 class="calc__title">Matéria-prima que falta</h2>
+      @if(panel.rawMaterials.length)
+        <table class="calc__table">
+          <tbody>
+            @each(row in panel.rawMaterials)
+              <tr>
+                <td>@!itemChip({ item: row.item })</td>
+                <td class="num">{{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.quantity) }}</td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+      @else
+        <p class="muted">Nada: vocês já têm tudo.</p>
+      @end
+    </section>
+
+    <section class="calc__box">
+      <h2 class="calc__title">Esforço por skill</h2>
+      @if(panel.effortBySkill.length)
+        <table class="calc__table">
+          <tbody>
+            @each(row in panel.effortBySkill)
+              <tr>
+                <td>{{ row.skill }}</td>
+                <td class="num">{{ formatNumber(Math.round(row.actions)) }}</td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+        <p class="calc__hint">Soma das ações de todas as receitas. O tempo real depende do poder da ferramenta.</p>
+      @else
+        <p class="muted">Nenhum craft necessário.</p>
+      @end
+    </section>
+  </div>
+
+  @if(panel.warnings.length)
+    <div class="calc__warnings" role="status">
+      @each(warning in panel.warnings)
+        <p>{{ warning }}</p>
+      @end
+    </div>
+  @end
+
+  <section class="calc__tree">
+    <h2 class="calc__title">Árvore de produção</h2>
+    <p class="calc__hint">Troque a receita de cada etapa ou informe quanto vocês já têm. "≈" marca valores médios de saídas aleatórias.</p>
+    @each(node in panel.trees)
+      @!calculator.node({ node, depth: 0 })
+    @end
+  </section>
+@end

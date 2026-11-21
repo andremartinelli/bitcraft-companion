@@ -1,5 +1,13 @@
 @layouts.app({ title: item.name })
   @page({ title: item.name })
+    @slot('actions')
+      <a
+        class="btn btn--primary btn--sm"
+        href="{{ route('calculator.show') }}?{{ new URLSearchParams({ 'targets[0][item_id]': String(item.id), 'targets[0][quantity]': '1' }).toString() }}"
+      >
+        Calcular custo
+      </a>
+    @end
     <div class="item-meta">
       @if(item.tier > 0)
         <span class="badge badge--tier">T{{ item.tier }}</span>

@@ -1,0 +1,27 @@
+@layouts.app({ title: plan.name })
+  @page({ title: plan.name, description: 'Cada mudança é salva no plano automaticamente.' })
+    @slot('actions')
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm"
+        hx-delete="{{ route('plans.destroy', { id: plan.id }) }}"
+        hx-confirm="Apagar o plano &quot;{{ plan.name }}&quot;? Isso não pode ser desfeito."
+      >
+        Apagar plano
+      </button>
+    @end
+
+    <form class="plan-rename" hx-patch="{{ route('plans.update', { id: plan.id }) }}" hx-swap="none" hx-trigger="change">
+      <label for="plan-name-edit" class="calc__label">Nome</label>
+      <input id="plan-name-edit" class="field__input" type="text" name="name" maxlength="80" required value="{{ plan.name }}" />
+      <span class="muted">
+        Atualizado em {{ formatDate(plan.updatedAt) }}
+        @if(plan.updatedBy)
+          por {{ plan.updatedBy.fullName ?? plan.updatedBy.email }}
+        @end
+      </span>
+    </form>
+
+    @include('components/calculator/panel')
+  @end
+@end

@@ -36,3 +36,23 @@ Alpine.data('themeToggle', function () {
 })
 
 Alpine.start()
+
+/**
+ * Calculator: recipe choices and "já tenho" live in hidden fields of
+ * #calc-form, one per item. Controls in the production tree set them and
+ * recalculate.
+ */
+window.calcSet = function (kind, itemId, value) {
+  const form = document.getElementById('calc-form')
+  if (!form) return
+  const name = `${kind}[i${itemId}]`
+  let input = [...form.querySelectorAll('input[type=hidden]')].find((el) => el.name === name)
+  if (!input) {
+    input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = name
+    form.appendChild(input)
+  }
+  input.value = value
+  htmx.trigger(form, 'submit')
+}

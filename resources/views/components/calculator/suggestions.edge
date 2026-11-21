@@ -1,0 +1,21 @@
+{{-- Item picker suggestions. Buttons submit #calc-form with add=<item id>. --}}
+@if(items.length)
+  <div class="suggestions">
+    @each(item in items)
+      <button type="submit" form="calc-form" name="add" value="{{ item.id }}" class="suggestion">
+        <span>{{ item.name }}</span>
+        @if(item.tier > 0)
+          <span class="badge badge--tier">T{{ item.tier }}</span>
+        @end
+        @if(rarityLabel(item.rarity))
+          <span class="badge badge--rarity">{{ rarityLabel(item.rarity) }}</span>
+        @end
+        @if(item.kind === 'cargo')
+          <span class="muted">cargo</span>
+        @end
+      </button>
+    @end
+  </div>
+@elseif(q && q.length >= 2)
+  <p class="muted">Nenhum item encontrado.</p>
+@end

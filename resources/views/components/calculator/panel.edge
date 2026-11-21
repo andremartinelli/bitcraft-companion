@@ -1,0 +1,102 @@
+{{--
+  The calculator: targets form, item picker and result. Rendered inside the
+  calculator and plan pages, and alone for htmx requests (swaps #calculator).
+  State: panel (presenter output), errors, form { method, action }, saveFields (quick mode only).
+--}}
+<div id="calculator" class="calc" x-data>
+  <div class="calc__picker">
+    <label for="calc-search" class="calc__label">Adicionar item</label>
+    <input
+      id="calc-search"
+      class="field__input"
+      type="search"
+      name="q"
+      placeholder="Ex.: Pyrelite Axe, Simple Plank"
+      autocomplete="off"
+      hx-get="{{ route('items.index') }}"
+      hx-trigger="input changed delay:250ms, search"
+      hx-target="#item-suggestions"
+      hx-swap="innerHTML"
+    />
+  </div>
+
+  <form
+    id="calc-form"
+    class="calc__form"
+    method="GET"
+    action="{{ form.action }}"
+    hx-{{ form.method }}="{{ form.action }}"
+    hx-target="#calculator"
+    hx-swap="outerHTML"
+    hx-trigger="change, submit"
+  >
+    <div id="item-suggestions" class="calc__suggestions" aria-live="polite"></div>
+
+    @if(errors && errors.length)
+      <div class="calc__errors" role="alert">
+        @each(message in errors)
+          <p>{{ message }}</p>
+        @end
+      </div>
+    @end
+
+    @if(panel.targets.length)
+      <table class="calc__targets">
+        <thead>
+          <tr><th>Item</th><th class="num">Quantidade</th><th></th></tr>
+        </thead>
+        <tbody>
+          @each(target in panel.targets)
+            <tr>
+              <td>
+                <input type="hidden" name="targets[{{ target.index }}][item_id]" value="{{ target.item.id }}" />
+                @!itemChip({ item: target.item })
+                @if(target.item.removed)
+                  <span class="flag">saiu do jogo</span>
+                @end
+              </td>
+              <td class="num">
+                <input
+                  id="target-qty-{{ target.item.id }}"
+                  class="field__input calc__qty"
+                  type="number"
+                  min="1"
+                  max="100000"
+                  name="targets[{{ target.index }}][quantity]"
+                  value="{{ target.quantity }}"
+                  aria-label="Quantidade de {{ target.item.name }}"
+                />
+              </td>
+              <td>
+                <button type="submit" name="remove" value="{{ target.index }}" class="btn btn--ghost btn--sm" aria-label="Remover {{ target.item.name }}">
+                  Remover
+                </button>
+              </td>
+            </tr>
+          @end
+        </tbody>
+      </table>
+    @end
+
+    @each(choice in panel.choices)
+      <input type="hidden" name="choices[i{{ choice.itemId }}]" value="{{ choice.value }}" />
+    @end
+    @each(entry in panel.owned)
+      <input type="hidden" name="owned[i{{ entry.itemId }}]" value="{{ entry.quantity }}" />
+    @end
+    <noscript><button type="submit" class="btn btn--primary btn--sm">Calcular</button></noscript>
+  </form>
+
+  @if(saveFields && panel.targets.length)
+    <form class="calc__save" method="POST" action="{{ route('plans.store') }}">
+      {{ csrfField() }}
+      @each(field in saveFields)
+        <input type="hidden" name="{{ field[0] }}" value="{{ field[1] }}" />
+      @end
+      <input id="plan-name" class="field__input" type="text" name="name" maxlength="80" required placeholder="Nome do plano, ex.: Ferramentas T2" aria-label="Nome do plano" />
+      <button type="submit" class="btn btn--secondary btn--sm">Salvar como plano</button>
+    </form>
+  @end
+
+  @include('components/calculator/result')
+</div>

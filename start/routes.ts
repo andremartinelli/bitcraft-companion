@@ -23,7 +23,11 @@ router
   .group(() => {
     router.on('/').redirect('recipes.index').as('home')
     router.resource('recipes', controllers.Recipes).only(['index'])
-    router.resource('items', controllers.Items).only(['show'])
+    router.resource('items', controllers.Items).only(['index', 'show'])
+    router.get('calculator', [controllers.Calculator, 'show']).as('calculator.show')
+    router
+      .resource('plans', controllers.Plans)
+      .only(['index', 'store', 'show', 'update', 'destroy'])
     router.post('logout', [controllers.Session, 'destroy'])
   })
   .use([middleware.auth(), middleware.gameData()])

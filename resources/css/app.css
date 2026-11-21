@@ -1128,3 +1128,238 @@ a.chip:hover {
   color: var(--muted);
   margin: 0 0 10px;
 }
+
+/* ------------------------------------------------------------------
+ * Calculator and plans
+ * ---------------------------------------------------------------- */
+.page:has(.calc) {
+  max-width: 1280px;
+}
+.calc {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.calc__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.calc__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 520px;
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.suggestion:hover,
+.suggestion:focus-visible {
+  border-style: solid;
+  border-color: var(--ink);
+}
+.calc__targets {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 720px;
+}
+.calc__targets th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-align: left;
+  padding: 6px 8px;
+}
+.calc__targets td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+}
+.calc__targets .num,
+.calc__table .num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.calc__qty {
+  width: 110px;
+  text-align: right;
+}
+.calc__save {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  max-width: 720px;
+}
+.calc__save .field__input {
+  flex: 1 1 240px;
+}
+.calc__errors,
+.calc__warnings {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink);
+  border-radius: var(--r);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.calc__errors p,
+.calc__warnings p {
+  margin: 2px 0;
+}
+.calc__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.calc__box {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  padding: 14px 16px;
+  min-width: 0;
+}
+.calc__title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.calc__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.calc__table td {
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+}
+.calc__table tr:first-child td {
+  border-top: 0;
+}
+.calc__hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+.calc__tree {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+.node {
+  padding: 4px 0;
+}
+.node__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.node__qty {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.node__recipe,
+.node__reason {
+  font-size: 13px;
+  color: var(--muted);
+}
+.node__recipe small,
+.node__reason small {
+  font-family: var(--mono);
+}
+.node__controls {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+.node__select {
+  width: auto;
+  max-width: 320px;
+  font-size: 12px;
+  padding: 3px 6px;
+}
+.node__owned {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.node__owned .field__input {
+  width: 80px;
+  font-size: 12px;
+  padding: 3px 6px;
+}
+.node__note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 74px;
+}
+.node__children {
+  margin-left: 22px;
+  padding-left: 12px;
+  border-left: 1px dashed var(--line);
+}
+.plan-rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.plan-rename .field__input {
+  max-width: 360px;
+}
+table.plans {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.plans th,
+table.plans td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+table.plans .num {
+  text-align: right;
+}
+.plans__name {
+  font-weight: 600;
+  color: var(--ink);
+}
+@media (max-width: 640px) {
+  .node__controls {
+    margin-left: 0;
+  }
+  .node__children {
+    margin-left: 8px;
+  }
+}

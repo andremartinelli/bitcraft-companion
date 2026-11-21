@@ -32,6 +32,8 @@ test.group('Item page', (group) => {
     response.assertTextIncludes('Como obter (1)')
     response.assertTextIncludes('Treat Rough Stripped Wood Into Rough Plank')
     response.assertTextIncludes('Usado em (3)')
+    response.assertTextIncludes('Calcular custo')
+    response.assertTextIncludes(`targets%5B0%5D%5Bitem_id%5D=${plank.id}`)
     response.assertTextIncludes('Craft Simple Plank')
     response.assertTextIncludes('Starter House')
   })

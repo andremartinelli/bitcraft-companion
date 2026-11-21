@@ -113,6 +113,66 @@ export class ItemSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class PlanChoiceSchema extends BaseModel {
+  static $columns = ['id', 'itemId', 'planId', 'recipeId'] as const
+  $columns = PlanChoiceSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare planId: number
+  @column()
+  declare recipeId: number | null
+}
+
+export class PlanItemSchema extends BaseModel {
+  static $columns = ['id', 'itemId', 'planId', 'position', 'quantity'] as const
+  $columns = PlanItemSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare planId: number
+  @column()
+  declare position: number
+  @column()
+  declare quantity: number
+}
+
+export class PlanOwnedItemSchema extends BaseModel {
+  static $columns = ['id', 'itemId', 'planId', 'quantity'] as const
+  $columns = PlanOwnedItemSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare planId: number
+  @column()
+  declare quantity: number
+}
+
+export class PlanSchema extends BaseModel {
+  static $columns = ['createdAt', 'createdById', 'id', 'name', 'notes', 'updatedAt', 'updatedById'] as const
+  $columns = PlanSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdById: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare updatedById: number | null
+}
+
 export class RecipeInputSchema extends BaseModel {
   static $columns = ['id', 'itemId', 'quantity', 'recipeId'] as const
   $columns = RecipeInputSchema.$columns
