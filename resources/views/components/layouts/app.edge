@@ -21,7 +21,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('dumper')
   </head>
-  <body>
+  <body hx-headers='{"X-CSRF-TOKEN": "{{ csrfToken }}"}'>
     <header class="header header--bar">
       <div class="header__inner">
         @!logo({ size: 28 })

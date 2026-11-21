@@ -1,5 +1,4 @@
 import env from '#start/env'
-import app from '@adonisjs/core/services/app'
 import { defineConfig, stores } from '@adonisjs/session'
 
 /**
@@ -27,7 +26,7 @@ const sessionConfig = defineConfig({
    * Define how long to keep the session data alive without
    * any activity.
    */
-  age: '2h',
+  age: '30d',
 
   /**
    * Configuration for session cookie and the
@@ -50,7 +49,7 @@ const sessionConfig = defineConfig({
      * When true, the cookie is only sent over HTTPS connections.
      * Enabled in production for security.
      */
-    secure: app.inProduction,
+    secure: env.get('SESSION_SECURE_COOKIE', false),
 
     /**
      * Controls when cookies are sent with cross-site requests.

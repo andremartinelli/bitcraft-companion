@@ -24,6 +24,7 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
+  SESSION_SECURE_COOKIE: Env.schema.boolean.optional(),
 
   // Database
   DB_DATABASE: Env.schema.string(),

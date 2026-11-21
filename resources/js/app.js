@@ -1,4 +1,7 @@
 import Alpine from 'alpinejs'
+import htmx from 'htmx.org'
+
+window.htmx = htmx
 
 Alpine.data('alert', function () {
   return {

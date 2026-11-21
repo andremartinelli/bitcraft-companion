@@ -1,6 +1,15 @@
+import { isAbsolute } from 'node:path'
 import env from '#start/env'
 import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/lucid'
+
+/**
+ * Relative names live inside ./tmp. An absolute path is used as-is, so the
+ * production database can sit outside build/ (which is wiped on every build).
+ */
+function databasePath(name: string) {
+  return isAbsolute(name) ? name : app.tmpPath(name)
+}
 
 const dbConfig = defineConfig({
   /**
@@ -20,7 +29,7 @@ const dbConfig = defineConfig({
     sqlite: {
       client: 'better-sqlite3',
       connection: {
-        filename: app.tmpPath(env.get('DB_DATABASE')),
+        filename: databasePath(env.get('DB_DATABASE')),
       },
       useNullAsDefault: true,
       migrations: {
