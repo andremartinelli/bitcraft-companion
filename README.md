@@ -1,0 +1,86 @@
+# BitCraft Companion
+
+Companion app para o BitCraft Online 1.0: consulta de receitas e itens, com os dados estáticos do jogo. Ele roda numa máquina Windows e a outra pessoa acessa pelo navegador, via Tailscale.
+
+Stack: AdonisJS 7, SQLite, Edge e htmx. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md).
+
+## Requisitos
+
+- Node.js 24 ou mais novo
+- Git
+
+## Instalação
+
+```bash
+npm install
+cp .env.example .env
+node ace generate:key
+node ace migration:run
+node ace bitcraft:import
+```
+
+O `bitcraft:import` baixa os dados do jogo do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e leva uns 10 segundos. Rode de novo a cada patch do jogo:
+- o que é novo entra;
+- o que saiu do jogo é marcado como removido (nada é apagado);
+- itens renomeados aparecem no resumo.
+
+Opções:
+- `--commit=<sha>` importa um commit específico do repositório de dados.
+- `--path=<pasta>` lê os JSONs de uma pasta local, em vez do GitHub.
+
+## Contas
+
+Não existe cadastro pelo site. Crie as duas contas pela linha de comando. Quando `--password` não é passado, a senha é pedida de forma oculta.
+
+```bash
+node ace users:create --email=voce@exemplo.com --name="Seu nome"
+```
+
+Para desenvolvimento, `node ace db:seed` cria o usuário `dev@example.com` com senha `dev-password`. Esse seeder só roda em `NODE_ENV=development`.
+
+## Desenvolvimento
+
+```bash
+npm run dev          # http://localhost:3333
+npm test
+npm run typecheck
+npm run lint
+```
+
+Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm run dev`. Depois de mexer em `start/routes.ts`, suba o dev uma vez antes de rodar o `typecheck`.
+
+## Rodar para jogar (produção)
+
+1. Copie `.env.production.example` para `.env.production`.
+2. Preencha o `APP_KEY` com a saída de `node ace generate:key --show`.
+3. Confira o `DB_DATABASE`: ele é um caminho absoluto dentro de `storage/`, fora da pasta `build/`, que é apagada a cada build.
+4. Inicie o servidor no PowerShell:
+
+   ```powershell
+   .\scripts\play.ps1 -Import   # na primeira vez: build, migrations, dados do jogo e servidor
+   .\scripts\play.ps1           # nas próximas vezes
+   .\scripts\play.ps1 -NoBuild  # só reinicia o último build, sem refazer nada
+   ```
+
+5. Crie as contas no banco de produção, a partir da pasta `build/`:
+
+   ```powershell
+   cd build
+   node ace users:create --email=voce@exemplo.com
+   ```
+
+O banco de produção é separado do banco de desenvolvimento (`tmp/db.sqlite3`).
+
+**Não coloque nenhum arquivo `.sqlite3` numa pasta sincronizada** (Drive, OneDrive, Dropbox). A sincronização corrompe o banco.
+
+## Acesso pelo Tailscale
+
+1. Instale o [Tailscale](https://tailscale.com) nas duas máquinas e entre na mesma conta ou tailnet.
+2. Na máquina que roda o app, veja o IP dela com `tailscale ip -4`. É algo como `100.x.y.z`.
+3. Com o `play.ps1` rodando, a outra pessoa abre `http://100.x.y.z:3333`.
+
+Na primeira vez, o Windows pode pedir para liberar o Node.js no firewall. Permita só em redes privadas. Se o pedido não aparecer e o acesso não funcionar, libere a porta 3333 para a interface do Tailscale nas configurações do Firewall do Windows.
+
+## Regras do jogo
+
+O app só lê dados. Ele não modifica o cliente do jogo nem automatiza nada. Quando o sync com o jogo entrar, cada pessoa vai usar o próprio token: compartilhar o token de um jogador é "account sharing" e dá ban.
