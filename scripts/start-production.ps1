@@ -14,6 +14,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Node writes UTF-8. Windows PowerShell 5.1 decodes it with the console code
+# page (850 in pt-BR), which garbles accents and box characters ("Ôöé").
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
