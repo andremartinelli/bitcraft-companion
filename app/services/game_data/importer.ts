@@ -2,6 +2,7 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import { DateTime } from 'luxon'
 import GameDataImport from '#models/game_data_import'
+import RecipeGraph from '#services/calculator/recipe_graph'
 import type { GameDataSource } from '#services/game_data/source'
 import {
   itemKey,
@@ -68,7 +69,7 @@ export default class GameDataImporter {
       ...toConstructionRecipeRows(tables.construction, buildingNames),
     ]
 
-    return db.transaction(async (trx) => {
+    const result = await db.transaction(async (trx) => {
       const now = DateTime.now()
       const stamp = now.toSQL({ includeOffset: false })
       const record = await GameDataImport.create(
@@ -126,6 +127,10 @@ export default class GameDataImporter {
 
       return summary
     })
+
+    // The calculator keeps the recipe graph in memory
+    RecipeGraph.invalidate()
+    return result
   }
 
   async #upsertLookup(trx: TransactionClientContract, table: string, rows: any[]) {
