@@ -16,6 +16,27 @@ export class BuildingTypeSchema extends BaseModel {
   declare name: string
 }
 
+export class GameCredentialSchema extends BaseModel {
+  static $columns = ['createdAt', 'gameUsername', 'id', 'identity', 'lastError', 'tokenEncrypted', 'updatedAt', 'userId'] as const
+  $columns = GameCredentialSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare gameUsername: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare identity: string | null
+  @column()
+  declare lastError: string | null
+  @column({ serializeAs: null })
+  declare tokenEncrypted: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class GameDataImportSchema extends BaseModel {
   static $columns = ['commitSha', 'counts', 'createdAt', 'finishedAt', 'id', 'renamed', 'source', 'sourceDate', 'updatedAt'] as const
   $columns = GameDataImportSchema.$columns

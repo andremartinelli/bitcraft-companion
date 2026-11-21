@@ -20,6 +20,12 @@ export default {
     item_list_game_id: { tsType: 'number', decorator: '@column()' },
   },
   tables: {
+    game_credentials: {
+      columns: {
+        // Never serialized; read only through GameCredential#token
+        token_encrypted: { tsType: 'string', decorator: '@column({ serializeAs: null })' },
+      },
+    },
     game_data_imports: {
       columns: {
         counts: jsonColumn('Record<string, number>'),
