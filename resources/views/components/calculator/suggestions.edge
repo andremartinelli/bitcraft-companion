@@ -7,7 +7,9 @@
         @if(item.tier > 0)
           <span class="badge badge--tier">T{{ item.tier }}</span>
         @end
-        @if(rarityLabel(item.rarity))
+        @if(item.itemListGameId)
+          <span class="badge badge--rarity" title="O craft dá este item com raridade sorteada">resultado do craft</span>
+        @elseif(rarityLabel(item.rarity))
           <span class="badge badge--rarity">{{ rarityLabel(item.rarity) }}</span>
         @end
         @if(item.kind === 'cargo')

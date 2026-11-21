@@ -55,6 +55,20 @@ test.group('Production planner', (group) => {
     assert.equal(tree.children[0].needed, 20)
   })
 
+  test('a random output item can be a target itself', async ({ assert }) => {
+    const output = await Item.findByOrFail({ kind: 'item', gameId: 1040 })
+    const item = await ids()
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ targets: [{ itemId: output.id, quantity: 3 }] })
+    )
+
+    const [tree] = result.trees
+    assert.equal(tree.reason, null)
+    assert.equal(tree.crafts, 3)
+    assert.deepEqual(result.rawMaterials, [{ itemId: item.trunk, quantity: 3, approximate: false }])
+  })
+
   test('uses expected values for random outputs', async ({ assert }) => {
     const item = await ids()
     const result = plan(

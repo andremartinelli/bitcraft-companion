@@ -26,7 +26,7 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('Adicione um ou mais itens')
   })
 
-  test('shows raw materials and effort for the targets in the URL', async ({ client }) => {
+  test('shows raw materials and effort for the targets in the URL', async ({ client, assert }) => {
     const plank = await idOf('item', 1030)
     const response = await client
       .get(`/calculator?targets[0][item_id]=${plank}&targets[0][quantity]=10`)
@@ -37,6 +37,7 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('Rough Wood Trunk')
     response.assertTextIncludes('Carpentry')
     response.assertTextIncludes('Salvar como plano')
+    assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
   })
 
   test('raw choices and owned quantities change the result', async ({ client, assert }) => {

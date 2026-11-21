@@ -13,7 +13,9 @@
           <tbody>
             @each(row in panel.rawMaterials)
               <tr>
-                <td>@!itemChip({ item: row.item })</td>
+                <td>
+                  @!itemChip({ item: row.item })
+                </td>
                 <td class="num">{{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.quantity) }}</td>
               </tr>
             @end

@@ -24,8 +24,15 @@ export default class ItemsController {
                 ])
               }
             })
+            // Craftable items first: the same name often exists as the craft
+            // result (random rarity) and as each rarity, which only drops
+            .orderByRaw(
+              `exists (select 1 from recipe_outputs ro join recipes r on r.id = ro.recipe_id
+                where ro.item_id = items.id and r.removed_at is null and r.verb not in ('Scrap', 'Recraft', 'Unpack', 'Package')) desc`
+            )
             .orderByRaw('length(items.name)')
             .orderBy('items.tier')
+            .orderBy('items.id')
             .limit(20)
         : []
 

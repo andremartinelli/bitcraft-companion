@@ -19,6 +19,7 @@ test.group('Recipes index', (group) => {
     response.assertStatus(200)
     response.assertTextIncludes('Saw Rough Stripped Wood')
     response.assertTextIncludes('Dados do jogo de')
+    assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
     assert.notInclude(response.text(), 'Scrap Rough Plank')
     assert.notInclude(response.text(), 'Starter House')
   })

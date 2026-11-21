@@ -177,12 +177,14 @@ export default class RecipeGraph {
     }
 
     for (const row of outputRows) {
+      // The output itself, even when it is a random output ("Pyrelite Axe"
+      // that becomes a Common or Uncommon Pyrelite Axe): targeting it means
+      // "craft this, whatever rarity comes out".
+      addYield(row.recipe_id, row.item_id, row.quantity, true)
+
       const listGameId = listGameIdOf.get(row.item_id)
       const possibilities = listGameId !== undefined ? lists.get(listGameId) : undefined
-      if (!possibilities) {
-        addYield(row.recipe_id, row.item_id, row.quantity, true)
-        continue
-      }
+      if (!possibilities) continue
       const all = [...possibilities.values()]
       const reachable = new Set(all.flatMap((p) => [...p.items.keys()]))
       for (const itemId of reachable) {

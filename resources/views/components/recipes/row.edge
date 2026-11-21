@@ -37,7 +37,9 @@
           @end
         </div>
       @else
-        <div class="chips">@!itemChip({ item: output.item, quantity: output.quantity, output: true })</div>
+        <div class="chips">
+          @!itemChip({ item: output.item, quantity: output.quantity, output: true })
+        </div>
       @end
     @end
   </td>
