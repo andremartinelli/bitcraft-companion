@@ -1,0 +1,16 @@
+[
+  {
+    "id": 50,
+    "name": "Build House",
+    "time_requirement": 2,
+    "stamina_requirement": 1.28,
+    "level_requirements": [{ "skill_id": 15, "level": 1 }],
+    "tool_requirements": [{ "tool_type": 14, "level": 1, "power": 1 }],
+    "consumed_item_stacks": [{ "item_id": 1030, "quantity": 10, "item_type": "Item" }],
+    "consumed_cargo_stacks": [{ "item_id": 1010, "quantity": 2, "item_type": "Cargo" }],
+    "consumed_shards": 0,
+    "building_description_id": 50,
+    "required_paving_tier": 1,
+    "actions_required": 10000
+  }
+]

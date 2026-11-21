@@ -1,0 +1,16 @@
+[
+  {
+    "id": 7,
+    "name": "Rough Wood Log Output",
+    "possibilities": [
+      { "probability": 0.75, "items": [{ "item_id": 1010, "quantity": 2, "item_type": "Item", "durability": 0 }] },
+      {
+        "probability": 0.25,
+        "items": [
+          { "item_id": 1010, "quantity": 2, "item_type": "Item", "durability": 0 },
+          { "item_id": 1050, "quantity": 1, "item_type": "Item", "durability": 0 }
+        ]
+      }
+    ]
+  }
+]

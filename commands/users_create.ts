@@ -1,8 +1,6 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import { errors } from '@vinejs/vine'
-import User from '#models/user'
-import { createUserValidator } from '#validators/user'
 
 /**
  * There is no self-signup: the two accounts are created here.
@@ -23,6 +21,10 @@ export default class UsersCreate extends BaseCommand {
   declare password?: string
 
   async run() {
+    // App code is imported here: ace loads command files before the app boots
+    const { default: User } = await import('#models/user')
+    const { createUserValidator } = await import('#validators/user')
+
     const email = this.email ?? (await this.prompt.ask('E-mail'))
     const fullName = this.name ?? null
     const password = this.password ?? (await this.prompt.secure('Senha'))

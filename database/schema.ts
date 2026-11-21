@@ -17,24 +17,11 @@ export class BuildingTypeSchema extends BaseModel {
 }
 
 export class GameDataImportSchema extends BaseModel {
-  static $columns = [
-    'commitSha',
-    'counts',
-    'createdAt',
-    'finishedAt',
-    'id',
-    'renamed',
-    'source',
-    'sourceDate',
-    'updatedAt',
-  ] as const
+  static $columns = ['commitSha', 'counts', 'createdAt', 'finishedAt', 'id', 'renamed', 'source', 'sourceDate', 'updatedAt'] as const
   $columns = GameDataImportSchema.$columns
   @column()
   declare commitSha: string | null
-  @column({
-    prepare: (value) => (value === null ? null : JSON.stringify(value)),
-    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
-  })
+  @column({ prepare: (value) => (value === null ? null : JSON.stringify(value)), consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value) })
   declare counts: Record<string, number> | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -42,10 +29,7 @@ export class GameDataImportSchema extends BaseModel {
   declare finishedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: number
-  @column({
-    prepare: (value) => (value === null ? null : JSON.stringify(value)),
-    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
-  })
+  @column({ prepare: (value) => (value === null ? null : JSON.stringify(value)), consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value) })
   declare renamed: { kind: string; gameId: number; from: string; to: string }[] | null
   @column()
   declare source: string
@@ -80,15 +64,7 @@ export class ItemListPossibilityItemSchema extends BaseModel {
 }
 
 export class ItemListSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'gameId',
-    'id',
-    'lastImportId',
-    'name',
-    'removedAt',
-    'updatedAt',
-  ] as const
+  static $columns = ['createdAt', 'gameId', 'id', 'lastImportId', 'name', 'removedAt', 'updatedAt'] as const
   $columns = ItemListSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -107,21 +83,7 @@ export class ItemListSchema extends BaseModel {
 }
 
 export class ItemSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'description',
-    'gameId',
-    'id',
-    'itemListGameId',
-    'kind',
-    'lastImportId',
-    'name',
-    'rarity',
-    'removedAt',
-    'tag',
-    'tier',
-    'updatedAt',
-  ] as const
+  static $columns = ['createdAt', 'description', 'gameId', 'id', 'itemListGameId', 'kind', 'lastImportId', 'name', 'rarity', 'removedAt', 'tag', 'tier', 'updatedAt'] as const
   $columns = ItemSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -178,30 +140,7 @@ export class RecipeOutputSchema extends BaseModel {
 }
 
 export class RecipeSchema extends BaseModel {
-  static $columns = [
-    'actionsRequired',
-    'buildingTier',
-    'buildingTypeId',
-    'createdAt',
-    'gameId',
-    'hiddenWithoutKnowledge',
-    'id',
-    'isPassive',
-    'kind',
-    'lastImportId',
-    'name',
-    'pavingTier',
-    'removedAt',
-    'shards',
-    'skillId',
-    'skillLevel',
-    'staminaPerAction',
-    'timePerAction',
-    'toolTier',
-    'toolTypeId',
-    'updatedAt',
-    'verb',
-  ] as const
+  static $columns = ['actionsRequired', 'buildingTier', 'buildingTypeId', 'createdAt', 'gameId', 'hiddenWithoutKnowledge', 'id', 'isPassive', 'kind', 'lastImportId', 'name', 'pavingTier', 'removedAt', 'shards', 'skillId', 'skillLevel', 'staminaPerAction', 'timePerAction', 'toolTier', 'toolTypeId', 'updatedAt', 'verb'] as const
   $columns = RecipeSchema.$columns
   @column()
   declare actionsRequired: number
