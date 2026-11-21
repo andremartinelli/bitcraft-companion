@@ -42,11 +42,20 @@ interface Written {
 
 const describe = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
+export interface SyncOptions {
+  /**
+   * Read the chests of the players' claims. Off: the group has no access to
+   * the settlement's chests (decided 21/11/2026), so they would only inflate
+   * the stock. The Settlement Stash is each player's own and is always read.
+   */
+  readClaims?: boolean
+}
+
 /**
- * Reads every tracked player's inventories (and their claims' chests) from
- * the source and replaces the stored snapshot. Each player and each claim is
- * written in its own transaction: when a read fails, the previous data of
- * that player or claim stays.
+ * Reads every tracked player's inventories (and, when asked, their claims'
+ * chests) from the source and replaces the stored snapshot. Each player and
+ * each claim is written in its own transaction: when a read fails, the
+ * previous data of that player or claim stays.
  */
 export default class InventorySync {
   static #running = false
@@ -56,7 +65,10 @@ export default class InventorySync {
     return this.#running
   }
 
-  constructor(private source: InventorySource) {}
+  constructor(
+    private source: InventorySource,
+    private options: SyncOptions = {}
+  ) {}
 
   /** @throws SyncAlreadyRunningError when another sync is in progress */
   async run(trigger: SyncTrigger): Promise<SyncRun> {
@@ -141,34 +153,39 @@ export default class InventorySync {
       }
     }
 
-    // A claim shared by several players is read once
-    counts.claimsTotal = claims.size
-    for (const [claimId, claimName] of claims) {
-      if (stoppedBy) {
-        problems.push(`Claim ${claimName}: não lida (${stoppedBy}).`)
-        continue
+    if (this.options.readClaims) {
+      // A claim shared by several players is read once
+      counts.claimsTotal = claims.size
+      for (const [claimId, claimName] of claims) {
+        if (stoppedBy) {
+          problems.push(`Claim ${claimName}: não lida (${stoppedBy}).`)
+          continue
+        }
+        try {
+          const snapshot = await this.source.fetchClaim(claimId)
+          const written = await this.#replaceClaim(
+            claimId,
+            claimName,
+            snapshot.containers,
+            itemIds,
+            unknown
+          )
+          counts.claims++
+          counts.containers += written.containers
+          counts.entries += written.entries
+        } catch (error) {
+          problems.push(`Claim ${claimName}: não foi possível ler (${describe(error)}).`)
+          if (error instanceof RateLimitedError) stoppedBy = describe(error)
+        }
       }
-      try {
-        const snapshot = await this.source.fetchClaim(claimId)
-        const written = await this.#replaceClaim(
-          claimId,
-          claimName,
-          snapshot.containers,
-          itemIds,
-          unknown
-        )
-        counts.claims++
-        counts.containers += written.containers
-        counts.entries += written.entries
-      } catch (error) {
-        problems.push(`Claim ${claimName}: não foi possível ler (${describe(error)}).`)
-        if (error instanceof RateLimitedError) stoppedBy = describe(error)
-      }
-    }
 
-    // Chests of claims nobody belongs to anymore. Only when every player was
-    // read: a player that failed may still belong to the claim.
-    if (everyPlayerRead) await this.#dropOtherClaims([...claims.keys()])
+      // Chests of claims nobody belongs to anymore. Only when every player was
+      // read: a player that failed may still belong to the claim.
+      if (everyPlayerRead) await this.#dropOtherClaims([...claims.keys()])
+    } else {
+      // Claim chests are not read: none may stay from an earlier sync
+      await this.#dropOtherClaims([])
+    }
 
     counts.unknownItems = unknown.size
     const notes = [...problems]
@@ -268,15 +285,14 @@ export default class InventorySync {
     })
   }
 
+  /** Claim chests of any claim not in the list (all of them for an empty list) */
   async #dropOtherClaims(claimIds: string[]) {
     await db.transaction(async (trx) => {
-      await this.#dropContainers(
-        trx,
-        trx
-          .from('inventory_containers')
-          .where('kind', 'claim')
-          .where((q) => q.whereNull('claim_entity_id').orWhereNotIn('claim_entity_id', claimIds))
-      )
+      const query = trx.from('inventory_containers').where('kind', 'claim')
+      if (claimIds.length) {
+        query.where((q) => q.whereNull('claim_entity_id').orWhereNotIn('claim_entity_id', claimIds))
+      }
+      await this.#dropContainers(trx, query)
     })
   }
 

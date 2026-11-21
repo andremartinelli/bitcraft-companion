@@ -31,9 +31,11 @@ export default class InventorySyncCommand extends BaseCommand {
     }
 
     const counts = run.counts ?? {}
+    const claims = counts.claimsTotal
+      ? `Claims: ${counts.claims ?? 0} de ${counts.claimsTotal} · `
+      : ''
     const summary =
-      `Personagens: ${counts.players ?? 0} de ${counts.playersTotal ?? 0} · ` +
-      `Claims: ${counts.claims ?? 0} de ${counts.claimsTotal ?? 0} · ` +
+      `Personagens: ${counts.players ?? 0} de ${counts.playersTotal ?? 0} · ${claims}` +
       `Locais: ${counts.containers ?? 0} · Itens diferentes por local: ${counts.entries ?? 0}`
 
     if (run.status === 'ok') this.logger.success(`Sincronização concluída. ${summary}`)

@@ -127,13 +127,14 @@ test.group('Game players', (group) => {
     })
   })
 
-  test('removing a character takes its inventory away, not the claim chests', async ({
+  test('removing a character takes its inventory away, not the others', async ({
     client,
     assert,
   }) => {
     await GamePlayer.createMany([PLAYER_ONE, PLAYER_TWO])
     await new InventorySync(bitjitaSource()).run('manual')
     const one = await GamePlayer.findByOrFail('entityId', PLAYER_ONE.entityId)
+    const two = await GamePlayer.findByOrFail('entityId', PLAYER_TWO.entityId)
 
     const response = await client
       .delete(`/game_players/${one.id}`)
@@ -144,6 +145,7 @@ test.group('Game players', (group) => {
     response.assertStatus(204)
     response.assertHeader('hx-redirect', '/game_players')
     assert.lengthOf(await InventoryContainer.query().where('game_player_id', one.id), 0)
-    assert.lengthOf(await InventoryContainer.query().where('kind', 'claim'), 3)
+    const others = await InventoryContainer.query().where('game_player_id', two.id)
+    assert.isAbove(others.length, 0)
   })
 })

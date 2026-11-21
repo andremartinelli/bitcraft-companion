@@ -19,8 +19,9 @@ const sync = async () => {
 }
 
 /**
- * Group stock in the fixtures: 168 Rough Plank, 25 Rough Stripped Wood,
- * 27 Rough Wood Log. A plank takes 2 stripped wood; stripped wood takes 1 log.
+ * Group stock in the fixtures (claim chests not read): 68 Rough Plank,
+ * 10 Rough Stripped Wood, 27 Rough Wood Log. A plank takes 2 stripped wood;
+ * stripped wood takes 1 log.
  */
 test.group('Calculator with the group inventory', (group) => {
   let user: User

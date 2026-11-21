@@ -46,10 +46,12 @@ test.group('Inventory page', (group) => {
     response.assertTextIncludes('Forestry')
     response.assertTextIncludes('Sem receita (coleta, drop ou loja)')
     // Each line says where the item is and whose it is
-    response.assertTextIncludes('Baú de madeira')
-    response.assertTextIncludes('Claim Vila Teste')
+    response.assertTextIncludes('Settlement Stash')
     response.assertTextIncludes('Depósito A')
     response.assertTextIncludes('Quartz')
+    // The settlement's chests are not theirs to use: not shown
+    assert.notInclude(response.text(), 'Baú de madeira')
+    assert.notInclude(response.text(), 'Claim Vila Teste')
     assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
   })
 
@@ -81,17 +83,14 @@ test.group('Inventory page', (group) => {
     response.assertTextIncludes('x-data="inventorySections(true)"')
   })
 
-  test('the group tab sums both players and the claim, in one table', async ({
-    client,
-    assert,
-  }) => {
+  test('the group tab sums both players, in one table', async ({ client, assert }) => {
     const response = await client.get('/inventory?tab=group').loginAs(user)
 
     response.assertStatus(200)
     response.assertTextIncludes('Rough Plank')
-    // 40 + 10 + 6 + 12 + 100: the shared claim counted once
-    response.assertTextIncludes('168')
-    response.assertTextIncludes('5 locais')
+    // Stash 40 + bank 10 (Nimbus), stash 6 + house 12 (Quartz)
+    response.assertTextIncludes('68')
+    response.assertTextIncludes('4 locais')
     assert.notInclude(response.text(), '<details')
   })
 
@@ -104,11 +103,15 @@ test.group('Inventory page', (group) => {
     assert.notInclude(response.text(), 'Claim Vila Teste')
   })
 
-  test('per place: chests, cart, house, bank', async ({ client }) => {
+  test('per place: stash, cart, house, bank, without the claim chests', async ({
+    client,
+    assert,
+  }) => {
     const response = await client.get('/inventory?tab=places').loginAs(user)
 
     response.assertStatus(200)
-    response.assertTextIncludes('Baú de madeira')
+    assert.notInclude(response.text(), 'Baú de madeira')
+    response.assertTextIncludes('Settlement Stash')
     response.assertTextIncludes('s Cart (II)')
     response.assertTextIncludes('Depósito A')
     response.assertTextIncludes('Banco')
@@ -152,8 +155,9 @@ test.group('Inventory page', (group) => {
     response.assertStatus(200)
     response.assertTextIncludes('id="inventory"')
     response.assertTextIncludes('Sincronização concluída.')
-    response.assertTextIncludes('Baú de madeira')
+    response.assertTextIncludes('Depósito A')
     assert.isAbove(fake.calls.length, 0)
+    assert.isFalse(fake.calls.some((call) => call.path.startsWith('/api/claims/')))
     const runs = await SyncRun.query().orderBy('id')
     assert.lengthOf(runs, 2)
   })
@@ -224,14 +228,14 @@ test.group('Inventory page', (group) => {
     assert.notInclude(response.text(), 'Sincronizar agora')
   })
 
-  test('the item page says how many the group has and where', async ({ client }) => {
+  test('the item page says how many the group has and where', async ({ client, assert }) => {
     const plank = await Item.findByOrFail({ kind: 'item', gameId: 1030 })
     const response = await client.get(`/items/${plank.id}`).loginAs(user)
 
     response.assertStatus(200)
     response.assertTextIncludes('Vocês têm:')
-    response.assertTextIncludes('168')
-    response.assertTextIncludes('Baú de madeira')
-    response.assertTextIncludes('Claim Vila Teste')
+    response.assertTextIncludes('68')
+    response.assertTextIncludes('Depósito A')
+    assert.notInclude(response.text(), 'Baú de madeira')
   })
 })

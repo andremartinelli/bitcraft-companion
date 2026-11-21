@@ -20,6 +20,9 @@ import {
   recordedResponses,
 } from '#tests/helpers/bitjita'
 
+/** The claim chests are off by default (no access); some tests turn them on */
+const WITH_CLAIMS = { readClaims: true }
+
 /** Total of an item across every container (the group's stock) */
 async function groupTotal(kind: 'item' | 'cargo', gameId: number) {
   const item = await Item.findByOrFail({ kind, gameId })
@@ -61,8 +64,9 @@ test.group('Inventory sync', (group) => {
     return rollback
   })
 
-  test('stores every inventory of the players and of their claim', async ({ assert }) => {
-    const run = await new InventorySync(bitjitaSource()).run('manual')
+  test('stores every inventory of the players, but not the claim chests', async ({ assert }) => {
+    const fake = fakeBitJita()
+    const run = await new InventorySync(bitjitaSource(fake)).run('manual')
 
     assert.equal(run.status, 'ok')
     assert.isNull(run.message)
@@ -71,14 +75,21 @@ test.group('Inventory sync', (group) => {
     assert.deepInclude(run.counts!, {
       players: 2,
       playersTotal: 2,
-      claims: 1,
-      claimsTotal: 1,
-      containers: 17,
+      claims: 0,
+      claimsTotal: 0,
+      containers: 14,
       unknownItems: 0,
     })
 
-    // Stash 40 + bank 10 (one), stash 6 + house 12 (two), claim chest 100
-    assert.equal(await groupTotal('item', 1030), 168)
+    // Stash 40 + bank 10 (one), stash 6 + house 12 (two); the claim chest is not read
+    assert.equal(await groupTotal('item', 1030), 68)
+    assert.notInclude(
+      fake.calls.map((c) => c.path),
+      `/api/claims/${CLAIM.entityId}/inventories`
+    )
+    assert.lengthOf(await InventoryContainer.query().where('kind', 'claim'), 0)
+    // The Settlement Stash is each player's own: it stays
+    assert.lengthOf(await InventoryContainer.query().where('kind', 'stash'), 2)
     // Two pockets of the backpack with the same item are summed
     assert.equal(await quantityIn('Mochila', 'item', 1020, PLAYER_ONE.entityId), 9)
 
@@ -89,9 +100,23 @@ test.group('Inventory sync', (group) => {
     assert.deepEqual(one.claims, [{ entityId: CLAIM.entityId, name: CLAIM.name }])
   })
 
-  test('a claim shared by both players is read once and counted once', async ({ assert }) => {
+  test('chests that were stored before are removed by the next sync', async ({ assert }) => {
+    await new InventorySync(bitjitaSource(), WITH_CLAIMS).run('manual')
+    assert.lengthOf(await InventoryContainer.query().where('kind', 'claim'), 3)
+
+    await new InventorySync(bitjitaSource()).run('manual')
+
+    assert.lengthOf(await InventoryContainer.query().where('kind', 'claim'), 0)
+    assert.equal(await groupTotal('item', 1030), 68)
+  })
+
+  test('with claim chests on, a claim shared by both players is read and counted once', async ({
+    assert,
+  }) => {
     const fake = fakeBitJita()
-    await new InventorySync(bitjitaSource(fake)).run('manual')
+    await new InventorySync(bitjitaSource(fake), WITH_CLAIMS).run('manual')
+    // 68 of the players plus the chest's 100: once, not twice
+    assert.equal(await groupTotal('item', 1030), 168)
 
     const claimCalls = fake.calls.filter((c) => c.path.startsWith('/api/claims/'))
     assert.lengthOf(claimCalls, 1)
@@ -114,7 +139,7 @@ test.group('Inventory sync', (group) => {
     assert.equal(run.counts!.players, 0)
     const after = await db.from('inventory_entries').count('* as total').first()
     assert.equal(after.total, before.total)
-    assert.equal(await groupTotal('item', 1030), 168)
+    assert.equal(await groupTotal('item', 1030), 68)
 
     const one = await GamePlayer.findByOrFail('entityId', PLAYER_ONE.entityId)
     assert.include(one.lastError!, 'BitJita')
@@ -123,7 +148,7 @@ test.group('Inventory sync', (group) => {
   })
 
   test('429: stops calling BitJita, keeps the data it could not read', async ({ assert }) => {
-    await new InventorySync(bitjitaSource()).run('manual')
+    await new InventorySync(bitjitaSource(), WITH_CLAIMS).run('manual')
 
     const responses = recordedResponses()
     responses[`/api/players/${PLAYER_TWO.entityId}`] = { status: 429, body: {} }
@@ -133,7 +158,7 @@ test.group('Inventory sync', (group) => {
     responses[`/api/players/${PLAYER_ONE.entityId}/inventories`] = { body: inventories }
     const fake = fakeBitJita(responses)
 
-    const run = await new InventorySync(bitjitaSource(fake)).run('manual')
+    const run = await new InventorySync(bitjitaSource(fake), WITH_CLAIMS).run('manual')
 
     assert.equal(run.status, 'partial')
     assert.include(run.message!, 'Quartz: não foi possível ler')
@@ -248,8 +273,10 @@ test.group('Inventory sync', (group) => {
     assert.isNotNull(backpack, 'the empty backpack is still listed')
   })
 
-  test('chests of a claim nobody belongs to anymore are removed', async ({ assert }) => {
-    await new InventorySync(bitjitaSource()).run('manual')
+  test('with claim chests on, those of a claim nobody belongs to are removed', async ({
+    assert,
+  }) => {
+    await new InventorySync(bitjitaSource(), WITH_CLAIMS).run('manual')
 
     const responses = recordedResponses()
     for (const [path, fixture] of [
@@ -260,7 +287,9 @@ test.group('Inventory sync', (group) => {
       player.player.claims = []
       responses[path] = { body: player }
     }
-    const run = await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual')
+    const run = await new InventorySync(bitjitaSource(fakeBitJita(responses)), WITH_CLAIMS).run(
+      'manual'
+    )
 
     assert.equal(run.status, 'ok')
     assert.lengthOf(await InventoryContainer.query().where('kind', 'claim'), 0)

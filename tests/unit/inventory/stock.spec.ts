@@ -31,15 +31,15 @@ test.group('Inventory listing', (group) => {
       {
         title: 'Carpentry',
         items: [
-          'Rough Plank: 168',
-          'Rough Stripped Wood: 25',
+          'Rough Plank: 68',
+          'Rough Stripped Wood: 10',
           // Only a Scrap recipe makes it: still Carpentry
           'Rough Wood Scraps: 10',
           'Simple Plank: 2',
         ],
       },
       { title: 'Forestry', items: ['Rough Tree Bark: 10', 'Rough Wood Log: 27'] },
-      { title: NO_PROFESSION, items: ['Rough Wood Trunk: 7'] },
+      { title: NO_PROFESSION, items: ['Rough Wood Trunk: 3'] },
     ])
   })
 
@@ -67,8 +67,8 @@ test.group('Inventory listing', (group) => {
     const plank = sections[0].lines[0]
 
     assert.equal(plank.item.name, 'Rough Plank')
+    // The claim chest (100 more) is not read: no access to it
     assert.deepEqual(plank.where, [
-      { container: 'Baú de madeira', owner: 'Claim Vila Teste', quantity: 100 },
       { container: 'Settlement Stash', owner: 'Nimbus', quantity: 40 },
       { container: 'Depósito A', owner: 'Quartz', quantity: 12 },
       { container: 'Banco', owner: 'Nimbus', quantity: 10 },

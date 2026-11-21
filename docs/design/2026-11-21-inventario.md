@@ -12,11 +12,11 @@ Trazer para o app **o que o Vitor e o amigo têm de verdade no jogo**, para:
 
 ### Decisões tomadas
 
-- **Inventários:** todos.
+- **Inventários:** todos os que são de cada um.
   - Pessoal: mochila, cinto e carteira.
-  - Baús e armazéns da claim.
   - Banco, Settlement Stash e casa.
   - Veículos e carga.
+  - **Baús e armazéns da claim: desligados em 21/11/2026.** Vocês não têm acesso a eles, então só inflavam o estoque. A sincronização não lê mais esses baús e apaga os que já estavam guardados (uma migration limpou os antigos). O código continua lá: `new InventorySync(source, { readClaims: true })` volta a ler. O Settlement Stash é de cada jogador e continua sendo lido.
 - **Sincronização:** pelo botão "Sincronizar agora" **e** automática, de tempos em tempos.
 - **Fonte:** a **API pública da BitJita**, sem token.
   - Uma fonte oficial só entra no futuro, e só com um **token do Developer Program** da Clockwork Labs.
