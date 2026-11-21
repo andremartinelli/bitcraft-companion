@@ -1,9 +1,10 @@
 ﻿<#
-  Roda o app em modo de produção, para jogar (você e quem acessa pelo Tailscale).
+  Roda o app em modo de produção: o app compilado, com o banco em storage/,
+  acessível por quem estiver no Tailscale.
 
-    .\scripts\play.ps1            # build + migrations + inicia o servidor
-    .\scripts\play.ps1 -Import    # idem, importando antes os dados mais recentes do jogo
-    .\scripts\play.ps1 -NoBuild   # só inicia o último build (mais rápido)
+    .\scripts\start-production.ps1            # build + migrations + inicia o servidor
+    .\scripts\start-production.ps1 -Import    # idem, importando antes os dados mais recentes do jogo
+    .\scripts\start-production.ps1 -NoBuild   # só inicia o último build (mais rápido)
 
   Precisa do arquivo .env.production na raiz (copie de .env.production.example).
 #>

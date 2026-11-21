@@ -47,4 +47,4 @@ node ace users:create        # cria um usuário (não existe cadastro aberto)
 
 Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm run dev` (ou `node ace serve`). Depois de mexer em `start/routes.ts`, suba o dev uma vez antes do `typecheck`.
 
-Para rodar em produção (para jogar), use `scripts/play.ps1`. Detalhes no README.
+Para rodar em produção (o app que vocês usam de verdade, acessível pelo Tailscale), use `scripts/start-production.ps1`. Detalhes no README.

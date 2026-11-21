@@ -49,7 +49,9 @@ npm run lint
 
 Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm run dev`. Depois de mexer em `start/routes.ts`, suba o dev uma vez antes de rodar o `typecheck`.
 
-## Rodar para jogar (produção)
+## Rodar em produção
+
+É o modo de uso do dia a dia: o app compilado, com o banco de vocês em `storage/` e acessível pelo Tailscale. Deixe-o rodando enquanto quiserem consultar o app.
 
 1. Copie `.env.production.example` para `.env.production`.
 2. Preencha o `APP_KEY` com a saída de `node ace generate:key --show`.
@@ -57,9 +59,9 @@ Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm ru
 4. Inicie o servidor no PowerShell:
 
    ```powershell
-   .\scripts\play.ps1 -Import   # na primeira vez: build, migrations, dados do jogo e servidor
-   .\scripts\play.ps1           # nas próximas vezes
-   .\scripts\play.ps1 -NoBuild  # só reinicia o último build, sem refazer nada
+   .\scripts\start-production.ps1 -Import   # na primeira vez: build, migrations, dados do jogo e servidor
+   .\scripts\start-production.ps1           # nas próximas vezes
+   .\scripts\start-production.ps1 -NoBuild  # só reinicia o último build, sem refazer nada
    ```
 
 5. Crie as contas no banco de produção, a partir da pasta `build/`:
@@ -77,7 +79,7 @@ O banco de produção é separado do banco de desenvolvimento (`tmp/db.sqlite3`)
 
 1. Instale o [Tailscale](https://tailscale.com) nas duas máquinas e entre na mesma conta ou tailnet.
 2. Na máquina que roda o app, veja o IP dela com `tailscale ip -4`. É algo como `100.x.y.z`.
-3. Com o `play.ps1` rodando, a outra pessoa abre `http://100.x.y.z:3333`.
+3. Com o `start-production.ps1` rodando, a outra pessoa abre `http://100.x.y.z:3333`.
 
 Na primeira vez, o Windows pode pedir para liberar o Node.js no firewall. Permita só em redes privadas. Se o pedido não aparecer e o acesso não funcionar, libere a porta 3333 para a interface do Tailscale nas configurações do Firewall do Windows.
 
