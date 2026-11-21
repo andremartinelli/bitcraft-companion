@@ -53,7 +53,38 @@ test.group('Inventory page', (group) => {
     assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
   })
 
-  test('the group tab sums both players and the claim', async ({ client }) => {
+  test('the categories collapse, with "expand all" and "collapse all"', async ({
+    client,
+    assert,
+  }) => {
+    const response = await client.get('/inventory?tab=places').loginAs(user)
+
+    response.assertStatus(200)
+    response.assertTextIncludes('Expandir tudo')
+    response.assertTextIncludes('Recolher tudo')
+    const sections = response
+      .text()
+      .match(/<details class="inventory__section inventory__fold" open data-key="places:\d+"/g)
+    // Every place is its own section, with a key that does not repeat
+    assert.isAbove(sections?.length ?? 0, 1)
+    assert.equal(new Set(sections).size, sections?.length)
+    assert.include(response.text(), 'x-data="inventorySections(false)"')
+  })
+
+  test('a search opens every section', async ({ client }) => {
+    const response = await client
+      .get('/inventory?q=plank')
+      .header('HX-Request', 'true')
+      .loginAs(user)
+
+    response.assertStatus(200)
+    response.assertTextIncludes('x-data="inventorySections(true)"')
+  })
+
+  test('the group tab sums both players and the claim, in one table', async ({
+    client,
+    assert,
+  }) => {
     const response = await client.get('/inventory?tab=group').loginAs(user)
 
     response.assertStatus(200)
@@ -61,6 +92,7 @@ test.group('Inventory page', (group) => {
     // 40 + 10 + 6 + 12 + 100: the shared claim counted once
     response.assertTextIncludes('168')
     response.assertTextIncludes('5 locais')
+    assert.notInclude(response.text(), '<details')
   })
 
   test('per player shows only what is theirs, not the claim chests', async ({ client, assert }) => {

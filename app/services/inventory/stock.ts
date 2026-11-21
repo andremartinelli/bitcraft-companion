@@ -20,6 +20,8 @@ export interface StockLine {
 }
 
 export interface StockSection {
+  /** Stable id of the section, so the page can remember it collapsed */
+  key: string
   title: string
   subtitle: string | null
   lines: StockLine[]
@@ -138,19 +140,19 @@ export async function inventoryListing(tab: InventoryTab, q?: string) {
     const byProfession = groupBy(rows, (row) => professionOf(graph, row.item_id))
     const sections: StockSection[] = [...byProfession]
       .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
-      .map(([profession, professionRows]) => {
-        const lines = toLines(professionRows, items)
-        return {
-          title: profession,
-          subtitle: lines.length === 1 ? '1 item' : `${lines.length} itens`,
-          lines,
-        }
-      })
+      .map(([profession, professionRows]) => ({
+        key: `professions:${profession}`,
+        title: profession,
+        subtitle: null,
+        lines: toLines(professionRows, items),
+      }))
     return { sections }
   }
 
   if (tab === 'group') {
-    return { sections: [{ title: 'Grupo', subtitle: null, lines: toLines(rows, items) }] }
+    return {
+      sections: [{ key: 'group', title: 'Grupo', subtitle: null, lines: toLines(rows, items) }],
+    }
   }
 
   if (tab === 'players') {
@@ -161,6 +163,7 @@ export async function inventoryListing(tab: InventoryTab, q?: string) {
     const sections: StockSection[] = [...byPlayer.values()]
       .sort((a, b) => ownerOf(a[0]).localeCompare(ownerOf(b[0])))
       .map((playerRows) => ({
+        key: `players:${playerRows[0].player_id}`,
         title: ownerOf(playerRows[0]),
         subtitle: 'mochila, cinto, carteira, banco, stash, casa e veículos',
         lines: toLines(playerRows, items),
@@ -183,6 +186,8 @@ export async function inventoryListing(tab: InventoryTab, q?: string) {
       const first = containerRows[0]
       const kindLabel = CONTAINER_KINDS[first.kind] ?? first.kind
       return {
+        // Names repeat ("Mochila" of each player): the container id does not
+        key: `places:${first.container_id}`,
         title: first.container_name,
         subtitle:
           first.container_name === kindLabel

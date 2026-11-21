@@ -35,6 +35,49 @@ Alpine.data('themeToggle', function () {
   }
 })
 
+/**
+ * Inventory: collapsible sections. The collapsed ones are remembered in this
+ * browser; a search opens everything, so no match stays hidden.
+ */
+const COLLAPSED_SECTIONS = 'inventory:collapsed'
+
+function readCollapsed() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_SECTIONS) || '[]'))
+  } catch {
+    return new Set()
+  }
+}
+
+function writeCollapsed(keys) {
+  try {
+    localStorage.setItem(COLLAPSED_SECTIONS, JSON.stringify([...keys]))
+  } catch {
+    // Private window or storage blocked: collapsing still works, just not remembered
+  }
+}
+
+Alpine.data('inventorySections', function (searching) {
+  return {
+    init() {
+      if (searching) return
+      const collapsed = readCollapsed()
+      for (const section of this.$root.querySelectorAll('details[data-key]')) {
+        if (collapsed.has(section.dataset.key)) section.open = false
+      }
+    },
+    remember(section) {
+      const collapsed = readCollapsed()
+      if (section.open) collapsed.delete(section.dataset.key)
+      else collapsed.add(section.dataset.key)
+      writeCollapsed(collapsed)
+    },
+    setAll(open) {
+      for (const section of this.$root.querySelectorAll('details[data-key]')) section.open = open
+    },
+  }
+})
+
 Alpine.start()
 
 /**

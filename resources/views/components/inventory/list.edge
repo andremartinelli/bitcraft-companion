@@ -1,10 +1,11 @@
 {{--
   The stock, one table per section (a profession, the group, a player, a
-  place). Rendered inside the panel and alone for the item search (htmx
-  swaps #inventory-list).
+  place). Sections collapse (<details>); the browser remembers which ones,
+  except during a search, which shows every match. Rendered inside the panel
+  and alone for the item search (htmx swaps #inventory-list).
   State: filters { tab, q }, listing { sections }, empty.
 --}}
-<div id="inventory-list">
+<div id="inventory-list" x-data="inventorySections({{ filters.q ? 'true' : 'false' }})">
   @if(empty)
     <div class="empty">
       @if(filters.q)
@@ -13,45 +14,28 @@
         <p>Nada no inventário ainda. Clique em "Sincronizar agora".</p>
       @end
     </div>
-  @else
+  @elseif(filters.tab === 'group')
     @each(section in listing.sections)
-      <section class="inventory__section">
-        @if(filters.tab !== 'group')
-          <h2 class="inventory__title">{{ section.title }}</h2>
+      <div class="inventory__section">
+        @include('components/inventory/table')
+      </div>
+    @end
+  @else
+    <div class="inventory__toolbar">
+      <button type="button" class="btn btn--ghost btn--sm" x-on:click="setAll(true)">Expandir tudo</button>
+      <button type="button" class="btn btn--ghost btn--sm" x-on:click="setAll(false)">Recolher tudo</button>
+    </div>
+    @each(section in listing.sections)
+      <details class="inventory__section inventory__fold" open data-key="{{ section.key }}" x-on:toggle="remember($el)">
+        <summary class="inventory__summary">
+          <span class="inventory__title">{{ section.title }}</span>
           @if(section.subtitle)
-            <p class="inventory__subtitle">{{ section.subtitle }}</p>
+            <span class="inventory__subtitle">{{ section.subtitle }}</span>
           @end
-        @end
-        <div class="ledger">
-          <table class="stock">
-            <tbody>
-              @each(line in section.lines)
-                <tr>
-                  <td class="stock__item">
-                    @!itemChip({ item: line.item })
-                  </td>
-                  <td class="num">{{ formatNumber(line.quantity) }}</td>
-                  @if(filters.tab === 'professions')
-                    <td>
-                      <div class="stock__where">
-                        @each(place in line.where)
-                          <span class="stock__place">
-                            <span class="stock__place-qty">{{ formatNumber(place.quantity) }}</span>
-                            {{ place.container }}
-                            <span class="muted">· {{ place.owner }}</span>
-                          </span>
-                        @end
-                      </div>
-                    </td>
-                  @elseif(filters.tab === 'group')
-                    <td class="stock__places">{{ line.where.length === 1 ? '1 local' : `${line.where.length} locais` }}</td>
-                  @end
-                </tr>
-              @end
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <span class="inventory__count">{{ section.lines.length === 1 ? '1 item' : `${section.lines.length} itens` }}</span>
+        </summary>
+        @include('components/inventory/table')
+      </details>
     @end
   @end
 </div>

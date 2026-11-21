@@ -1427,6 +1427,60 @@ table.plans .num {
 .inventory__title:has(+ .ledger) {
   margin-bottom: 8px;
 }
+.inventory__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.inventory__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.inventory__summary::-webkit-details-marker {
+  display: none;
+}
+.inventory__summary::before {
+  content: '';
+  align-self: center;
+  border-left: 5px solid var(--muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s;
+}
+.inventory__fold[open] > .inventory__summary {
+  margin-bottom: 6px;
+}
+.inventory__fold[open] > .inventory__summary::before {
+  transform: rotate(90deg);
+}
+.inventory__summary .inventory__title,
+.inventory__summary .inventory__subtitle {
+  margin: 0;
+}
+.inventory__summary:hover .inventory__title {
+  text-decoration: underline;
+}
+.inventory__summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-radius: var(--r);
+}
+.inventory__count {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.inventory__fold + .inventory__fold {
+  margin-top: 6px;
+}
 table.stock {
   width: 100%;
   border-collapse: collapse;

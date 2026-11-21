@@ -1,0 +1,33 @@
+{{--
+  The items of one inventory section. Uses `section` and `filters.tab`:
+  by profession, each line also says where the item is and whose it is.
+--}}
+<div class="ledger">
+  <table class="stock">
+    <tbody>
+      @each(line in section.lines)
+        <tr>
+          <td class="stock__item">
+            @!itemChip({ item: line.item })
+          </td>
+          <td class="num">{{ formatNumber(line.quantity) }}</td>
+          @if(filters.tab === 'professions')
+            <td>
+              <div class="stock__where">
+                @each(place in line.where)
+                  <span class="stock__place">
+                    <span class="stock__place-qty">{{ formatNumber(place.quantity) }}</span>
+                    {{ place.container }}
+                    <span class="muted">· {{ place.owner }}</span>
+                  </span>
+                @end
+              </div>
+            </td>
+          @elseif(filters.tab === 'group')
+            <td class="stock__places">{{ line.where.length === 1 ? '1 local' : `${line.where.length} locais` }}</td>
+          @end
+        </tr>
+      @end
+    </tbody>
+  </table>
+</div>
