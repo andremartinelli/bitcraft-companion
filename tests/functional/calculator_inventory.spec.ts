@@ -60,6 +60,9 @@ test.group('Calculator with the group inventory', (group) => {
     // trunks that went into them show in "Coletar", covered
     response.assertTextIncludes('vocês já têm 68')
     response.assertTextIncludes('vocês já têm em Rough Plank')
+    // All of it done: every round and profession can fold at once
+    response.assertTextIncludes('Colapsar todos os concluídos (4)')
+    response.assertTextIncludes('data-complete')
   })
 
   test('a value typed by hand wins, even 0', async ({ client, assert }) => {

@@ -44,6 +44,8 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('Carpentry')
     response.assertTextIncludes('Rodada 4')
     assert.notInclude(response.text(), 'Rodada 5')
+    // Nothing done yet: nothing to fold
+    assert.notInclude(response.text(), 'Colapsar todos os concluídos')
     // Inside a round, by profession: Forestry chops the trunk (round 1) and
     // splits it; Carpentry does the rest
     const professions = [...response.text().matchAll(/class="steps__profession">\s*(\w+)/g)]

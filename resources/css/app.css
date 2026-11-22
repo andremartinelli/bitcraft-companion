@@ -1280,6 +1280,18 @@ a.chip:hover {
 .calc__hint--top {
   margin: -4px 0 10px;
 }
+/* "Etapas" and, on the right, "Colapsar todos os concluídos" */
+.calc__steps-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+.calc__steps-head .calc__title {
+  margin: 0;
+}
 /* "Etapas": rounds that fold, round 1 gathers and the others make */
 .round__summary {
   display: flex;

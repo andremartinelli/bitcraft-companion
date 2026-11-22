@@ -214,21 +214,52 @@ export function present(
     round: number
     steps: PresentedStep[]
     countLabel: string
+    /** Everything in it is done ("Colapsar todos os concluídos") */
+    complete: boolean
     /** The round's steps by the profession that makes them */
-    professions: { name: string; key: string; entries: PresentedStep[]; countLabel: string }[]
+    professions: {
+      name: string
+      key: string
+      entries: PresentedStep[]
+      countLabel: string
+      complete: boolean
+    }[]
   }[] = []
   for (const s of steps) {
     const round = s.round + 1
     const last = rounds.at(-1)
     if (last?.round === round) last.steps.push(s)
-    else rounds.push({ round, steps: [s], countLabel: '', professions: [] })
+    else rounds.push({ round, steps: [s], countLabel: '', complete: false, professions: [] })
   }
   for (const group of rounds) {
     group.countLabel = countLabel(group.steps)
+    group.complete = group.steps.every((s) => s.done)
     group.professions = byProfession(group.steps, (s) =>
       professionName(s.recipe?.skillName, NO_SKILL)
-    ).map((profession) => ({ ...profession, countLabel: countLabel(profession.entries) }))
+    ).map((profession) => ({
+      ...profession,
+      countLabel: countLabel(profession.entries),
+      complete: profession.entries.every((s) => s.done),
+    }))
   }
+
+  const materialGroups = byProfession(materials, (m) =>
+    professionName(graph.gatherers.get(m.itemId), OTHER_SOURCES)
+  ).map((profession) => ({
+    ...profession,
+    doneCount: profession.entries.filter((m) => m.complete).length,
+    complete: profession.entries.every((m) => m.complete),
+  }))
+  const gatherComplete = materials.every((m) => m.complete)
+  /** How many rounds and professions are all done: the button says it, or hides */
+  const completeCount =
+    Number(gatherComplete) +
+    materialGroups.filter((g) => g.complete).length +
+    rounds.reduce(
+      (sum, group) =>
+        sum + Number(group.complete) + group.professions.filter((p) => p.complete).length,
+      0
+    )
 
   const node = (n: PlanNode): PresentedNode => {
     const choice = n.choice === null ? '' : String(n.choice)
@@ -274,13 +305,11 @@ export function present(
     /** "Coletar": every raw material, with what they have of it */
     materials,
     /** The same, by the profession that gathers each one in the world */
-    materialGroups: byProfession(materials, (m) =>
-      professionName(graph.gatherers.get(m.itemId), OTHER_SOURCES)
-    ).map((profession) => ({
-      ...profession,
-      doneCount: profession.entries.filter((m) => m.complete).length,
-    })),
+    materialGroups,
     materialsDone: materials.filter((m) => m.complete).length,
+    /** Round 1 has nothing left to gather */
+    gatherComplete,
+    completeCount,
     /** "Etapas": the crafts by round, from round 2 (round 1 is `materials`) */
     rounds,
     warnings: result.warnings,
