@@ -7,6 +7,8 @@ export interface GraphItem {
   tier: number
   rarity: string | null
   kind: 'item' | 'cargo'
+  /** The game's tag: "Animal", "Trade Good", "Leather Clothing"... */
+  tag: string | null
   removed: boolean
 }
 
@@ -47,9 +49,19 @@ export default class RecipeGraph {
     public items: Map<number, GraphItem>,
     public recipes: Map<number, GraphRecipe>,
     public producers: Map<number, Producer[]>,
-    /** The skill that gathers each item in the world (Forestry, Mining...), when one does */
+    /** The skill that gathers or hunts each item (Forestry, Mining, Hunting...), when one does */
     public gatherers: Map<number, string> = new Map()
   ) {}
+
+  /**
+   * An animal body comes only from hunting. One no hunt leaves is a leftover
+   * from older versions: hunting a Female Cervus leaves a "Cervus", and the
+   * "Female Cervus" body is never found any more.
+   */
+  isLostAnimal(itemId: number) {
+    const item = this.items.get(itemId)
+    return item?.tag === 'Animal' && !this.gatherers.has(itemId) && !this.producers.has(itemId)
+  }
 
   /**
    * The graph for the latest finished import. An import made by another
@@ -73,7 +85,7 @@ export default class RecipeGraph {
     const [itemRows, recipeRows, inputRows, outputRows, listRows, gatherRows] = await Promise.all([
       db
         .from('items')
-        .select('id', 'name', 'tier', 'rarity', 'kind', 'item_list_game_id', 'removed_at'),
+        .select('id', 'name', 'tier', 'rarity', 'kind', 'tag', 'item_list_game_id', 'removed_at'),
       db
         .from('recipes as r')
         .leftJoin('skills as s', 's.id', 'r.skill_id')
@@ -133,6 +145,7 @@ export default class RecipeGraph {
         tier: row.tier,
         rarity: row.rarity,
         kind: row.kind,
+        tag: row.tag,
         removed: row.removed_at !== null,
       })
       if (row.item_list_game_id) listGameIdOf.set(row.id, row.item_list_game_id)

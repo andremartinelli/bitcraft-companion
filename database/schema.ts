@@ -72,7 +72,7 @@ export class ExtractionRecipeOutputSchema extends BaseModel {
 }
 
 export class ExtractionRecipeSchema extends BaseModel {
-  static $columns = ['createdAt', 'gameId', 'id', 'lastImportId', 'removedAt', 'skillId', 'skillLevel', 'toolTier', 'toolTypeId', 'updatedAt', 'verb'] as const
+  static $columns = ['createdAt', 'gameId', 'id', 'lastImportId', 'removedAt', 'skillId', 'skillLevel', 'source', 'toolTier', 'toolTypeId', 'updatedAt', 'verb'] as const
   $columns = ExtractionRecipeSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -88,6 +88,8 @@ export class ExtractionRecipeSchema extends BaseModel {
   declare skillId: number | null
   @column()
   declare skillLevel: number | null
+  @column()
+  declare source: string
   @column()
   declare toolTier: number | null
   @column()

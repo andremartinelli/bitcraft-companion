@@ -6,7 +6,7 @@ import Item from '#models/item'
 import Recipe from '#models/recipe'
 import GameDataImport from '#models/game_data_import'
 import { GameDataFormatError } from '#services/game_data/transform'
-import { fixtureTables, importTables } from '#tests/helpers/game_data'
+import { fixtureTables, importTables, withHunting } from '#tests/helpers/game_data'
 
 test.group('Game data importer', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
@@ -22,6 +22,7 @@ test.group('Game data importer', (group) => {
       constructionRecipes: 1,
       claimTechs: 6,
       extractionRecipes: 3,
+      hunting: 0,
     })
     const same = await Item.query().where('game_id', 1010).orderBy('kind')
     assert.deepEqual(
@@ -176,6 +177,24 @@ test.group('Game data importer', (group) => {
       .preload('outputs')
       .firstOrFail()
     assert.lengthOf(open.outputs, 0)
+  })
+
+  test('hunting joins the gatherings: the body an animal leaves', async ({ assert }) => {
+    const summary = await importTables(withHunting())
+
+    assert.equal(summary.counts.hunting, 1)
+    // Resource 7 and enemy 7 are different things
+    const hunt = await ExtractionRecipe.query()
+      .where({ source: 'enemy', game_id: 7 })
+      .preload('skill')
+      .preload('outputs', (q) => q.preload('item'))
+      .firstOrFail()
+    assert.equal(hunt.verb, 'Hunt')
+    assert.equal(hunt.skill.name, 'Hunting')
+    assert.deepEqual(
+      hunt.outputs.map((output) => [output.item.kind, output.item.name]),
+      [['cargo', 'Cervus']]
+    )
   })
 
   test('a gathering that left the game is marked, and comes back', async ({ assert }) => {

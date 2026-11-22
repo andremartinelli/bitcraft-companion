@@ -87,6 +87,7 @@ const unknownItem = (id: number): GraphItem => ({
   tier: 0,
   rarity: null,
   kind: 'item',
+  tag: null,
   removed: true,
 })
 

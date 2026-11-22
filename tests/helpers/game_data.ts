@@ -20,6 +20,73 @@ export function importTables(tables: Record<GameTable, any[]> = fixtureTables())
 }
 
 /**
+ * Hunting as in the real game data (ids too): hunting a Female Cervus leaves
+ * a "Cervus" body, and the Hunting Station makes pelts from either body, but
+ * nothing leaves a "Female Cervus" body any more.
+ */
+export function withHunting(tables: Record<GameTable, any[]> = fixtureTables()) {
+  const animal = (id: number, name: string) => ({
+    id,
+    name,
+    description: 'An animal body that could be processed for meat and hides.',
+    tier: 3,
+    tag: 'Animal',
+    rarity: 'Common',
+  })
+  const harvest = (id: number, cargoId: number) => ({
+    id,
+    name: 'Harvest {0}',
+    time_requirement: 1,
+    stamina_requirement: 1,
+    building_requirement: { building_type: 44, tier: 3 },
+    level_requirements: [{ skill_id: 9, level: 30 }],
+    tool_requirements: [],
+    consumed_item_stacks: [{ item_id: cargoId, quantity: 1, item_type: 'Cargo' }],
+    crafted_item_stacks: [{ item_id: 9101, quantity: 1, item_type: 'Item' }],
+    actions_required: 125,
+    is_passive: false,
+    hide_without_required_knowledge: false,
+  })
+
+  tables.skill_desc.push({ id: 9, name: 'Hunting' })
+  tables.cargo_desc.push(animal(3, 'Female Cervus'), animal(4, 'Cervus'))
+  tables.item_desc.push({
+    id: 9101,
+    name: 'Sturdy Raw Pelt',
+    description: '',
+    tier: 3,
+    tag: 'Raw Pelt',
+    rarity: 'Common',
+    item_list_id: 0,
+  })
+  // The lower id takes the lost body: by id alone, it would be the default
+  tables.crafting_recipe_desc.push(harvest(306000, 3), harvest(306001, 4))
+  tables.enemy_desc.push(
+    {
+      enemy_type: 7,
+      name: 'Female Cervus',
+      huntable: true,
+      extracted_item_stacks: [
+        {
+          item_stack: { item_id: 4, quantity: 1, item_type: 'Cargo', durability: null },
+          probability: 1,
+        },
+      ],
+      experience_per_damage_dealt: [{ skill_id: 9, quantity: 3.24 }],
+    },
+    // A monster that leaves nothing stays out
+    {
+      enemy_type: 40,
+      name: 'Jakyl',
+      huntable: false,
+      extracted_item_stacks: [],
+      experience_per_damage_dealt: [{ skill_id: 15, quantity: 1 }],
+    }
+  )
+  return tables
+}
+
+/**
  * Armor pieces and tools in the shape of the real game data, for the quick
  * plans: craft results, a drop variant with no recipe, a recraft-only item,
  * two rarities of the same craft (T3) and a hand-made Flint tool next to the

@@ -1331,12 +1331,23 @@ a.chip:hover {
 .round > .steps {
   margin-bottom: 10px;
 }
-/* A profession inside a round, lined up with the items (after the quantity column) */
+/*
+ * A profession inside a round, lined up with the items (after the quantity
+ * column). The line above it divides the professions, from the items' column
+ * on, so it reads apart from the full-width line between rounds; the rows
+ * have none.
+ */
 .steps__profession {
-  margin: 6px 0 0;
-  padding: 4px 0 2px 104px;
+  margin: 8px 0 0 104px;
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--line);
   font-size: 12.5px;
   font-weight: 600;
+}
+.round__summary + .steps__profession {
+  margin-top: 0;
+  padding-top: 2px;
+  border-top: 0;
 }
 .steps__profession span {
   margin-left: 6px;
@@ -1345,7 +1356,7 @@ a.chip:hover {
 }
 @media (max-width: 640px) {
   .steps__profession {
-    padding-left: 0;
+    margin-left: 0;
   }
 }
 .round__hint {
@@ -1403,11 +1414,7 @@ a.chip:hover {
   grid-template-columns: 96px minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
-  padding: 6px 0;
-  border-top: 1px solid var(--line);
-}
-.steps__row:first-child {
-  border-top: 0;
+  padding: 4px 0;
 }
 .steps__qty {
   font-family: var(--mono);

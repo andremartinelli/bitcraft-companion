@@ -1,6 +1,6 @@
 import { HIDDEN_VERBS } from '#models/recipe'
 import type RecipeGraph from '#services/calculator/recipe_graph'
-import type { Producer } from '#services/calculator/recipe_graph'
+import type { GraphRecipe, Producer } from '#services/calculator/recipe_graph'
 
 /**
  * What the user asked: items to make, recipe choices and what they already have.
@@ -99,10 +99,13 @@ export function producersOf(graph: RecipeGraph, itemId: number): Producer[] {
 
 /**
  * The recipe used when the user made no choice: no scrap/recraft/unpack and
- * friends, then visible before hidden, fixed output before random, lowest
+ * friends, then visible before hidden, none that takes an animal no hunt
+ * leaves (see RecipeGraph.isLostAnimal), fixed output before random, lowest
  * skill level, lowest id.
  */
 export function defaultProducer(graph: RecipeGraph, itemId: number): Producer | undefined {
+  const takesLostAnimal = (recipe: GraphRecipe) =>
+    recipe.inputs.some((input) => graph.isLostAnimal(input.itemId))
   return producersOf(graph, itemId)
     .filter((p) => !NOT_BY_DEFAULT.has(graph.recipes.get(p.recipeId)!.verb))
     .sort((a, b) => {
@@ -110,6 +113,7 @@ export function defaultProducer(graph: RecipeGraph, itemId: number): Producer | 
       const rb = graph.recipes.get(b.recipeId)!
       return (
         Number(ra.hidden) - Number(rb.hidden) ||
+        Number(takesLostAnimal(ra)) - Number(takesLostAnimal(rb)) ||
         Number(b.deterministic) - Number(a.deterministic) ||
         (ra.skillLevel ?? 0) - (rb.skillLevel ?? 0) ||
         ra.id - rb.id

@@ -140,6 +140,8 @@ export function toClaimTechRows(techs: any[]): ClaimTechRow[] {
 }
 
 export interface ExtractionRecipeRow {
+  /** A resource in the world (tree, vein, plant) or an enemy (a hunted animal) */
+  source: 'resource' | 'enemy'
   gameId: number
   verb: string
   skillId: number | null
@@ -161,15 +163,49 @@ export function toExtractionRecipeRows(recipes: any[]): ExtractionRecipeRow[] {
       )
     }
     return {
+      source: 'resource' as const,
       gameId: raw.id,
       verb: blankToNull(raw.verb_phrase) ?? 'Gather',
       ...requirements(raw, 'extraction'),
-      outputs: (raw.extracted_item_stacks as { item_stack: RawStack }[]).map(({ item_stack }) => ({
-        key: stackKey(item_stack),
-        quantity: item_stack.quantity,
-      })),
+      outputs: extractedStacks(raw.extracted_item_stacks),
     }
   })
+}
+
+const extractedStacks = (stacks: { item_stack: RawStack }[]) =>
+  stacks.map(({ item_stack: stack }) => ({ key: stackKey(stack), quantity: stack.quantity }))
+
+/**
+ * Hunting (enemy_desc): a killed animal leaves its body ("Cervus"), sometimes
+ * more. The skill is the one the fight trains (Hunting; Slayer for monsters).
+ * Enemies that leave nothing stay out.
+ */
+export function toHuntingRows(enemies: any[]): ExtractionRecipeRow[] {
+  return enemies
+    .map((raw) => {
+      if (typeof raw.enemy_type !== 'number' || !Array.isArray(raw.extracted_item_stacks)) {
+        throw new GameDataFormatError(
+          `enemy_desc: linha sem enemy_type ou extracted_item_stacks (${raw.enemy_type})`
+        )
+      }
+      const skill = single<any>(
+        raw.experience_per_damage_dealt ?? [],
+        'skill',
+        'extraction',
+        raw.enemy_type
+      )
+      return {
+        source: 'enemy' as const,
+        gameId: raw.enemy_type,
+        verb: raw.huntable ? 'Hunt' : 'Slay',
+        skillId: skill?.skill_id ?? null,
+        skillLevel: null,
+        toolTypeId: null,
+        toolTier: null,
+        outputs: extractedStacks(raw.extracted_item_stacks),
+      }
+    })
+    .filter((row) => row.outputs.length > 0)
 }
 
 export function toItemListRows(lists: any[]): ItemListRow[] {

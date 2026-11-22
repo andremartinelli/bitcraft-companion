@@ -10,6 +10,7 @@ import {
   toClaimTechRows,
   toCraftingRecipeRows,
   toExtractionRecipeRows,
+  toHuntingRows,
   toItemListRows,
   toItemRows,
   type ClaimTechRow,
@@ -63,6 +64,7 @@ export default class GameDataImporter {
       toolTypes: await source.read('tool_type_desc'),
       claimTechs: await source.read('claim_tech_desc'),
       extraction: await source.read('extraction_recipe_desc'),
+      enemies: await source.read('enemy_desc'),
     }
 
     // Transform everything first: a format error must stop the import before any write.
@@ -75,7 +77,10 @@ export default class GameDataImporter {
       ...toConstructionRecipeRows(tables.construction, buildingNames),
     ]
     const claimTechRows = toClaimTechRows(tables.claimTechs)
-    const extractionRows = toExtractionRecipeRows(tables.extraction)
+    const extractionRows = [
+      ...toExtractionRecipeRows(tables.extraction),
+      ...toHuntingRows(tables.enemies),
+    ]
 
     const result = await db.transaction(async (trx) => {
       const now = DateTime.now()
@@ -112,7 +117,7 @@ export default class GameDataImporter {
       this.onProgress(`Pesquisas do assentamento (${claimTechRows.length})`)
       await this.#upsertClaimTechs(trx, claimTechRows, itemIds, record.id, stamp!, summary)
 
-      this.onProgress(`Coletas (${extractionRows.length})`)
+      this.onProgress(`Coletas e caça (${extractionRows.length})`)
       await this.#upsertExtractionRecipes(
         trx,
         extractionRows,
@@ -152,7 +157,8 @@ export default class GameDataImporter {
         craftingRecipes: recipeRows.filter((row) => row.kind === 'crafting').length,
         constructionRecipes: recipeRows.filter((row) => row.kind === 'construction').length,
         claimTechs: claimTechRows.length,
-        extractionRecipes: extractionRows.length,
+        extractionRecipes: extractionRows.filter((row) => row.source === 'resource').length,
+        hunting: extractionRows.filter((row) => row.source === 'enemy').length,
       }
       record.merge({ counts: summary.counts, renamed: summary.renamed, finishedAt: now })
       await record.useTransaction(trx).save()
@@ -461,6 +467,7 @@ export default class GameDataImporter {
     }
 
     const values = rows.map((row) => ({
+      source: row.source,
       game_id: row.gameId,
       verb: row.verb,
       skill_id: known(lookups.skills, row.skillId),
@@ -478,15 +485,17 @@ export default class GameDataImporter {
         .knexQuery()
         .table('extraction_recipes')
         .insert(batch)
-        .onConflict('game_id')
+        .onConflict(['source', 'game_id'])
         .merge(updatable)
     }
 
     const recipeRows: any[] = await trx
       .knexQuery()
       .table('extraction_recipes')
-      .select('id', 'game_id')
-    const recipeIds = new Map<number, number>(recipeRows.map((r) => [r.game_id, r.id]))
+      .select('id', 'source', 'game_id')
+    const recipeIds = new Map<string, number>(
+      recipeRows.map((r) => [`${r.source}:${r.game_id}`, r.id])
+    )
     const current = trx
       .knexQuery()
       .table('extraction_recipes')
@@ -500,7 +509,7 @@ export default class GameDataImporter {
 
     const outputs: { extraction_recipe_id: number; item_id: number; quantity: number }[] = []
     for (const row of rows) {
-      const recipeId = recipeIds.get(row.gameId)!
+      const recipeId = recipeIds.get(`${row.source}:${row.gameId}`)!
       for (const s of this.#resolveStacks(row.outputs, itemIds, summary)) {
         outputs.push({ extraction_recipe_id: recipeId, item_id: s.itemId, quantity: s.quantity })
       }

@@ -4,7 +4,7 @@ import Item from '#models/item'
 import Recipe from '#models/recipe'
 import RecipeGraph from '#services/calculator/recipe_graph'
 import { plan, type CalculatorState } from '#services/calculator/production_planner'
-import { fixtureTables, importTables } from '#tests/helpers/game_data'
+import { fixtureTables, importTables, withHunting } from '#tests/helpers/game_data'
 
 const ids = async () => {
   const find = async (kind: 'item' | 'cargo', gameId: number) => {
@@ -278,6 +278,25 @@ test.group('Production planner', (group) => {
     // "Rough Wood Log Output" is a list that sometimes gives bark
     assert.equal(graph.gatherers.get(item.bark), 'Forestry')
     assert.isUndefined(graph.gatherers.get(item.plank))
+  })
+
+  test('by default, never a recipe that takes an animal no hunt leaves', async ({ assert }) => {
+    await importTables(withHunting())
+    const pelt = await Item.findByOrFail({ kind: 'item', gameId: 9101 })
+    const cervus = await Item.findByOrFail({ kind: 'cargo', gameId: 4 })
+    const graph = await RecipeGraph.current()
+
+    const result = plan(graph, state({ targets: [{ itemId: pelt.id, quantity: 2 }] }))
+
+    // Hunting a Female Cervus leaves a "Cervus": the recipe that takes it wins
+    assert.equal(result.trees[0].children[0].itemId, cervus.id)
+    assert.deepEqual(
+      result.materials.map((m) => m.itemId),
+      [cervus.id]
+    )
+    assert.equal(graph.gatherers.get(cervus.id), 'Hunting')
+    // The other recipe stays in the dropdown
+    assert.lengthOf(result.trees[0].alternatives, 2)
   })
 
   test('the graph is cached until the next import', async ({ assert }) => {
