@@ -40,8 +40,17 @@ function byProfession<T>(list: T[], nameOf: (entry: T) => string) {
   }
   return [...groups]
     .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
-    .map(([name, entries]) => ({ name, entries }))
+    .map(([name, entries]) => ({ name, key: slug(name), entries }))
 }
+
+/** "Outras fontes: loja, drop ou criatura" → "outras-fontes-loja-drop-ou-criatura", for storage keys */
+const slug = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 
 /** Where "já tenho" came from, per item, and the inventory option (see withInventory) */
 export interface PresentOptions {
@@ -156,7 +165,7 @@ export function present(
     steps: PresentedStep[]
     readyCount: number
     /** The round's steps by the profession that makes them */
-    professions: { name: string; entries: PresentedStep[] }[]
+    professions: { name: string; key: string; entries: PresentedStep[]; readyCount: number }[]
   }[] = []
   for (const s of steps) {
     const round = s.round + 1
@@ -168,7 +177,10 @@ export function present(
   for (const group of rounds) {
     group.professions = byProfession(group.steps, (s) =>
       professionName(s.recipe?.skillName, NO_SKILL)
-    )
+    ).map((profession) => ({
+      ...profession,
+      readyCount: profession.entries.filter((s) => s.ready).length,
+    }))
   }
 
   const node = (n: PlanNode): PresentedNode => {
@@ -217,7 +229,10 @@ export function present(
     /** The same, by the profession that gathers each one in the world */
     materialGroups: byProfession(materials, (m) =>
       professionName(graph.gatherers.get(m.itemId), OTHER_SOURCES)
-    ),
+    ).map((profession) => ({
+      ...profession,
+      doneCount: profession.entries.filter((m) => m.complete).length,
+    })),
     materialsDone: materials.filter((m) => m.complete).length,
     /** "Etapas": the crafts by round, from round 2 (round 1 is `materials`) */
     rounds,

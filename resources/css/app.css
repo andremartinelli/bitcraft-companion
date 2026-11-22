@@ -1328,9 +1328,6 @@ a.chip:hover {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.round > .steps {
-  margin-bottom: 10px;
-}
 /*
  * A profession inside a round, lined up with the items (after the quantity
  * column). The line above it divides the professions, from the items' column
@@ -1338,16 +1335,48 @@ a.chip:hover {
  * have none.
  */
 .steps__profession {
+  position: relative;
   margin: 8px 0 0 104px;
   padding: 8px 0 2px;
   border-top: 1px solid var(--line);
   font-size: 12.5px;
   font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
-.round__summary + .steps__profession {
+.round__summary + .profession > .steps__profession {
   margin-top: 0;
   padding-top: 2px;
   border-top: 0;
+}
+.steps__profession::-webkit-details-marker {
+  display: none;
+}
+/* The fold triangle sits in the quantity column, so the name lines up with the items */
+.steps__profession::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  bottom: 7px;
+  border-left: 5px solid var(--muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s;
+}
+.profession[open] > .steps__profession::before {
+  transform: rotate(90deg);
+}
+.steps__profession:hover {
+  text-decoration: underline;
+}
+.steps__profession:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-radius: var(--r);
+}
+.profession > .steps {
+  margin-bottom: 6px;
 }
 .steps__profession span {
   margin-left: 6px;

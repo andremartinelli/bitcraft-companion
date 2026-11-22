@@ -34,10 +34,10 @@
         </span>
       </summary>
       @each(profession in panel.materialGroups)
-        <h3 class="steps__profession">
-          {{ profession.name }}
-          <span>{{ profession.entries.length }} {{ profession.entries.length === 1 ? 'item' : 'itens' }}</span>
-        </h3>
+        <details class="profession" open x-data="rememberOpen('{{ form.action }}:round:1:{{ profession.key }}')" x-on:toggle="remember()">
+        <summary class="steps__profession">{{ profession.name }}
+          <span>{{ profession.entries.length }} {{ profession.entries.length === 1 ? 'item' : 'itens' }}{{ profession.doneCount ? ` · ${profession.doneCount} ${profession.doneCount === 1 ? 'completo' : 'completos'}` : '' }}</span>
+        </summary>
         <ul class="steps">
           @each(row in profession.entries)
             <li class="steps__row gather__row {{ row.complete ? 'is-done' : '' }}">
@@ -62,6 +62,7 @@
             </li>
           @end
         </ul>
+        </details>
       @end
       @if(panel.materials.length)
         <p class="calc__hint round__hint">À esquerda, o que vocês têm / o que o plano precisa; ao lado do item, com quem está.</p>
@@ -79,10 +80,10 @@
           </span>
         </summary>
         @each(profession in group.professions)
-          <h3 class="steps__profession">
-            {{ profession.name }}
-            <span>{{ profession.entries.length }} {{ profession.entries.length === 1 ? 'item' : 'itens' }}</span>
-          </h3>
+          <details class="profession" open x-data="rememberOpen('{{ form.action }}:round:{{ group.round }}:{{ profession.key }}')" x-on:toggle="remember()">
+          <summary class="steps__profession">{{ profession.name }}
+            <span>{{ profession.entries.length }} {{ profession.entries.length === 1 ? 'item' : 'itens' }}{{ profession.readyCount ? ` · ${profession.readyCount} ${profession.readyCount === 1 ? 'pronto' : 'prontos'}` : '' }}</span>
+          </summary>
           <ul class="steps">
             @each(step in profession.entries)
               <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
@@ -104,6 +105,7 @@
               </li>
             @end
           </ul>
+          </details>
         @end
       </details>
     @end
