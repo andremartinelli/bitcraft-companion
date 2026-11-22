@@ -121,21 +121,25 @@ export function present(
   const totals = extras.inventoryTotals ?? null
   const holders = extras.holders ?? null
 
-  const materials = result.materials.map((material) => {
-    // A value typed by hand says nothing about where the items are
-    const whoHas =
-      sources[material.itemId] === 'manual' ? [] : (holders?.get(material.itemId) ?? [])
-    return {
-      ...material,
-      item: item(material.itemId),
-      complete: material.missing <= EPSILON,
-      holders: whoHas,
-      /** "Nimbus 3 · Quartz 1" */
-      holdersLabel: whoHas
-        .map((holder) => `${holder.owner} ${numberFormat.format(holder.quantity)}`)
-        .join(' · '),
-    }
-  })
+  // A value typed by hand says nothing about where the items are
+  const whoHas = (itemId: number) =>
+    sources[itemId] === 'manual' ? [] : (holders?.get(itemId) ?? [])
+  /** "Nimbus 3 · Quartz 1" */
+  const holdersLabelOf = (itemId: number) =>
+    whoHas(itemId)
+      .map((holder) => `${holder.owner} ${numberFormat.format(holder.quantity)}`)
+      .join(' · ')
+  /** What they have of an item: the value typed by hand, else the inventory */
+  const haveOf = (itemId: number) =>
+    sources[itemId] === 'manual' ? (state.owned[itemId] ?? 0) : (totals?.get(itemId) ?? 0)
+
+  const materials = result.materials.map((material) => ({
+    ...material,
+    item: item(material.itemId),
+    complete: material.missing <= EPSILON,
+    holders: whoHas(material.itemId),
+    holdersLabel: holdersLabelOf(material.itemId),
+  }))
 
   const step = (s: PlanStep) => {
     const waitingOn = s.waitingOn.map((w) => ({ ...w, item: item(w.itemId) }))
@@ -156,6 +160,18 @@ export function present(
             : `${s.approximate ? '≈ ' : ''}${numberFormat.format(w.missing)} ${w.item.name}`
         )
         .join(', '),
+      /**
+       * Done: why nothing goes into it, "vocês já têm 614 · Nimbus 600 · Quartz 14"
+       * (the plan takes only part of it)
+       */
+      haveLabel: s.done
+        ? [
+            `vocês já têm ${numberFormat.format(Math.max(haveOf(s.itemId), s.quantity))}`,
+            holdersLabelOf(s.itemId),
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : null,
     }
   }
   // Round 1 of the page is gathering ("Coletar"): the crafts start at round 2

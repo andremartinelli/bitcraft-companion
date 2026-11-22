@@ -20,7 +20,7 @@
 
   <section class="calc__box" aria-labelledby="calc-steps">
     <h2 id="calc-steps" class="calc__title">Etapas</h2>
-    <p class="calc__hint calc__hint--top">Primeiro, coletar a matéria-prima. Depois, cada item uma vez, somando a árvore inteira: uma rodada só depende das anteriores e, dentro dela, vai por estação.</p>
+    <p class="calc__hint calc__hint--top">Primeiro, coletar a matéria-prima. Depois, cada item uma vez, somando a árvore inteira: uma rodada só depende das anteriores e, dentro dela, vai por estação. <strong>Riscado é o que vocês já têm:</strong> não precisa fazer nem coletar o que vai nele.</p>
 
     <details class="round" open x-data="rememberOpen('{{ form.action }}:round:1')" x-on:toggle="remember()">
       <summary class="round__summary">
@@ -92,7 +92,7 @@
                   @!itemChip({ item: step.item })
                   @!calculator.stepWhere({ step })
                   @if(step.done)
-                    <span class="sr-only">vocês já têm</span>
+                    <span class="steps__status">{{ step.haveLabel }}</span>
                   @elseif(step.ready)
                     <span class="steps__status steps__status--ready">
                       @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })

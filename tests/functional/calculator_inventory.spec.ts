@@ -56,6 +56,8 @@ test.group('Calculator with the group inventory', (group) => {
     response.assertTextIncludes('Usar inventário do grupo')
     response.assertTextIncludes('name="inventory" value="1"')
     response.assertTextIncludes('usando 10 do inventário')
+    // The planks they have cover it: the step is done and says why
+    response.assertTextIncludes('vocês já têm 68')
   })
 
   test('a value typed by hand wins, even 0', async ({ client, assert }) => {
