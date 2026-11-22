@@ -17,6 +17,7 @@ export const GAME_TABLES = [
   'skill_desc',
   'tool_type_desc',
   'claim_tech_desc',
+  'extraction_recipe_desc',
 ] as const
 
 export type GameTable = (typeof GAME_TABLES)[number]

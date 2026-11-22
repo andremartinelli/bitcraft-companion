@@ -46,7 +46,9 @@ export default class RecipeGraph {
   constructor(
     public items: Map<number, GraphItem>,
     public recipes: Map<number, GraphRecipe>,
-    public producers: Map<number, Producer[]>
+    public producers: Map<number, Producer[]>,
+    /** The skill that gathers each item in the world (Forestry, Mining...), when one does */
+    public gatherers: Map<number, string> = new Map()
   ) {}
 
   /**
@@ -68,7 +70,7 @@ export default class RecipeGraph {
   }
 
   static async load(): Promise<RecipeGraph> {
-    const [itemRows, recipeRows, inputRows, outputRows, listRows] = await Promise.all([
+    const [itemRows, recipeRows, inputRows, outputRows, listRows, gatherRows] = await Promise.all([
       db
         .from('items')
         .select('id', 'name', 'tier', 'rarity', 'kind', 'item_list_game_id', 'removed_at'),
@@ -114,6 +116,12 @@ export default class RecipeGraph {
           'pi.item_id',
           'pi.quantity'
         ),
+      db
+        .from('extraction_recipe_outputs as eo')
+        .join('extraction_recipes as e', 'e.id', 'eo.extraction_recipe_id')
+        .join('skills as s', 's.id', 'e.skill_id')
+        .whereNull('e.removed_at')
+        .select('eo.item_id', 's.name as skill_name'),
     ])
 
     const items = new Map<number, GraphItem>()
@@ -205,6 +213,39 @@ export default class RecipeGraph {
       producers.set(itemId, list)
     }
 
-    return new RecipeGraph(items, recipes, producers)
+    return new RecipeGraph(items, recipes, producers, gatherersOf(gatherRows, listGameIdOf, lists))
   }
+}
+
+/**
+ * The skill that gathers each item. A gathering often gives a random-output
+ * list ("T1 Bark Output"): every item the list can give counts. When more
+ * than one skill gathers an item, the one with more ways to do it wins.
+ */
+function gatherersOf(
+  rows: { item_id: number; skill_name: string }[],
+  listGameIdOf: Map<number, number>,
+  lists: Map<number, Map<number, Possibility>>
+) {
+  const counts = new Map<number, Map<string, number>>()
+  const add = (itemId: number, skill: string) => {
+    const bySkill = counts.get(itemId) ?? new Map<string, number>()
+    bySkill.set(skill, (bySkill.get(skill) ?? 0) + 1)
+    counts.set(itemId, bySkill)
+  }
+  for (const row of rows) {
+    add(row.item_id, row.skill_name)
+    const listGameId = listGameIdOf.get(row.item_id)
+    const possibilities = listGameId !== undefined ? lists.get(listGameId) : undefined
+    const reachable = new Set(
+      [...(possibilities?.values() ?? [])].flatMap((p) => [...p.items.keys()])
+    )
+    for (const itemId of reachable) add(itemId, row.skill_name)
+  }
+  return new Map(
+    [...counts].map(([itemId, bySkill]) => [
+      itemId,
+      [...bySkill].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0],
+    ])
+  )
 }

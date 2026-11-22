@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
 import ClaimTech from '#models/claim_tech'
+import ExtractionRecipe from '#models/extraction_recipe'
 import Item from '#models/item'
 import Recipe from '#models/recipe'
 import GameDataImport from '#models/game_data_import'
@@ -20,6 +21,7 @@ test.group('Game data importer', (group) => {
       craftingRecipes: 5,
       constructionRecipes: 1,
       claimTechs: 6,
+      extractionRecipes: 3,
     })
     const same = await Item.query().where('game_id', 1010).orderBy('kind')
     assert.deepEqual(
@@ -151,6 +153,43 @@ test.group('Game data importer', (group) => {
     assert.isNull(gone.removedAt)
     const inputs = await gone.related('inputs').query()
     assert.lengthOf(inputs, 2)
+  })
+
+  test('imports gathering with its skill, tool and the items it gives', async ({ assert }) => {
+    await importTables()
+
+    const chop = await ExtractionRecipe.query()
+      .where('game_id', 7001)
+      .preload('skill')
+      .preload('outputs', (q) => q.preload('item'))
+      .firstOrFail()
+    assert.equal(chop.verb, 'Chop')
+    assert.equal(chop.skill.name, 'Forestry')
+    assert.equal(chop.toolTier, 1)
+    assert.deepEqual(
+      chop.outputs.map((output) => [output.item.kind, output.item.name, output.quantity]),
+      [['cargo', 'Rough Wood Trunk', 1]]
+    )
+    // Some gatherings give nothing the game data lists (chests, quests)
+    const open = await ExtractionRecipe.query()
+      .where('game_id', 7003)
+      .preload('outputs')
+      .firstOrFail()
+    assert.lengthOf(open.outputs, 0)
+  })
+
+  test('a gathering that left the game is marked, and comes back', async ({ assert }) => {
+    await importTables()
+
+    const tables = fixtureTables()
+    tables.extraction_recipe_desc = tables.extraction_recipe_desc.filter((r) => r.id !== 7002)
+    await importTables(tables)
+    const gone = await ExtractionRecipe.findByOrFail('gameId', 7002)
+    assert.isNotNull(gone.removedAt)
+
+    await importTables()
+    await gone.refresh()
+    assert.isNull(gone.removedAt)
   })
 
   test('a format error writes nothing', async ({ assert }) => {

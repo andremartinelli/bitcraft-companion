@@ -20,15 +20,28 @@ const wholeCrafts = (crafts: number) => Math.ceil(crafts - EPSILON)
 /** A recipe without a skill (rare in the game data) */
 const NO_SKILL = 'Sem profissão'
 
-/** The profession of a step: its recipe's skill; "ANY" in Portuguese */
-function professionOf(recipe: GraphRecipe | null) {
-  const skill = recipe?.skillName
-  if (!skill) return NO_SKILL
-  return skill === 'ANY' ? ANY_PROFESSION : skill
-}
+/** A raw material no gathering gives: bought, dropped by a creature, a quest... */
+const OTHER_SOURCES = 'Outras fontes: loja, drop ou criatura'
 
-/** Named professions first, alphabetically; then "any"; then none */
-const professionRank = (name: string) => (name === NO_SKILL ? 2 : name === ANY_PROFESSION ? 1 : 0)
+/** A skill as a heading: "ANY" in Portuguese */
+const professionName = (skill: string | null | undefined, none: string) =>
+  !skill ? none : skill === 'ANY' ? ANY_PROFESSION : skill
+
+/** Named professions first, alphabetically; then "any"; then none or other sources */
+const professionRank = (name: string) =>
+  name === NO_SKILL || name === OTHER_SOURCES ? 2 : name === ANY_PROFESSION ? 1 : 0
+
+/** Splits a list by profession, keeping each one's order */
+function byProfession<T>(list: T[], nameOf: (entry: T) => string) {
+  const groups = new Map<string, T[]>()
+  for (const entry of list) {
+    const name = nameOf(entry)
+    groups.set(name, [...(groups.get(name) ?? []), entry])
+  }
+  return [...groups]
+    .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
+    .map(([name, entries]) => ({ name, entries }))
+}
 
 /** Where "já tenho" came from, per item, and the inventory option (see withInventory) */
 export interface PresentOptions {
@@ -142,7 +155,7 @@ export function present(
     steps: PresentedStep[]
     readyCount: number
     /** The round's steps by the profession that makes them */
-    professions: { name: string; steps: PresentedStep[] }[]
+    professions: { name: string; entries: PresentedStep[] }[]
   }[] = []
   for (const s of steps) {
     const round = s.round + 1
@@ -152,14 +165,9 @@ export function present(
     if (s.ready) rounds.at(-1)!.readyCount++
   }
   for (const group of rounds) {
-    const byProfession = new Map<string, PresentedStep[]>()
-    for (const s of group.steps) {
-      const name = professionOf(s.recipe)
-      byProfession.set(name, [...(byProfession.get(name) ?? []), s])
-    }
-    group.professions = [...byProfession]
-      .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
-      .map(([name, professionSteps]) => ({ name, steps: professionSteps }))
+    group.professions = byProfession(group.steps, (s) =>
+      professionName(s.recipe?.skillName, NO_SKILL)
+    )
   }
 
   const node = (n: PlanNode): PresentedNode => {
@@ -205,6 +213,10 @@ export function present(
     rawMaterials: result.rawMaterials.map((r) => ({ ...r, item: item(r.itemId) })),
     /** "Coletar": every raw material, with what they have of it */
     materials,
+    /** The same, by the profession that gathers each one in the world */
+    materialGroups: byProfession(materials, (m) =>
+      professionName(graph.gatherers.get(m.itemId), OTHER_SOURCES)
+    ),
     materialsDone: materials.filter((m) => m.complete).length,
     /** "Etapas": the crafts by round, from round 2 (round 1 is `materials`) */
     rounds,

@@ -139,6 +139,39 @@ export function toClaimTechRows(techs: any[]): ClaimTechRow[] {
   })
 }
 
+export interface ExtractionRecipeRow {
+  gameId: number
+  verb: string
+  skillId: number | null
+  skillLevel: number | null
+  toolTypeId: number | null
+  toolTier: number | null
+  outputs: StackRow[]
+}
+
+/**
+ * Gathering (extraction_recipe_desc): the skill it takes and the items it
+ * gives (often a random-output list, like "T1 Bark Output").
+ */
+export function toExtractionRecipeRows(recipes: any[]): ExtractionRecipeRow[] {
+  return recipes.map((raw) => {
+    if (typeof raw.id !== 'number' || !Array.isArray(raw.extracted_item_stacks)) {
+      throw new GameDataFormatError(
+        `extraction_recipe_desc: linha sem id ou extracted_item_stacks (${raw.id})`
+      )
+    }
+    return {
+      gameId: raw.id,
+      verb: blankToNull(raw.verb_phrase) ?? 'Gather',
+      ...requirements(raw, 'extraction'),
+      outputs: (raw.extracted_item_stacks as { item_stack: RawStack }[]).map(({ item_stack }) => ({
+        key: stackKey(item_stack),
+        quantity: item_stack.quantity,
+      })),
+    }
+  })
+}
+
 export function toItemListRows(lists: any[]): ItemListRow[] {
   return lists.map((raw) => ({
     gameId: raw.id,
@@ -157,7 +190,12 @@ export function toItemListRows(lists: any[]): ItemListRow[] {
  * Every recipe in the game has one skill, at most one tool and at most one
  * station. Rather than silently dropping data, stop when a patch changes that.
  */
-function single<T>(values: T[], what: string, kind: RecipeKind, id: number): T | null {
+function single<T>(
+  values: T[],
+  what: string,
+  kind: RecipeKind | 'extraction',
+  id: number
+): T | null {
   if (values.length > 1) {
     throw new GameDataFormatError(
       `A receita ${kind} ${id} tem ${values.length} exigências de ${what}; o esquema só guarda uma. ` +
@@ -167,7 +205,7 @@ function single<T>(values: T[], what: string, kind: RecipeKind, id: number): T |
   return values[0] ?? null
 }
 
-function requirements(raw: any, kind: RecipeKind) {
+function requirements(raw: any, kind: RecipeKind | 'extraction') {
   const level = single<any>(raw.level_requirements ?? [], 'skill', kind, raw.id)
   const tool = single<any>(raw.tool_requirements ?? [], 'ferramenta', kind, raw.id)
   return {

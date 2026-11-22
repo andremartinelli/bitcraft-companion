@@ -1,0 +1,39 @@
+[
+  {
+    "id": 7001,
+    "resource_id": 70,
+    "verb_phrase": "Chop",
+    "level_requirements": [{ "skill_id": 2, "level": 1 }],
+    "tool_requirements": [{ "tool_type": 1, "level": 1, "power": 1 }],
+    "consumed_item_stacks": [],
+    "extracted_item_stacks": [
+      {
+        "item_stack": { "item_id": 1010, "quantity": 1, "item_type": "Cargo", "durability": 0 },
+        "probability": 1
+      }
+    ]
+  },
+  {
+    "id": 7002,
+    "resource_id": 71,
+    "verb_phrase": "Gather",
+    "level_requirements": [{ "skill_id": 2, "level": 1 }],
+    "tool_requirements": [],
+    "consumed_item_stacks": [],
+    "extracted_item_stacks": [
+      {
+        "item_stack": { "item_id": 1040, "quantity": 1, "item_type": "Item", "durability": 0 },
+        "probability": 0.5
+      }
+    ]
+  },
+  {
+    "id": 7003,
+    "resource_id": 72,
+    "verb_phrase": "Open",
+    "level_requirements": [{ "skill_id": 1, "level": 1 }],
+    "tool_requirements": [],
+    "consumed_item_stacks": [],
+    "extracted_item_stacks": []
+  }
+]

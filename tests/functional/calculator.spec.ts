@@ -44,11 +44,12 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('Carpentry')
     response.assertTextIncludes('Rodada 4')
     assert.notInclude(response.text(), 'Rodada 5')
-    // Inside a round, by profession: Forestry splits the trunk, Carpentry does the rest
+    // Inside a round, by profession: Forestry chops the trunk (round 1) and
+    // splits it; Carpentry does the rest
     const professions = [...response.text().matchAll(/class="steps__profession">\s*(\w+)/g)]
     assert.deepEqual(
       professions.map((match) => match[1]),
-      ['Forestry', 'Carpentry', 'Carpentry']
+      ['Forestry', 'Forestry', 'Carpentry', 'Carpentry']
     )
     response.assertTextIncludes('espera 10 Rough Wood Trunk')
     response.assertTextIncludes('Árvore de produção')
@@ -68,6 +69,8 @@ test.group('Quick calculator', (group) => {
     response.assertStatus(200)
     response.assertTextIncludes('usando 5 que vocês informaram')
     assert.notInclude(response.text(), 'Rough Wood Trunk')
+    // Stripped wood as raw material: no gathering gives it
+    response.assertTextIncludes('Outras fontes: loja, drop ou criatura')
   })
 
   test('adding an item redirects to the canonical URL', async ({ client }) => {

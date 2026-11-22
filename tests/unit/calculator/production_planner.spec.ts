@@ -268,6 +268,18 @@ test.group('Production planner', (group) => {
     assert.deepEqual(result.rawMaterials, [{ itemId: item.log, quantity: 2, approximate: false }])
   })
 
+  test('the graph knows which skill gathers each item, random lists included', async ({
+    assert,
+  }) => {
+    const item = await ids()
+    const graph = await RecipeGraph.current()
+
+    assert.equal(graph.gatherers.get(item.trunk), 'Forestry')
+    // "Rough Wood Log Output" is a list that sometimes gives bark
+    assert.equal(graph.gatherers.get(item.bark), 'Forestry')
+    assert.isUndefined(graph.gatherers.get(item.plank))
+  })
+
   test('the graph is cached until the next import', async ({ assert }) => {
     const first = await RecipeGraph.current()
     assert.strictEqual(await RecipeGraph.current(), first)

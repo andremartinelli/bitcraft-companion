@@ -58,6 +58,46 @@ export class ClaimTechSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ExtractionRecipeOutputSchema extends BaseModel {
+  static $columns = ['extractionRecipeId', 'id', 'itemId', 'quantity'] as const
+  $columns = ExtractionRecipeOutputSchema.$columns
+  @column()
+  declare extractionRecipeId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare quantity: number
+}
+
+export class ExtractionRecipeSchema extends BaseModel {
+  static $columns = ['createdAt', 'gameId', 'id', 'lastImportId', 'removedAt', 'skillId', 'skillLevel', 'toolTier', 'toolTypeId', 'updatedAt', 'verb'] as const
+  $columns = ExtractionRecipeSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare gameId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastImportId: number | null
+  @column.dateTime()
+  declare removedAt: DateTime | null
+  @column()
+  declare skillId: number | null
+  @column()
+  declare skillLevel: number | null
+  @column()
+  declare toolTier: number | null
+  @column()
+  declare toolTypeId: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare verb: string
+}
+
 export class GameDataImportSchema extends BaseModel {
   static $columns = ['commitSha', 'counts', 'createdAt', 'finishedAt', 'id', 'renamed', 'source', 'sourceDate', 'updatedAt'] as const
   $columns = GameDataImportSchema.$columns
