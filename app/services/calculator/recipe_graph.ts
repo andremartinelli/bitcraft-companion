@@ -50,7 +50,12 @@ export default class RecipeGraph {
     public recipes: Map<number, GraphRecipe>,
     public producers: Map<number, Producer[]>,
     /** The skill that gathers or hunts each item (Forestry, Mining, Hunting...), when one does */
-    public gatherers: Map<number, string> = new Map()
+    public gatherers: Map<number, string> = new Map(),
+    /**
+     * Items the world gives as they are, not only through a random list:
+     * sand dug from the ground, braxite from a vein, logs from a tree.
+     */
+    public gatheredDirectly: Set<number> = new Set()
   ) {}
 
   /**
@@ -226,7 +231,8 @@ export default class RecipeGraph {
       producers.set(itemId, list)
     }
 
-    return new RecipeGraph(items, recipes, producers, gatherersOf(gatherRows, listGameIdOf, lists))
+    const gathered = gatherersOf(gatherRows, listGameIdOf, lists)
+    return new RecipeGraph(items, recipes, producers, gathered.skills, gathered.direct)
   }
 }
 
@@ -234,6 +240,7 @@ export default class RecipeGraph {
  * The skill that gathers each item. A gathering often gives a random-output
  * list ("T1 Bark Output"): every item the list can give counts. When more
  * than one skill gathers an item, the one with more ways to do it wins.
+ * `direct`: the items a gathering gives as they are, not through a list.
  */
 function gatherersOf(
   rows: { item_id: number; skill_name: string }[],
@@ -241,6 +248,7 @@ function gatherersOf(
   lists: Map<number, Map<number, Possibility>>
 ) {
   const counts = new Map<number, Map<string, number>>()
+  const direct = new Set<number>()
   const add = (itemId: number, skill: string) => {
     const bySkill = counts.get(itemId) ?? new Map<string, number>()
     bySkill.set(skill, (bySkill.get(skill) ?? 0) + 1)
@@ -249,16 +257,21 @@ function gatherersOf(
   for (const row of rows) {
     add(row.item_id, row.skill_name)
     const listGameId = listGameIdOf.get(row.item_id)
-    const possibilities = listGameId !== undefined ? lists.get(listGameId) : undefined
+    if (listGameId === undefined) {
+      direct.add(row.item_id)
+      continue
+    }
+    const possibilities = lists.get(listGameId)
     const reachable = new Set(
       [...(possibilities?.values() ?? [])].flatMap((p) => [...p.items.keys()])
     )
     for (const itemId of reachable) add(itemId, row.skill_name)
   }
-  return new Map(
+  const skills = new Map(
     [...counts].map(([itemId, bySkill]) => [
       itemId,
       [...bySkill].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0],
     ])
   )
+  return { skills, direct }
 }

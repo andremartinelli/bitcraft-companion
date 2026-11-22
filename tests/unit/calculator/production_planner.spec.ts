@@ -190,7 +190,7 @@ test.group('Production planner', (group) => {
     assert.equal(result.steps[0].readyCrafts, 10)
   })
 
-  test('an owned intermediate is neither a material nor a step', async ({ assert }) => {
+  test('an owned intermediate is a done step, by the step that uses it', async ({ assert }) => {
     const item = await ids()
     const result = plan(
       await RecipeGraph.current(),
@@ -199,8 +199,50 @@ test.group('Production planner', (group) => {
 
     assert.deepEqual(result.materials, [])
     assert.deepEqual(
-      result.steps.map((s) => [s.itemId, s.round, s.readyCrafts]),
-      [[item.plank, 1, 10]]
+      result.steps.map((s) => [s.itemId, s.round, s.done, s.quantity, s.crafts, s.readyCrafts]),
+      [
+        [item.plank, 1, false, 10, 10, 10],
+        // What the plan takes of it, nothing to make
+        [item.stripped, 1, true, 20, 0, 0],
+      ]
+    )
+  })
+
+  test('the world gives it as it is: gathered, unless a recipe is chosen', async ({ assert }) => {
+    const tables = fixtureTables()
+    // Logs straight from a tree, besides splitting a trunk
+    tables.extraction_recipe_desc.push({
+      id: 7010,
+      verb_phrase: 'Chop',
+      level_requirements: [{ skill_id: 2, level: 1 }],
+      tool_requirements: [],
+      extracted_item_stacks: [
+        { item_stack: { item_id: 1010, quantity: 1, item_type: 'Item' }, probability: 1 },
+      ],
+    })
+    await importTables(tables)
+    const item = await ids()
+    const split = await Recipe.findByOrFail({ kind: 'crafting', gameId: 100 })
+    const graph = await RecipeGraph.current()
+
+    const gathered = plan(graph, state({ targets: [{ itemId: item.plank, quantity: 10 }] }))
+    assert.deepEqual(
+      gathered.materials.map((m) => [m.itemId, m.needed]),
+      [[item.log, 20]]
+    )
+    assert.equal(gathered.trees[0].children[0].children[0].reason, 'gathered')
+    assert.deepEqual(
+      gathered.steps.map((s) => s.itemId),
+      [item.stripped, item.plank]
+    )
+
+    const crafted = plan(
+      graph,
+      state({ targets: [{ itemId: item.plank, quantity: 10 }], choices: { [item.log]: split.id } })
+    )
+    assert.deepEqual(
+      crafted.materials.map((m) => m.itemId),
+      [item.trunk]
     )
   })
 

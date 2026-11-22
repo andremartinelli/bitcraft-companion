@@ -85,6 +85,7 @@ export interface PresentedNode {
 const REASONS: Record<NodeReason, string> = {
   owned: 'vocês já têm',
   raw: 'tratado como matéria-prima',
+  gathered: 'coletado no mundo',
   no_recipe: 'sem receita: coleta, drop ou loja',
   cycle: 'ciclo: tratado como matéria-prima',
   depth: 'cadeia longa demais: parou aqui',
@@ -144,7 +145,8 @@ export function present(
       recipe: graph.recipes.get(s.recipeId) ?? null,
       wholeCrafts: wholeCrafts(s.crafts),
       wholeReadyCrafts: wholeCrafts(s.readyCrafts),
-      ready: s.readyCrafts >= s.crafts - EPSILON,
+      // A done step has nothing left to make: not "ready", complete
+      ready: !s.done && s.readyCrafts >= s.crafts - EPSILON,
       waitingOn,
       /** "Sturdy Leather, 18 Hideworking Salt": a step's name, a material's quantity too */
       waitingLabel: waitingOn
@@ -159,27 +161,37 @@ export function present(
   // Round 1 of the page is gathering ("Coletar"): the crafts start at round 2
   const steps = result.steps.map(step)
   type PresentedStep = (typeof steps)[number]
+  /** "6 itens · 2 prontos · 3 completos": what a folded round or profession still says */
+  const countLabel = (list: PresentedStep[]) => {
+    const ready = list.filter((s) => s.ready).length
+    const done = list.filter((s) => s.done).length
+    return [
+      `${list.length} ${list.length === 1 ? 'item' : 'itens'}`,
+      ready ? `${ready} ${ready === 1 ? 'pronto' : 'prontos'}` : null,
+      done ? `${done} ${done === 1 ? 'completo' : 'completos'}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
   const rounds: {
     round: number
     steps: PresentedStep[]
-    readyCount: number
+    countLabel: string
     /** The round's steps by the profession that makes them */
-    professions: { name: string; key: string; entries: PresentedStep[]; readyCount: number }[]
+    professions: { name: string; key: string; entries: PresentedStep[]; countLabel: string }[]
   }[] = []
   for (const s of steps) {
     const round = s.round + 1
     const last = rounds.at(-1)
     if (last?.round === round) last.steps.push(s)
-    else rounds.push({ round, steps: [s], readyCount: 0, professions: [] })
-    if (s.ready) rounds.at(-1)!.readyCount++
+    else rounds.push({ round, steps: [s], countLabel: '', professions: [] })
   }
   for (const group of rounds) {
+    group.countLabel = countLabel(group.steps)
     group.professions = byProfession(group.steps, (s) =>
       professionName(s.recipe?.skillName, NO_SKILL)
-    ).map((profession) => ({
-      ...profession,
-      readyCount: profession.entries.filter((s) => s.ready).length,
-    }))
+    ).map((profession) => ({ ...profession, countLabel: countLabel(profession.entries) }))
   }
 
   const node = (n: PlanNode): PresentedNode => {

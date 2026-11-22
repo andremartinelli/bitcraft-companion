@@ -19,7 +19,7 @@ export interface CalculatorState {
   useInventory?: boolean
 }
 
-export type NodeReason = 'raw' | 'no_recipe' | 'owned' | 'cycle' | 'depth'
+export type NodeReason = 'raw' | 'gathered' | 'no_recipe' | 'owned' | 'cycle' | 'depth'
 
 export interface PlanNode {
   itemId: number
@@ -49,16 +49,21 @@ export interface PlanMaterial {
   approximate: boolean
 }
 
-/** One item to make, summed over every place the tree needs it ("Etapas") */
+/**
+ * One item to make, summed over every place the tree needs it ("Etapas").
+ * `done`: they already have all of it (quantity is then what the plan takes,
+ * no crafts): it still shows, in the round of the step that uses it.
+ */
 export interface PlanStep {
   itemId: number
   recipeId: number
-  /** How many to make */
+  /** How many to make (done: how many the plan takes from what they have) */
   quantity: number
   crafts: number
   /** Crafts whose inputs they already have */
   readyCrafts: number
   approximate: boolean
+  done: boolean
   /** 1 when only raw materials and owned items go in; else after the steps it needs */
   round: number
   /** Inputs still missing: made in an earlier step (crafted) or gathered */
@@ -79,6 +84,8 @@ export interface PlanResult {
 interface StepTotal extends Omit<PlanStep, 'round' | 'waitingOn'> {
   /** Steps that make its inputs */
   needs: Set<number>
+  /** Done steps: the items whose steps use it */
+  usedBy: Set<number>
   waiting: Map<number, { missing: number; crafted: boolean }>
 }
 
@@ -147,17 +154,36 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     materials.set(node.itemId, total)
   }
 
+  const newStep = (itemId: number, recipeId: number, done: boolean): StepTotal => ({
+    itemId,
+    recipeId,
+    quantity: 0,
+    crafts: 0,
+    readyCrafts: 0,
+    approximate: false,
+    done,
+    needs: new Set<number>(),
+    usedBy: new Set<number>(),
+    waiting: new Map(),
+  })
+
+  /** An item they already have all of: a done step, unless it is also made somewhere */
+  const addOwned = (node: PlanNode, parentId: number | null) => {
+    const current = steps.get(node.itemId)
+    if (current && !current.done) return
+    const producer = chosenProducer(node.itemId)
+    if (!producer) return
+    const step = current ?? newStep(node.itemId, producer.recipeId, true)
+    step.quantity += node.needed
+    step.approximate ||= node.approximate
+    if (parentId !== null) step.usedBy.add(parentId)
+    steps.set(node.itemId, step)
+  }
+
   const addStep = (node: PlanNode) => {
-    const step = steps.get(node.itemId) ?? {
-      itemId: node.itemId,
-      recipeId: node.recipeId!,
-      quantity: 0,
-      crafts: 0,
-      readyCrafts: 0,
-      approximate: false,
-      needs: new Set<number>(),
-      waiting: new Map(),
-    }
+    // Made here: it replaces a done step of the same item (what they have is used elsewhere)
+    const current = steps.get(node.itemId)
+    const step = current && !current.done ? current : newStep(node.itemId, node.recipeId!, false)
     step.quantity += node.missing
     step.crafts += node.crafts
     step.approximate ||= node.approximate
@@ -181,40 +207,49 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     steps.set(node.itemId, step)
   }
 
-  /** No recipe to expand: chosen as raw material, or none but scrapping and friends */
-  const isRaw = (itemId: number) => {
-    const choice = state.choices[itemId]
-    if (choice === 'raw') return true
-    if (choice !== undefined && producersOf(graph, itemId).some((p) => p.recipeId === choice)) {
-      return false
-    }
-    return !defaultProducer(graph, itemId)
-  }
-
   // The same item twice in the list is one target
   const targets = new Map<number, number>()
   for (const target of state.targets) {
     targets.set(target.itemId, (targets.get(target.itemId) ?? 0) + target.quantity)
   }
 
-  const pickProducer = (itemId: number): { producer?: Producer; raw: boolean } => {
+  /**
+   * How an item is obtained: the recipe chosen for it; without a choice,
+   * gathered when the world gives it as it is (sand, braxite, logs: no need
+   * to make it), else the default recipe. A choice that no longer makes the
+   * item counts as none, with a warning.
+   */
+  const pickProducer = (
+    itemId: number,
+    warn = true
+  ): { producer?: Producer; raw: boolean; gathered?: boolean } => {
     const choice = state.choices[itemId]
     if (choice === 'raw') return { raw: true }
     if (choice !== undefined) {
       const chosen = producersOf(graph, itemId).find((p) => p.recipeId === choice)
       if (chosen) return { producer: chosen, raw: false }
-      warnings.push(
-        `A receita escolhida para ${nameOf(itemId)} não existe mais ou não produz esse item; usando a padrão.`
-      )
+      if (warn) {
+        warnings.push(
+          `A receita escolhida para ${nameOf(itemId)} não existe mais ou não produz esse item; usando a padrão.`
+        )
+      }
     }
+    if (graph.gatheredDirectly.has(itemId)) return { raw: true, gathered: true }
     return { producer: defaultProducer(graph, itemId), raw: false }
+  }
+
+  /** The recipe that makes an item, or none: a raw material (gathered, bought, chosen as raw) */
+  const chosenProducer = (itemId: number) => {
+    const picked = pickProducer(itemId, false)
+    return picked.raw ? undefined : picked.producer
   }
 
   const expand = (
     itemId: number,
     needed: number,
     path: Set<number>,
-    approximate: boolean
+    approximate: boolean,
+    parentId: number | null
   ): PlanNode => {
     const available = pool.get(itemId) ?? 0
     const fromOwned = Math.min(available, needed)
@@ -250,8 +285,10 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
 
     if (missing <= EPSILON) {
       node.reason = 'owned'
-      // An owned raw material still goes in "Coletar", complete
-      if (isRaw(itemId)) addMaterial(node)
+      // What they have still shows, complete: a raw material in "Coletar",
+      // something made in the round of the step that uses it
+      if (chosenProducer(itemId)) addOwned(node, parentId)
+      else addMaterial(node)
       return node
     }
     if (path.has(itemId)) {
@@ -261,7 +298,7 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     if (path.size >= MAX_DEPTH) return leaf('depth')
 
     const picked = pickProducer(itemId)
-    if (picked.raw) return leaf('raw')
+    if (picked.raw) return leaf(picked.gathered ? 'gathered' : 'raw')
     if (!picked.producer) return leaf('no_recipe')
 
     // Default recipe first, so the dropdown reads "padrão" on top
@@ -287,7 +324,7 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
 
     const childPath = new Set(path).add(itemId)
     node.children = recipe.inputs.map((input) =>
-      expand(input.itemId, input.quantity * node.crafts, childPath, childApproximate)
+      expand(input.itemId, input.quantity * node.crafts, childPath, childApproximate, itemId)
     )
     addStep(node)
     return node
@@ -301,7 +338,7 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
       continue
     }
     if (item.removed) warnings.push(`${item.name} saiu do jogo; o cálculo usa os dados antigos.`)
-    trees.push(expand(itemId, quantity, new Set(), false))
+    trees.push(expand(itemId, quantity, new Set(), false, null))
   }
 
   return {
@@ -325,8 +362,10 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
 
 /**
  * The steps in an order that works: round 1 takes only raw materials and
- * owned items; each later round, the steps that need an earlier one. Inside a
- * round, by station, so one visit to a station does all of its crafts.
+ * owned items; each later round, the steps that need an earlier one. A done
+ * step (they have it all) goes one round before the first step that uses it.
+ * Inside a round, what is left to do first, then by station, so one visit to
+ * a station does all of its crafts.
  */
 function orderSteps(
   graph: RecipeGraph,
@@ -350,16 +389,25 @@ function orderSteps(
     return round
   }
 
+  const toDo = [...steps.values()].filter((step) => !step.done)
+  const lastRound = Math.max(1, ...toDo.map((step) => roundOf(step.itemId)))
+  const doneRound = (step: StepTotal) => {
+    const users = [...step.usedBy].filter((id) => steps.get(id)?.done === false).map(roundOf)
+    // A target they already have all of: with the finished products, at the end
+    return users.length ? Math.max(1, Math.min(...users) - 1) : lastRound
+  }
+
   const station = (step: StepTotal) => {
     const recipe = graph.recipes.get(step.recipeId)
     return `${recipe?.stationName ?? ''} ${String(recipe?.stationTier ?? 0).padStart(2, '0')}`
   }
 
   return [...steps.values()]
-    .map((step) => ({ step, round: roundOf(step.itemId) }))
+    .map((step) => ({ step, round: step.done ? doneRound(step) : roundOf(step.itemId) }))
     .sort(
       (a, b) =>
         a.round - b.round ||
+        Number(a.step.done) - Number(b.step.done) ||
         station(a.step).localeCompare(station(b.step)) ||
         nameOf(a.step.itemId).localeCompare(nameOf(b.step.itemId))
     )
@@ -370,6 +418,7 @@ function orderSteps(
       crafts: step.crafts,
       readyCrafts: step.readyCrafts,
       approximate: step.approximate,
+      done: step.done,
       round,
       waitingOn: [...step.waiting]
         .map(([itemId, entry]) => ({ itemId, ...entry }))

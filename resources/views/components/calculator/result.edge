@@ -70,23 +70,30 @@
       <details class="round" open x-data="rememberOpen('{{ form.action }}:round:{{ group.round }}')" x-on:toggle="remember()">
         <summary class="round__summary">
           <span class="round__title">Rodada {{ group.round }}</span>
-          <span class="round__count">
-            {{ group.steps.length }} {{ group.steps.length === 1 ? 'item' : 'itens' }}{{ group.readyCount ? ` · ${group.readyCount} ${group.readyCount === 1 ? 'pronto' : 'prontos'} para fazer` : '' }}
-          </span>
+          <span class="round__count">{{ group.countLabel }}</span>
         </summary>
         @each(profession in group.professions)
           <details class="profession" open x-data="rememberOpen('{{ form.action }}:round:{{ group.round }}:{{ profession.key }}')" x-on:toggle="remember()">
           <summary class="steps__profession">{{ profession.name }}
-            <span>{{ profession.entries.length }} {{ profession.entries.length === 1 ? 'item' : 'itens' }}{{ profession.readyCount ? ` · ${profession.readyCount} ${profession.readyCount === 1 ? 'pronto' : 'prontos'}` : '' }}</span>
+            <span>{{ profession.countLabel }}</span>
           </summary>
           <ul class="steps">
             @each(step in profession.entries)
-              <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
-                <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
+              {{-- Done: they have it all; it shows struck through, like a complete raw material --}}
+              <li class="steps__row {{ step.done ? 'is-done' : step.ready ? 'is-ready' : '' }}">
+                <span class="steps__qty">
+                  @if(step.done)
+                    {{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.quantity) }} / {{ formatNumber(step.quantity) }}
+                  @else
+                    {{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×
+                  @end
+                </span>
                 <span class="steps__main">
                   @!itemChip({ item: step.item })
                   @!calculator.stepWhere({ step })
-                  @if(step.ready)
+                  @if(step.done)
+                    <span class="sr-only">vocês já têm</span>
+                  @elseif(step.ready)
                     <span class="steps__status steps__status--ready">
                       @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
                       pronto para fazer
