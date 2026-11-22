@@ -1398,45 +1398,40 @@ a.chip:hover {
   padding: 0;
 }
 /* Round 1: each raw material, what they have of it and who has it */
-.gather__mark {
-  display: inline-flex;
-  align-self: center;
-  color: var(--muted);
-}
-.gather__row.is-done .gather__mark {
-  color: var(--ink);
-}
 .gather__holders {
   font-size: 12px;
   color: var(--muted);
 }
 .gather__status {
   margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
 }
-.gather__row.is-done .gather__status {
-  color: var(--ink);
-  font-weight: 560;
+/* Complete: struck through and muted, the item and the quantities */
+.gather__row.is-done .steps__qty,
+.gather__row.is-done .chip,
+.gather__row.is-done .gather__holders {
+  color: var(--muted);
+  text-decoration: line-through;
 }
-.gather__bar {
-  width: 72px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line);
+.gather__row.is-done .chip {
+  background: transparent;
+}
+.gather__row.is-done .chip .badge {
+  opacity: 0.6;
+}
+/* Read by screen readers, not shown */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
   overflow: hidden;
-}
-.gather__bar > span {
-  display: block;
-  height: 100%;
-  background: var(--muted);
-}
-.gather__row.is-done .gather__bar > span {
-  background: var(--ink);
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .steps__row {
   display: grid;

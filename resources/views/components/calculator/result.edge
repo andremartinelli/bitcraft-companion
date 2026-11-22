@@ -40,24 +40,19 @@
         </summary>
         <ul class="steps">
           @each(row in profession.entries)
+            {{-- Complete: struck through and muted, "completo" only for screen readers --}}
             <li class="steps__row gather__row {{ row.complete ? 'is-done' : '' }}">
               <span class="steps__qty">{{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.owned) }} / {{ formatNumber(row.needed) }}</span>
               <span class="steps__main">
-                <span class="gather__mark">
-                  @if(row.complete)
-                    @svg('lucide:circle-check', { width: 16, height: 16, 'aria-hidden': 'true' })
-                  @else
-                    @svg('lucide:circle', { width: 16, height: 16, 'aria-hidden': 'true' })
-                  @end
-                </span>
                 @!itemChip({ item: row.item })
                 @if(row.holdersLabel)
                   <span class="gather__holders">{{ row.holdersLabel }}</span>
                 @end
-                <span class="gather__status">
-                  <span class="gather__bar" aria-hidden="true"><span style="width: {{ row.percent.toFixed(1) }}%"></span></span>
-                  {{ row.complete ? 'completo' : `faltam ${row.approximate ? '≈ ' : ''}${formatNumber(row.missing)}` }}
-                </span>
+                @if(row.complete)
+                  <span class="sr-only">completo</span>
+                @else
+                  <span class="gather__status">faltam {{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.missing) }}</span>
+                @end
               </span>
             </li>
           @end

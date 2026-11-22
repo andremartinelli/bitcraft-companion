@@ -128,7 +128,6 @@ export function present(
       ...material,
       item: item(material.itemId),
       complete: material.missing <= EPSILON,
-      percent: material.needed > 0 ? Math.min(100, (material.owned / material.needed) * 100) : 100,
       holders: whoHas,
       /** "Nimbus 3 · Quartz 1" */
       holdersLabel: whoHas
