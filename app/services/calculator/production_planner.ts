@@ -39,11 +39,47 @@ export interface PlanNode {
   children: PlanNode[]
 }
 
+/** A raw material of the plan, owned or not ("Coletar") */
+export interface PlanMaterial {
+  itemId: number
+  needed: number
+  /** Covered by what they have */
+  owned: number
+  missing: number
+  approximate: boolean
+}
+
+/** One item to make, summed over every place the tree needs it ("Etapas") */
+export interface PlanStep {
+  itemId: number
+  recipeId: number
+  /** How many to make */
+  quantity: number
+  crafts: number
+  /** Crafts whose inputs they already have */
+  readyCrafts: number
+  approximate: boolean
+  /** 1 when only raw materials and owned items go in; else after the steps it needs */
+  round: number
+  /** Inputs still missing: made in an earlier step (crafted) or gathered */
+  waitingOn: { itemId: number; missing: number; crafted: boolean }[]
+}
+
 export interface PlanResult {
   trees: PlanNode[]
   rawMaterials: { itemId: number; quantity: number; approximate: boolean }[]
+  /** Every raw material, the incomplete ones first */
+  materials: PlanMaterial[]
+  /** The crafts in the order they can be done */
+  steps: PlanStep[]
   effortBySkill: { skill: string; actions: number }[]
   warnings: string[]
+}
+
+interface StepTotal extends Omit<PlanStep, 'round' | 'waitingOn'> {
+  /** Steps that make its inputs */
+  needs: Set<number>
+  waiting: Map<number, { missing: number; crafted: boolean }>
 }
 
 const MAX_DEPTH = 30
@@ -87,8 +123,69 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     Object.entries(state.owned).map(([itemId, quantity]) => [Number(itemId), quantity])
   )
   const raw = new Map<number, { quantity: number; approximate: boolean }>()
+  const materials = new Map<number, PlanMaterial>()
+  const steps = new Map<number, StepTotal>()
   const effort = new Map<string, number>()
   const nameOf = (itemId: number) => graph.items.get(itemId)?.name ?? `#${itemId}`
+
+  const addMaterial = (node: PlanNode) => {
+    const total = materials.get(node.itemId) ?? {
+      itemId: node.itemId,
+      needed: 0,
+      owned: 0,
+      missing: 0,
+      approximate: false,
+    }
+    total.needed += node.needed
+    total.owned += node.fromOwned
+    total.missing += node.missing
+    total.approximate ||= node.approximate
+    materials.set(node.itemId, total)
+  }
+
+  const addStep = (node: PlanNode) => {
+    const step = steps.get(node.itemId) ?? {
+      itemId: node.itemId,
+      recipeId: node.recipeId!,
+      quantity: 0,
+      crafts: 0,
+      readyCrafts: 0,
+      approximate: false,
+      needs: new Set<number>(),
+      waiting: new Map(),
+    }
+    step.quantity += node.missing
+    step.crafts += node.crafts
+    step.approximate ||= node.approximate
+    // The share of the inputs they have limits the crafts: 4 of 10 trunks, 4 of 10 splits
+    const covered = Math.min(
+      1,
+      ...node.children.map((child) => (child.needed > 0 ? child.fromOwned / child.needed : 1))
+    )
+    const ready = node.crafts * covered
+    // Whole crafts for a fixed output; random outputs count in expected values
+    step.readyCrafts += Number.isInteger(node.crafts) ? Math.floor(ready + EPSILON) : ready
+    for (const child of node.children) {
+      const crafted = child.recipeId !== null
+      if (crafted) step.needs.add(child.itemId)
+      if (child.missing <= EPSILON) continue
+      const waiting = step.waiting.get(child.itemId) ?? { missing: 0, crafted }
+      waiting.missing += child.missing
+      waiting.crafted ||= crafted
+      step.waiting.set(child.itemId, waiting)
+    }
+    steps.set(node.itemId, step)
+  }
+
+  /** No recipe to expand: chosen as raw material, or none but scrapping and friends */
+  const isRaw = (itemId: number) => {
+    const choice = state.choices[itemId]
+    if (choice === 'raw') return true
+    if (choice !== undefined && producersOf(graph, itemId).some((p) => p.recipeId === choice)) {
+      return false
+    }
+    return !defaultProducer(graph, itemId)
+  }
 
   // The same item twice in the list is one target
   const targets = new Map<number, number>()
@@ -137,6 +234,7 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
 
     const leaf = (reason: NodeReason) => {
       node.reason = reason
+      addMaterial(node)
       if (missing > EPSILON) {
         const total = raw.get(itemId) ?? { quantity: 0, approximate: false }
         total.quantity += missing
@@ -148,6 +246,8 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
 
     if (missing <= EPSILON) {
       node.reason = 'owned'
+      // An owned raw material still goes in "Coletar", complete
+      if (isRaw(itemId)) addMaterial(node)
       return node
     }
     if (path.has(itemId)) {
@@ -185,6 +285,7 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     node.children = recipe.inputs.map((input) =>
       expand(input.itemId, input.quantity * node.crafts, childPath, childApproximate)
     )
+    addStep(node)
     return node
   }
 
@@ -204,9 +305,70 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     rawMaterials: [...raw.entries()]
       .map(([itemId, total]) => ({ itemId, ...total }))
       .sort((a, b) => b.quantity - a.quantity || nameOf(a.itemId).localeCompare(nameOf(b.itemId))),
+    materials: [...materials.values()].sort(
+      (a, b) =>
+        Number(a.missing <= EPSILON) - Number(b.missing <= EPSILON) ||
+        b.missing - a.missing ||
+        nameOf(a.itemId).localeCompare(nameOf(b.itemId))
+    ),
+    steps: orderSteps(graph, steps, nameOf),
     effortBySkill: [...effort.entries()]
       .map(([skill, actions]) => ({ skill, actions }))
       .sort((a, b) => b.actions - a.actions),
     warnings: [...new Set(warnings)],
   }
+}
+
+/**
+ * The steps in an order that works: round 1 takes only raw materials and
+ * owned items; each later round, the steps that need an earlier one. Inside a
+ * round, by station, so one visit to a station does all of its crafts.
+ */
+function orderSteps(
+  graph: RecipeGraph,
+  steps: Map<number, StepTotal>,
+  nameOf: (itemId: number) => string
+): PlanStep[] {
+  const rounds = new Map<number, number>()
+  const visiting = new Set<number>()
+  // Two trees can need each other's items (a cycle cut in each): the loop counts as 0
+  const roundOf = (itemId: number): number => {
+    const known = rounds.get(itemId)
+    if (known !== undefined) return known
+    if (visiting.has(itemId)) return 0
+    visiting.add(itemId)
+    let round = 1
+    for (const need of steps.get(itemId)!.needs) {
+      if (steps.has(need)) round = Math.max(round, roundOf(need) + 1)
+    }
+    visiting.delete(itemId)
+    rounds.set(itemId, round)
+    return round
+  }
+
+  const station = (step: StepTotal) => {
+    const recipe = graph.recipes.get(step.recipeId)
+    return `${recipe?.stationName ?? ''} ${String(recipe?.stationTier ?? 0).padStart(2, '0')}`
+  }
+
+  return [...steps.values()]
+    .map((step) => ({ step, round: roundOf(step.itemId) }))
+    .sort(
+      (a, b) =>
+        a.round - b.round ||
+        station(a.step).localeCompare(station(b.step)) ||
+        nameOf(a.step.itemId).localeCompare(nameOf(b.step.itemId))
+    )
+    .map(({ step, round }) => ({
+      itemId: step.itemId,
+      recipeId: step.recipeId,
+      quantity: step.quantity,
+      crafts: step.crafts,
+      readyCrafts: step.readyCrafts,
+      approximate: step.approximate,
+      round,
+      waitingOn: [...step.waiting]
+        .map(([itemId, entry]) => ({ itemId, ...entry }))
+        .sort((a, b) => Number(b.crafted) - Number(a.crafted) || b.missing - a.missing),
+    }))
 }

@@ -1,0 +1,10 @@
+{{--
+  Where a step is done: station and skill, after the recipe name unless
+  `brief` (narrow boxes; the name stays in the tooltip). Props: step, brief.
+--}}
+@let(recipe = $props.get('step').recipe)
+@if(recipe)
+  <span class="steps__meta" title="{{ recipe.name }}">
+    {{ $props.get('brief') ? '' : `${recipe.name} · ` }}{{ recipe.stationName ? `${recipe.stationName} T${recipe.stationTier}` : 'sem estação' }}{{ recipe.skillName ? ` · ${recipe.skillName} Nv ${recipe.skillLevel}` : '' }}
+  </span>
+@end

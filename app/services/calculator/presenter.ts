@@ -6,12 +6,23 @@ import type {
   NodeReason,
   PlanNode,
   PlanResult,
+  PlanStep,
 } from '#services/calculator/production_planner'
+import type { ItemHolder } from '#services/inventory/stock'
+
+const EPSILON = 1e-9
+// The same format as the views' formatNumber, for labels built here
+const numberFormat = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
+
+/** Whole crafts: random outputs give fractions, and nobody does 0,01 of a craft */
+const wholeCrafts = (crafts: number) => Math.ceil(crafts - EPSILON)
 
 /** Where "já tenho" came from, per item, and the inventory option (see withInventory) */
 export interface PresentOptions {
   sources?: Record<number, OwnedSource>
   inventoryTotals?: Map<number, number> | null
+  /** Who has each item, when the inventory is on */
+  holders?: Map<number, ItemHolder[]> | null
   inventory?: InventoryOption
 }
 
@@ -71,6 +82,52 @@ export function present(
   const item = (id: number) => graph.items.get(id) ?? unknownItem(id)
   const sources = extras.sources ?? {}
   const totals = extras.inventoryTotals ?? null
+  const holders = extras.holders ?? null
+
+  const materials = result.materials.map((material) => {
+    // A value typed by hand says nothing about where the items are
+    const whoHas =
+      sources[material.itemId] === 'manual' ? [] : (holders?.get(material.itemId) ?? [])
+    return {
+      ...material,
+      item: item(material.itemId),
+      complete: material.missing <= EPSILON,
+      percent: material.needed > 0 ? Math.min(100, (material.owned / material.needed) * 100) : 100,
+      holders: whoHas,
+      /** "Nimbus 3 · Quartz 1" */
+      holdersLabel: whoHas
+        .map((holder) => `${holder.owner} ${numberFormat.format(holder.quantity)}`)
+        .join(' · '),
+    }
+  })
+
+  const step = (s: PlanStep) => {
+    const waitingOn = s.waitingOn.map((w) => ({ ...w, item: item(w.itemId) }))
+    return {
+      ...s,
+      item: item(s.itemId),
+      recipe: graph.recipes.get(s.recipeId) ?? null,
+      wholeCrafts: wholeCrafts(s.crafts),
+      wholeReadyCrafts: wholeCrafts(s.readyCrafts),
+      ready: s.readyCrafts >= s.crafts - EPSILON,
+      waitingOn,
+      /** "Sturdy Leather, 18 Hideworking Salt": a step's name, a material's quantity too */
+      waitingLabel: waitingOn
+        .map((w) =>
+          w.crafted
+            ? w.item.name
+            : `${s.approximate ? '≈ ' : ''}${numberFormat.format(w.missing)} ${w.item.name}`
+        )
+        .join(', '),
+    }
+  }
+  const steps = result.steps.map(step)
+  const rounds: { round: number; steps: typeof steps }[] = []
+  for (const s of steps) {
+    const last = rounds.at(-1)
+    if (last?.round === s.round) last.steps.push(s)
+    else rounds.push({ round: s.round, steps: [s] })
+  }
 
   const node = (n: PlanNode): PresentedNode => {
     const choice = n.choice === null ? '' : String(n.choice)
@@ -113,6 +170,13 @@ export function present(
     })),
     trees: result.trees.map(node),
     rawMaterials: result.rawMaterials.map((r) => ({ ...r, item: item(r.itemId) })),
+    /** "Coletar": every raw material, with what they have of it */
+    materials,
+    materialsDone: materials.filter((m) => m.complete).length,
+    /** "Dá para fazer agora": crafts whose inputs they have */
+    readySteps: steps.filter((s) => s.readyCrafts > EPSILON),
+    /** "Etapas": the crafts by round */
+    rounds,
     effortBySkill: result.effortBySkill,
     warnings: result.warnings,
     choices: Object.entries(state.choices).map(([itemId, value]) => ({

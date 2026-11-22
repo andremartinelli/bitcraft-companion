@@ -86,6 +86,22 @@ test.group('Calculator with the group inventory', (group) => {
     assert.include(response.header('hx-push-url'), 'inventory=0')
   })
 
+  test('"Coletar" says who has each raw material', async ({ client, assert }) => {
+    await sync()
+    const log = await idOf('item', 1010)
+
+    // 30 planks, ignoring the ones in stock: 60 stripped wood, 10 in stock;
+    // logs as raw material, 50 needed
+    const response = await client
+      .get(calculator(`&targets[0][quantity]=30&owned[i${plank}]=0&choices[i${log}]=raw`))
+      .loginAs(user)
+
+    response.assertStatus(200)
+    const holders = response.text().match(/class="gather__holders">([^<]*)</)
+    assert.isNotNull(holders)
+    assert.match(holders![1], /^Nimbus \d+ · Quartz \d+$/)
+  })
+
   test('a plan saves the option', async ({ client, assert }) => {
     await sync()
     const plan = await Plan.create({ name: 'Ferramentas T2', createdById: user.id })

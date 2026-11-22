@@ -135,6 +135,93 @@ test.group('Production planner', (group) => {
     assert.deepEqual(result.rawMaterials, [{ itemId: item.trunk, quantity: 2, approximate: false }])
   })
 
+  test('lists the steps in rounds, each waiting on what it needs', async ({ assert }) => {
+    const item = await ids()
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ targets: [{ itemId: item.plank, quantity: 10 }] })
+    )
+
+    assert.deepEqual(
+      result.steps.map((s) => [s.itemId, s.round, s.quantity, s.crafts, s.readyCrafts]),
+      [
+        [item.log, 1, 20, 10, 0],
+        [item.stripped, 2, 20, 20, 0],
+        [item.plank, 3, 10, 10, 0],
+      ]
+    )
+    assert.deepEqual(result.steps[0].waitingOn, [
+      { itemId: item.trunk, missing: 10, crafted: false },
+    ])
+    assert.deepEqual(result.steps[2].waitingOn, [
+      { itemId: item.stripped, missing: 20, crafted: true },
+    ])
+    assert.deepEqual(result.materials, [
+      { itemId: item.trunk, needed: 10, owned: 0, missing: 10, approximate: false },
+    ])
+  })
+
+  test('the inputs they have make part of a step ready now', async ({ assert }) => {
+    const item = await ids()
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ targets: [{ itemId: item.plank, quantity: 10 }], owned: { [item.trunk]: 4 } })
+    )
+
+    const split = result.steps.find((s) => s.itemId === item.log)!
+    assert.equal(split.crafts, 10)
+    assert.equal(split.readyCrafts, 4)
+    assert.deepEqual(result.materials, [
+      { itemId: item.trunk, needed: 10, owned: 4, missing: 6, approximate: false },
+    ])
+  })
+
+  test('a raw material they have in full stays in the list, complete', async ({ assert }) => {
+    const item = await ids()
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ targets: [{ itemId: item.plank, quantity: 10 }], owned: { [item.trunk]: 15 } })
+    )
+
+    assert.deepEqual(result.rawMaterials, [])
+    assert.deepEqual(result.materials, [
+      { itemId: item.trunk, needed: 10, owned: 10, missing: 0, approximate: false },
+    ])
+    assert.equal(result.steps[0].readyCrafts, 10)
+  })
+
+  test('an owned intermediate is neither a material nor a step', async ({ assert }) => {
+    const item = await ids()
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ targets: [{ itemId: item.plank, quantity: 10 }], owned: { [item.stripped]: 25 } })
+    )
+
+    assert.deepEqual(result.materials, [])
+    assert.deepEqual(
+      result.steps.map((s) => [s.itemId, s.round, s.readyCrafts]),
+      [[item.plank, 1, 10]]
+    )
+  })
+
+  test('the same item in two trees is one step', async ({ assert }) => {
+    const item = await ids()
+    const result = plan(
+      await RecipeGraph.current(),
+      state({
+        targets: [
+          { itemId: item.plank, quantity: 2 },
+          { itemId: item.stripped, quantity: 3 },
+        ],
+      })
+    )
+
+    const stripped = result.steps.filter((s) => s.itemId === item.stripped)
+    assert.lengthOf(stripped, 1)
+    assert.equal(stripped[0].quantity, 4 + 3)
+    assert.equal(stripped[0].crafts, 7)
+  })
+
   test('does not pick scrap recipes by default but offers them', async ({ assert }) => {
     const item = await ids()
     const result = plan(

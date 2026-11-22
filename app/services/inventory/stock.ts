@@ -209,6 +209,31 @@ export async function groupTotals(): Promise<Map<number, number>> {
   return new Map(rows.map((row) => [row.item_id, Number(row.total)]))
 }
 
+/** Who has an item and how many, all of their places together */
+export interface ItemHolder {
+  owner: string
+  quantity: number
+}
+
+/** Each item's holders, the one with most first (the plan's "Coletar") */
+export async function holdersByItem(): Promise<Map<number, ItemHolder[]>> {
+  const byItem = new Map<number, Map<string, number>>()
+  for (const row of await entries()) {
+    const owners = byItem.get(row.item_id) ?? new Map<string, number>()
+    const owner = ownerOf(row)
+    owners.set(owner, (owners.get(owner) ?? 0) + Number(row.quantity))
+    byItem.set(row.item_id, owners)
+  }
+  return new Map(
+    [...byItem].map(([itemId, owners]) => [
+      itemId,
+      [...owners]
+        .map(([owner, quantity]) => ({ owner, quantity }))
+        .sort((a, b) => b.quantity - a.quantity || a.owner.localeCompare(b.owner)),
+    ])
+  )
+}
+
 /** Where the group keeps an item (item page) */
 export async function itemStock(itemId: number) {
   const rows: EntryRow[] = await db

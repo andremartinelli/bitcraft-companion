@@ -1,7 +1,7 @@
 import type { DateTime } from 'luxon'
 import SyncRun from '#models/sync_run'
 import type { CalculatorState } from '#services/calculator/production_planner'
-import { groupTotals } from '#services/inventory/stock'
+import { groupTotals, holdersByItem } from '#services/inventory/stock'
 
 export type OwnedSource = 'manual' | 'inventory'
 
@@ -39,7 +39,8 @@ export function mergeOwned(
 /**
  * The state the planner runs on: with "Usar inventário do grupo" on (the
  * default once a sync exists), the group's stock fills "já tenho". The
- * planner stays a pure function of that state.
+ * planner stays a pure function of that state. `holders` says who has each
+ * item, for the page.
  */
 export async function withInventory(state: CalculatorState) {
   const lastSync = await SyncRun.lastSuccessful()
@@ -48,7 +49,9 @@ export async function withInventory(state: CalculatorState) {
     enabled: lastSync !== null && state.useInventory !== false,
     syncedAt: lastSync ? (lastSync.finishedAt ?? lastSync.startedAt) : null,
   }
-  const totals = inventory.enabled ? await groupTotals() : null
+  const [totals, holders] = inventory.enabled
+    ? await Promise.all([groupTotals(), holdersByItem()])
+    : [null, null]
   const { owned, sources } = mergeOwned(state.owned, totals)
-  return { planState: { ...state, owned }, sources, totals, inventory }
+  return { planState: { ...state, owned }, sources, totals, holders, inventory }
 }

@@ -33,9 +33,15 @@ test.group('Quick calculator', (group) => {
       .loginAs(user)
 
     response.assertStatus(200)
-    response.assertTextIncludes('Matéria-prima que falta')
+    response.assertTextIncludes('Coletar')
+    response.assertTextIncludes('0 de 1 completas')
     response.assertTextIncludes('Rough Wood Trunk')
     response.assertTextIncludes('Carpentry')
+    // Nothing in stock: nothing to make now; the steps go log, stripped wood, plank
+    response.assertTextIncludes('Nada ainda: falta material')
+    response.assertTextIncludes('Rodada 3')
+    response.assertTextIncludes('espera 10 Rough Wood Trunk')
+    response.assertTextIncludes('Árvore de produção')
     response.assertTextIncludes('Salvar como plano')
     assert.notInclude(response.text(), '@!', 'an Edge tag leaked into the HTML')
   })

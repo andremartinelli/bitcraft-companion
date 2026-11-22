@@ -113,12 +113,13 @@ export default class PlansController {
 
   async #panelData(plan: Plan, state: ReturnType<Plan['toCalculatorState']>, errors: string[]) {
     const graph = await RecipeGraph.current()
-    const { planState, sources, totals, inventory } = await withInventory(state)
+    const { planState, sources, totals, holders, inventory } = await withInventory(state)
     return {
       plan,
       panel: present(graph, state, runPlan(graph, planState), {
         sources,
         inventoryTotals: totals,
+        holders,
         inventory,
       }),
       errors,

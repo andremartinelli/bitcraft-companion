@@ -20,11 +20,12 @@ export default class CalculatorController {
     if (changed && !isHtmx(request)) return response.redirect().clearQs().toPath(canonicalUrl)
 
     const graph = await RecipeGraph.current()
-    const { planState, sources, totals, inventory } = await withInventory(state)
+    const { planState, sources, totals, holders, inventory } = await withInventory(state)
     const data = {
       panel: present(graph, state, plan(graph, planState), {
         sources,
         inventoryTotals: totals,
+        holders,
         inventory,
       }),
       errors,

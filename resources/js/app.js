@@ -79,6 +79,30 @@ Alpine.data('inventorySections', function (searching) {
 })
 
 /**
+ * A <details> that stays open or closed as the user left it, also after htmx
+ * swaps it (the calculator redraws on every change). Remembered per browser.
+ */
+Alpine.data('rememberOpen', function (key) {
+  const storageKey = `open:${key}`
+  return {
+    init() {
+      try {
+        if (localStorage.getItem(storageKey) === '1') this.$el.open = true
+      } catch {
+        // Storage blocked: it just starts closed
+      }
+    },
+    remember() {
+      try {
+        localStorage.setItem(storageKey, this.$el.open ? '1' : '0')
+      } catch {
+        // Storage blocked: nothing to remember with
+      }
+    },
+  }
+})
+
+/**
  * "Planos rápidos" menu with submenus (resources/views/components/plans/quick_menu.edge),
  * keyboard included: arrows move and open/close submenus, Home/End jump,
  * Enter/Space open a submenu, Escape closes everything.
