@@ -157,7 +157,15 @@ test.group('Production planner', (group) => {
       { itemId: item.stripped, missing: 20, crafted: true },
     ])
     assert.deepEqual(result.materials, [
-      { itemId: item.trunk, needed: 10, owned: 0, missing: 10, approximate: false },
+      {
+        itemId: item.trunk,
+        needed: 10,
+        owned: 0,
+        missing: 10,
+        approximate: false,
+        covered: 0,
+        coveredBy: [],
+      },
     ])
   })
 
@@ -172,7 +180,15 @@ test.group('Production planner', (group) => {
     assert.equal(split.crafts, 10)
     assert.equal(split.readyCrafts, 4)
     assert.deepEqual(result.materials, [
-      { itemId: item.trunk, needed: 10, owned: 4, missing: 6, approximate: false },
+      {
+        itemId: item.trunk,
+        needed: 10,
+        owned: 4,
+        missing: 6,
+        approximate: false,
+        covered: 0,
+        coveredBy: [],
+      },
     ])
   })
 
@@ -185,7 +201,15 @@ test.group('Production planner', (group) => {
 
     assert.deepEqual(result.rawMaterials, [])
     assert.deepEqual(result.materials, [
-      { itemId: item.trunk, needed: 10, owned: 10, missing: 0, approximate: false },
+      {
+        itemId: item.trunk,
+        needed: 10,
+        owned: 10,
+        missing: 0,
+        approximate: false,
+        covered: 0,
+        coveredBy: [],
+      },
     ])
     assert.equal(result.steps[0].readyCrafts, 10)
   })
@@ -197,7 +221,19 @@ test.group('Production planner', (group) => {
       state({ targets: [{ itemId: item.plank, quantity: 10 }], owned: { [item.stripped]: 25 } })
     )
 
-    assert.deepEqual(result.materials, [])
+    // Nothing to gather, but what went into the stripped wood still shows:
+    // 20 stripped wood, 20 logs, 10 trunks
+    assert.deepEqual(result.materials, [
+      {
+        itemId: item.trunk,
+        needed: 0,
+        owned: 0,
+        missing: 0,
+        approximate: false,
+        covered: 10,
+        coveredBy: [item.stripped],
+      },
+    ])
     assert.deepEqual(
       result.steps.map((s) => [s.itemId, s.round, s.done, s.quantity, s.crafts, s.readyCrafts]),
       [

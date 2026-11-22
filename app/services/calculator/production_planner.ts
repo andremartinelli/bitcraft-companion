@@ -47,6 +47,13 @@ export interface PlanMaterial {
   owned: number
   missing: number
   approximate: boolean
+  /**
+   * How much of it already went into products they have (the wood in their
+   * Rough Planks): nothing to gather for that part. Not in `needed`.
+   */
+  covered: number
+  /** Those products */
+  coveredBy: number[]
 }
 
 /**
@@ -139,19 +146,62 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
   const effort = new Map<string, number>()
   const nameOf = (itemId: number) => graph.items.get(itemId)?.name ?? `#${itemId}`
 
-  const addMaterial = (node: PlanNode) => {
-    const total = materials.get(node.itemId) ?? {
-      itemId: node.itemId,
+  const materialOf = (itemId: number) => {
+    const total = materials.get(itemId) ?? {
+      itemId,
       needed: 0,
       owned: 0,
       missing: 0,
       approximate: false,
+      covered: 0,
+      coveredBy: [],
     }
+    materials.set(itemId, total)
+    return total
+  }
+
+  const addMaterial = (node: PlanNode) => {
+    const total = materialOf(node.itemId)
     total.needed += node.needed
     total.owned += node.fromOwned
     total.missing += node.missing
     total.approximate ||= node.approximate
-    materials.set(node.itemId, total)
+  }
+
+  /**
+   * A product they already have, taken apart down to its raw materials, as
+   * "Coletar" shows them: covered, nothing to gather. Same recipes as the
+   * plan; the pool is not touched.
+   */
+  const cover = (
+    itemId: number,
+    quantity: number,
+    path: Set<number>,
+    approximate: boolean,
+    product: number
+  ) => {
+    const producer = path.has(itemId) || path.size >= MAX_DEPTH ? undefined : chosenProducer(itemId)
+    if (!producer) {
+      const total = materialOf(itemId)
+      total.covered += quantity
+      total.approximate ||= approximate
+      if (!total.coveredBy.includes(product)) total.coveredBy.push(product)
+      return
+    }
+    const recipe = graph.recipes.get(producer.recipeId)!
+    const crafts = producer.deterministic
+      ? Math.ceil(quantity / producer.yield - EPSILON)
+      : quantity / producer.yield
+    const childPath = new Set(path).add(itemId)
+    for (const input of recipe.inputs) {
+      cover(
+        input.itemId,
+        input.quantity * crafts,
+        childPath,
+        approximate || !producer.deterministic,
+        product
+      )
+    }
   }
 
   const newStep = (itemId: number, recipeId: number, done: boolean): StepTotal => ({
@@ -286,9 +336,12 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     if (missing <= EPSILON) {
       node.reason = 'owned'
       // What they have still shows, complete: a raw material in "Coletar",
-      // something made in the round of the step that uses it
-      if (chosenProducer(itemId)) addOwned(node, parentId)
-      else addMaterial(node)
+      // something made in the round of the step that uses it, and what it is
+      // made of in "Coletar" too
+      if (chosenProducer(itemId)) {
+        addOwned(node, parentId)
+        cover(itemId, node.needed, path, approximate, itemId)
+      } else addMaterial(node)
       return node
     }
     if (path.has(itemId)) {

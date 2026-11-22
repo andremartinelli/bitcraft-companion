@@ -32,6 +32,11 @@ const isHtmx = (request: HttpContext['request']) =>
 
 const DEFAULT_TAB = TABS[0].value
 
+/** A path on this site ("/plans/3?x=1"), never another host ("//evil", "https://...") */
+function localPath(value: unknown): string | null {
+  return typeof value === 'string' && /^\/(?![/\\])[^\s\\]*$/.test(value) ? value : null
+}
+
 /** Invalid filters fall back to the first tab without a search */
 async function readFilters(input: Record<string, unknown>): Promise<Filters> {
   const present = Object.fromEntries(
@@ -65,11 +70,13 @@ export default class InventoryController {
 
   /**
    * POST /inventory/sync, the "Sincronizar agora" button. htmx redraws the
-   * panel; without htmx, back to the page with a flash message.
+   * panel; without htmx, back to the page with a flash message: the
+   * inventory, or `return_to` (the plan or calculator the button is on).
    */
   @inject()
   async sync({ request, response, view, session }: HttpContext, source: BitJitaInventorySource) {
     const filters = await readFilters(request.only(['tab', 'q']))
+    const returnTo = localPath(request.input('return_to'))
 
     let notice: string
     let ok = false
@@ -86,6 +93,7 @@ export default class InventoryController {
       return view.render('components/inventory/panel', await this.#panelData(filters, notice))
     }
     session.flash(ok ? 'success' : 'error', notice)
+    if (returnTo) return response.redirect().toPath(returnTo)
     return response.redirect().toRoute('inventory.index', [], { qs: this.#query(filters) })
   }
 

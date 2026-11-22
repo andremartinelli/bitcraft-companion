@@ -218,6 +218,37 @@ test.group('Inventory page', (group) => {
     response.assertFlashMessage('success', 'Sincronização concluída.')
   })
 
+  test('from a plan, the sync comes back to the plan; never to another site', async ({
+    client,
+  }) => {
+    app.container.swap(BitJitaInventorySource, () => bitjitaSource())
+
+    const back = await client
+      .post('/inventory/sync')
+      .form({ return_to: '/calculator?targets[0][item_id]=1' })
+      .withCsrfToken()
+      .redirects(0)
+      .loginAs(user)
+    back.assertStatus(302)
+    back.assertHeader('location', '/calculator?targets[0][item_id]=1')
+    back.assertFlashMessage('success', 'Sincronização concluída.')
+
+    const away = await client
+      .post('/inventory/sync')
+      .form({ return_to: '//evil.example/plans' })
+      .withCsrfToken()
+      .redirects(0)
+      .loginAs(user)
+    away.assertHeader('location', '/inventory')
+  })
+
+  test('the plan page has the sync button once there is a sync', async ({ client }) => {
+    const response = await client.get('/calculator?targets[0][item_id]=1').loginAs(user)
+
+    response.assertTextIncludes('form="calc-sync"')
+    response.assertTextIncludes('Sincronizar agora')
+  })
+
   test('without characters the page says how to start', async ({ client, assert }) => {
     await GamePlayer.query().delete()
 

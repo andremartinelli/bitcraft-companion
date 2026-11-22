@@ -40,18 +40,23 @@
         </summary>
         <ul class="steps">
           @each(row in profession.entries)
-            {{-- Complete: struck through and muted, "completo" only for screen readers --}}
+            {{--
+              Complete: struck through and muted. Covered: it already went into
+              products they have (the wood in their planks), and the row says so.
+            --}}
             <li class="steps__row gather__row {{ row.complete ? 'is-done' : '' }}">
-              <span class="steps__qty">{{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.owned) }} / {{ formatNumber(row.needed) }}</span>
+              <span class="steps__qty">{{ row.qtyLabel }}</span>
               <span class="steps__main">
                 @!itemChip({ item: row.item })
                 @if(row.holdersLabel)
                   <span class="gather__holders">{{ row.holdersLabel }}</span>
                 @end
-                @if(row.complete)
-                  <span class="sr-only">completo</span>
+                @if(!row.complete)
+                  <span class="gather__status">faltam {{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.missing) }}{{ row.coveredLabel ? ` · ${row.coveredLabel}` : '' }}</span>
+                @elseif(row.coveredLabel)
+                  <span class="steps__status">{{ row.coveredLabel }}</span>
                 @else
-                  <span class="gather__status">faltam {{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.missing) }}</span>
+                  <span class="sr-only">completo</span>
                 @end
               </span>
             </li>
@@ -60,7 +65,7 @@
         </details>
       @end
       @if(panel.materials.length)
-        <p class="calc__hint round__hint">À esquerda, o que vocês têm / o que o plano precisa; ao lado do item, com quem está.</p>
+        <p class="calc__hint round__hint">À esquerda, o que vocês têm / o que o plano precisa; ao lado do item, com quem está. Riscado com "já têm em": já foi usado em algo pronto que vocês têm.</p>
       @else
         <p class="muted round__hint">Nada para coletar: vocês já têm tudo.</p>
       @end

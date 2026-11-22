@@ -103,10 +103,34 @@
         <span class="muted">
           sincronizado {{ formatAgo(panel.inventory.syncedAt) }} · o "já tenho" digitado tem prioridade
         </span>
+        {{-- Submits #calc-sync, below: a form can't sit inside this one --}}
+        <button type="submit" form="calc-sync" class="btn btn--secondary btn--sm calc__sync-button">Sincronizar agora</button>
+        <span id="calc-sync-status" class="muted" hidden>Sincronizando com a BitJita…</span>
       </div>
     @end
     <noscript><button type="submit" class="btn btn--primary btn--sm">Calcular</button></noscript>
   </form>
+
+  @if(panel.inventory.available)
+    {{--
+      Reads BitJita now and comes back to this page (the plan, or the
+      calculator with its URL), which recalculates with the new inventory.
+    --}}
+    <form
+      id="calc-sync"
+      method="POST"
+      action="{{ route('inventory.sync') }}"
+      x-data
+      x-on:submit="
+        $el.elements.return_to.value = location.pathname + location.search;
+        document.querySelector('[form=calc-sync]').disabled = true;
+        document.getElementById('calc-sync-status').hidden = false
+      "
+    >
+      {{ csrfField() }}
+      <input type="hidden" name="return_to" value="{{ form.action }}" />
+    </form>
+  @end
 
   @if(saveFields && panel.targets.length)
     <form class="calc__save" method="POST" action="{{ route('plans.store') }}">

@@ -133,13 +133,33 @@ export function present(
   const haveOf = (itemId: number) =>
     sources[itemId] === 'manual' ? (state.owned[itemId] ?? 0) : (totals?.get(itemId) ?? 0)
 
-  const materials = result.materials.map((material) => ({
-    ...material,
-    item: item(material.itemId),
-    complete: material.missing <= EPSILON,
-    holders: whoHas(material.itemId),
-    holdersLabel: holdersLabelOf(material.itemId),
-  }))
+  const materials = result.materials.map((material) => {
+    const approx = material.approximate ? '≈ ' : ''
+    const products = material.coveredBy.map((id) => item(id).name)
+    const productsLabel =
+      products.length > 2
+        ? `${products.slice(0, 2).join(', ')} e mais ${products.length - 2}`
+        : products.join(' e ')
+    const onlyCovered = material.needed <= EPSILON
+    return {
+      ...material,
+      item: item(material.itemId),
+      complete: material.missing <= EPSILON,
+      /** "51 / 695"; only covered: how much went into what they have */
+      qtyLabel: onlyCovered
+        ? `${approx}${numberFormat.format(material.covered)}`
+        : `${approx}${numberFormat.format(material.owned)} / ${numberFormat.format(material.needed)}`,
+      // Where some of it is matters only when some has to be gathered
+      holders: onlyCovered ? [] : whoHas(material.itemId),
+      holdersLabel: onlyCovered ? '' : holdersLabelOf(material.itemId),
+      /** "vocês já têm em Rough Plank"; besides a need, "90 já em Rough Plank" */
+      coveredLabel: !material.covered
+        ? null
+        : onlyCovered
+          ? `vocês já têm em ${productsLabel}`
+          : `${approx}${numberFormat.format(material.covered)} já em ${productsLabel}`,
+    }
+  })
 
   const step = (s: PlanStep) => {
     const waitingOn = s.waitingOn.map((w) => ({ ...w, item: item(w.itemId) }))
