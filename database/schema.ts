@@ -16,6 +16,48 @@ export class BuildingTypeSchema extends BaseModel {
   declare name: string
 }
 
+export class ClaimTechInputSchema extends BaseModel {
+  static $columns = ['claimTechId', 'id', 'itemId', 'quantity'] as const
+  $columns = ClaimTechInputSchema.$columns
+  @column()
+  declare claimTechId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare quantity: number
+}
+
+export class ClaimTechSchema extends BaseModel {
+  static $columns = ['createdAt', 'description', 'gameId', 'hidden', 'id', 'lastImportId', 'name', 'removedAt', 'suppliesCost', 'techType', 'tier', 'updatedAt'] as const
+  $columns = ClaimTechSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string | null
+  @column()
+  declare gameId: number
+  @column({ consume: (value) => Boolean(value) })
+  declare hidden: boolean
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastImportId: number | null
+  @column()
+  declare name: string
+  @column.dateTime()
+  declare removedAt: DateTime | null
+  @column()
+  declare suppliesCost: number
+  @column()
+  declare techType: string
+  @column()
+  declare tier: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class GameDataImportSchema extends BaseModel {
   static $columns = ['commitSha', 'counts', 'createdAt', 'finishedAt', 'id', 'renamed', 'source', 'sourceDate', 'updatedAt'] as const
   $columns = GameDataImportSchema.$columns

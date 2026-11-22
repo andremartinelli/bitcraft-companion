@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
+import ClaimTech from '#models/claim_tech'
 import Item from '#models/item'
 import Recipe from '#models/recipe'
 import GameDataImport from '#models/game_data_import'
@@ -18,6 +19,7 @@ test.group('Game data importer', (group) => {
       itemLists: 1,
       craftingRecipes: 5,
       constructionRecipes: 1,
+      claimTechs: 6,
     })
     const same = await Item.query().where('game_id', 1010).orderBy('kind')
     assert.deepEqual(
@@ -110,6 +112,45 @@ test.group('Game data importer', (group) => {
     ])
     const record = await GameDataImport.findOrFail(summary.importId)
     assert.deepEqual(record.renamed, summary.renamed)
+  })
+
+  test('imports the settlement researches with the items they take', async ({ assert }) => {
+    await importTables()
+
+    const homestead = await ClaimTech.query()
+      .where('game_id', 9301)
+      .preload('inputs', (q) => q.preload('item').orderBy('id'))
+      .firstOrFail()
+    assert.equal(homestead.name, 'Tier 3 Homestead')
+    assert.equal(homestead.techType, 'Homestead')
+    assert.equal(homestead.suppliesCost, 1125)
+    assert.isFalse(homestead.hidden)
+    assert.deepEqual(
+      homestead.inputs.map((input) => [input.item.kind, input.item.name, input.quantity]),
+      [
+        ['item', 'Rough Wood Scraps', 575],
+        ['item', 'Simple Plank', 2],
+        ['cargo', 'Rough Wood Trunk', 2],
+      ]
+    )
+    const placeholder = await ClaimTech.findByOrFail('gameId', 9399)
+    assert.isTrue(placeholder.hidden)
+  })
+
+  test('a settlement research that left the game is marked, and comes back', async ({ assert }) => {
+    await importTables()
+
+    const tables = fixtureTables()
+    tables.claim_tech_desc = tables.claim_tech_desc.filter((tech) => tech.id !== 9401)
+    await importTables(tables)
+    const gone = await ClaimTech.findByOrFail('gameId', 9401)
+    assert.isNotNull(gone.removedAt)
+
+    await importTables()
+    await gone.refresh()
+    assert.isNull(gone.removedAt)
+    const inputs = await gone.related('inputs').query()
+    assert.lengthOf(inputs, 2)
   })
 
   test('a format error writes nothing', async ({ assert }) => {

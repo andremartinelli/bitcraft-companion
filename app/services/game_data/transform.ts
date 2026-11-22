@@ -109,6 +109,36 @@ export function toItemRows(items: any[], cargo: any[]): ItemRow[] {
   ]
 }
 
+export interface ClaimTechRow {
+  gameId: number
+  name: string
+  description: string | null
+  tier: number
+  techType: string
+  suppliesCost: number
+  hidden: boolean
+  inputs: StackRow[]
+}
+
+/** Settlement researches (claim_tech_desc): what each one takes, in items and supplies */
+export function toClaimTechRows(techs: any[]): ClaimTechRow[] {
+  return techs.map((raw) => {
+    if (typeof raw.id !== 'number' || typeof raw.name !== 'string' || !Array.isArray(raw.input)) {
+      throw new GameDataFormatError(`claim_tech_desc: linha sem id, name ou input (${raw.id})`)
+    }
+    return {
+      gameId: raw.id,
+      name: raw.name,
+      description: blankToNull(raw.description),
+      tier: raw.tier ?? 0,
+      techType: raw.tech_type ?? 'Undefined',
+      suppliesCost: raw.supplies_cost ?? 0,
+      hidden: Boolean(raw.not_shown_in_ui || raw.cannot_be_researched),
+      inputs: (raw.input as RawStack[]).map((s) => ({ key: stackKey(s), quantity: s.quantity })),
+    }
+  })
+}
+
 export function toItemListRows(lists: any[]): ItemListRow[] {
   return lists.map((raw) => ({
     gameId: raw.id,

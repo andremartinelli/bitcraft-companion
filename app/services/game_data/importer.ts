@@ -7,9 +7,11 @@ import type { GameDataSource } from '#services/game_data/source'
 import {
   itemKey,
   toConstructionRecipeRows,
+  toClaimTechRows,
   toCraftingRecipeRows,
   toItemListRows,
   toItemRows,
+  type ClaimTechRow,
   type ItemKey,
   type RecipeRow,
   type StackRow,
@@ -57,6 +59,7 @@ export default class GameDataImporter {
       buildingTypes: await source.read('building_type_desc'),
       skills: await source.read('skill_desc'),
       toolTypes: await source.read('tool_type_desc'),
+      claimTechs: await source.read('claim_tech_desc'),
     }
 
     // Transform everything first: a format error must stop the import before any write.
@@ -68,6 +71,7 @@ export default class GameDataImporter {
       ...toCraftingRecipeRows(tables.crafting, names),
       ...toConstructionRecipeRows(tables.construction, buildingNames),
     ]
+    const claimTechRows = toClaimTechRows(tables.claimTechs)
 
     const result = await db.transaction(async (trx) => {
       const now = DateTime.now()
@@ -101,6 +105,9 @@ export default class GameDataImporter {
       this.onProgress(`Receitas (${recipeRows.length})`)
       await this.#upsertRecipes(trx, recipeRows, itemIds, lookups, record.id, stamp!, summary)
 
+      this.onProgress(`Pesquisas do assentamento (${claimTechRows.length})`)
+      await this.#upsertClaimTechs(trx, claimTechRows, itemIds, record.id, stamp!, summary)
+
       this.onProgress('Marcando o que saiu do jogo')
       for (const [table, key] of [
         ['items', 'items'],
@@ -114,6 +121,12 @@ export default class GameDataImporter {
           .where((q) => q.whereNull('last_import_id').orWhereNot('last_import_id', record.id))
           .update({ removed_at: stamp })
       }
+      await trx
+        .knexQuery()
+        .table('claim_techs')
+        .whereNull('removed_at')
+        .where((q) => q.whereNull('last_import_id').orWhereNot('last_import_id', record.id))
+        .update({ removed_at: stamp })
 
       summary.counts = {
         items: itemRows.filter((row) => row.kind === 'item').length,
@@ -121,6 +134,7 @@ export default class GameDataImporter {
         itemLists: listRows.length,
         craftingRecipes: recipeRows.filter((row) => row.kind === 'crafting').length,
         constructionRecipes: recipeRows.filter((row) => row.kind === 'construction').length,
+        claimTechs: claimTechRows.length,
       }
       record.merge({ counts: summary.counts, renamed: summary.renamed, finishedAt: now })
       await record.useTransaction(trx).save()
@@ -358,5 +372,57 @@ export default class GameDataImporter {
     }
     for (const batch of chunks(inputs)) await trx.knexQuery().table('recipe_inputs').insert(batch)
     for (const batch of chunks(outputs)) await trx.knexQuery().table('recipe_outputs').insert(batch)
+  }
+
+  async #upsertClaimTechs(
+    trx: TransactionClientContract,
+    rows: ClaimTechRow[],
+    itemIds: Map<ItemKey, number>,
+    importId: number,
+    stamp: string,
+    summary: ImportSummary
+  ) {
+    const values = rows.map((row) => ({
+      game_id: row.gameId,
+      name: row.name,
+      description: row.description,
+      tier: row.tier,
+      tech_type: row.techType,
+      supplies_cost: row.suppliesCost,
+      hidden: row.hidden,
+      removed_at: null,
+      last_import_id: importId,
+      created_at: stamp,
+      updated_at: stamp,
+    }))
+    const updatable = Object.keys(values[0] ?? {}).filter((column) => column !== 'created_at')
+    for (const batch of chunks(values)) {
+      await trx
+        .knexQuery()
+        .table('claim_techs')
+        .insert(batch)
+        .onConflict('game_id')
+        .merge(updatable)
+    }
+
+    const techRows: any[] = await trx.knexQuery().table('claim_techs').select('id', 'game_id')
+    const techIds = new Map<number, number>(techRows.map((r) => [r.game_id, r.id]))
+    const current = trx
+      .knexQuery()
+      .table('claim_techs')
+      .select('id')
+      .where('last_import_id', importId)
+    await trx.knexQuery().table('claim_tech_inputs').whereIn('claim_tech_id', current).delete()
+
+    const inputs: { claim_tech_id: number; item_id: number; quantity: number }[] = []
+    for (const row of rows) {
+      const claimTechId = techIds.get(row.gameId)!
+      for (const s of this.#resolveStacks(row.inputs, itemIds, summary)) {
+        inputs.push({ claim_tech_id: claimTechId, item_id: s.itemId, quantity: s.quantity })
+      }
+    }
+    for (const batch of chunks(inputs)) {
+      await trx.knexQuery().table('claim_tech_inputs').insert(batch)
+    }
   }
 }

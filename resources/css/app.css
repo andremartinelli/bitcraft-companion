@@ -1352,6 +1352,15 @@ a.chip:hover {
 .plan-rename .field__input {
   max-width: 360px;
 }
+.plan-notes {
+  margin: -6px 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink);
+  border-radius: var(--r);
+  font-size: 13px;
+  max-width: 720px;
+}
 table.plans {
   width: 100%;
   border-collapse: collapse;

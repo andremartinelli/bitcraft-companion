@@ -22,6 +22,10 @@
       </span>
     </form>
 
+    @if(plan.notes)
+      <p class="plan-notes">{{ plan.notes }}</p>
+    @end
+
     @include('components/calculator/panel')
   @end
 @end

@@ -30,7 +30,8 @@ export default class BitcraftImport extends BaseCommand {
     this.logger.success('Importação concluída')
     this.logger.log(
       `Itens: ${counts.items} · Cargos: ${counts.cargo} · Saídas aleatórias: ${counts.itemLists} · ` +
-        `Receitas de craft: ${counts.craftingRecipes} · Construção: ${counts.constructionRecipes}`
+        `Receitas de craft: ${counts.craftingRecipes} · Construção: ${counts.constructionRecipes} · ` +
+        `Pesquisas do assentamento: ${counts.claimTechs}`
     )
     this.logger.log(
       `Novos: ${added.items} itens, ${added.itemLists} listas, ${added.recipes} receitas · ` +

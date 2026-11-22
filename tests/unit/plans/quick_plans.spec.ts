@@ -61,6 +61,7 @@ test.group('Quick plans', (group) => {
       cloth: ['T2 · Simple (1 item)'],
       metal: ['T2 · Pyrelite (2 itens)'],
       tools: ['T1 · Ferralith (3 itens)', 'T2 · Pyrelite (1 item)'],
+      homestead: ['T3 · Homestead (3 itens)', 'T4 · Homestead (2 itens)'],
     })
     assert.deepEqual(catalog.find((entry) => entry.key === 'metal')!.styles, ['Plated', 'Duelist'])
   })
@@ -77,6 +78,31 @@ test.group('Quick plans', (group) => {
 
   test('a tier with none of the items creates nothing', async ({ assert }) => {
     assert.isNull(await new QuickPlans().create('cloth', 5, 'Plated', null))
+    assert.isNull(await new QuickPlans().create('homestead', 9, 'Plated', null))
     assert.lengthOf(await Plan.all(), 0)
+  })
+
+  test('settlement upgrade: what the Homestead research of the tier takes', async ({ assert }) => {
+    const items = await new QuickPlans().items('homestead', 3)
+
+    assert.deepEqual(
+      items.map((item) => `${item.quantity}× ${item.name}`),
+      ['575× Rough Wood Scraps', '2× Simple Plank', '2× Rough Wood Trunk']
+    )
+  })
+
+  test('the Homestead plan has the quantities and the supplies as a note', async ({ assert }) => {
+    const plan = await new QuickPlans().create('homestead', 4, 'Plated', null)
+
+    assert.equal(plan!.name, 'Homestead T4')
+    assert.equal(
+      plan!.notes,
+      'Pesquisa "Tier 4 Homestead" do assentamento. Além dos itens, ela custa 1.690 de suprimentos do assentamento.'
+    )
+    const saved = await Plan.query().where('id', plan!.id).preload('items').firstOrFail()
+    assert.deepEqual(
+      saved.items.map((item) => item.quantity),
+      [850, 5]
+    )
   })
 })

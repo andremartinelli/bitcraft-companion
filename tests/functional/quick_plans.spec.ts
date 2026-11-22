@@ -44,6 +44,35 @@ test.group('Quick plans page', (group) => {
     assert.include(html, '<input type="hidden" name="style" value="Duelist" />')
     assert.include(html, '<input type="hidden" name="style" value="Plated" />')
     assert.notInclude(html, '<select')
+    // Settlement upgrades: Homestead, by tier
+    response.assertTextIncludes('Upgrades de assentamento')
+    assert.match(
+      html,
+      /<span class="qmenu__label">T3 · Homestead<\/span>\s*<span class="qmenu__hint">3 itens<\/span>/
+    )
+  })
+
+  test('a settlement upgrade opens a plan with the quantities and the supplies', async ({
+    client,
+    assert,
+  }) => {
+    await client
+      .post('/quick_plans')
+      .form({ template: 'homestead', tier: 3 })
+      .withCsrfToken()
+      .redirects(0)
+      .loginAs(user)
+
+    const plan = await Plan.query().preload('items').firstOrFail()
+    assert.equal(plan.name, 'Homestead T3')
+    assert.sameMembers(
+      plan.items.map((item) => item.quantity),
+      [575, 2, 2]
+    )
+
+    const page = await client.get(`/plans/${plan.id}`).loginAs(user)
+    page.assertStatus(200)
+    page.assertTextIncludes('custa 1.125 de suprimentos do assentamento')
   })
 
   test('creating one opens the new plan with the whole set', async ({ client, assert }) => {
