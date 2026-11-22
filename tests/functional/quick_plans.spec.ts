@@ -27,8 +27,15 @@ test.group('Quick plans page', (group) => {
     response.assertTextIncludes('Set de cloth completo')
     response.assertTextIncludes('Set de minério completo')
     response.assertTextIncludes('Ferramentas')
-    response.assertTextIncludes('T2 · Simple (2 itens)')
+    // A tier: "T2 · Simple" with the item count on the right, like a menu shortcut
+    assert.match(
+      html,
+      /<span class="qmenu__label">T2 · Simple<\/span>\s*<span class="qmenu__hint">2 itens<\/span>/
+    )
+    // Chevrons mark the entries that open a submenu
+    assert.include(html, 'class="qmenu__chevron"')
     assert.notInclude(html, '@!', 'an Edge tag leaked into the HTML')
+    assert.notInclude(html, '@svg', 'an Edge tag leaked into the HTML')
     // Each tier is a form that creates the plan; the metal set has one per style
     assert.match(
       html,

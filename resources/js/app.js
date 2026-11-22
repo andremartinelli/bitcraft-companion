@@ -78,6 +78,80 @@ Alpine.data('inventorySections', function (searching) {
   }
 })
 
+/**
+ * "Planos rápidos" menu with submenus (resources/views/components/plans/quick_menu.edge),
+ * keyboard included: arrows move and open/close submenus, Home/End jump,
+ * Enter/Space open a submenu, Escape closes everything.
+ */
+Alpine.data('quickMenu', function () {
+  return {
+    open: false,
+    template: null,
+    style: null,
+    toggle() {
+      if (this.open) this.close()
+      else this.open = true
+    },
+    close(focusToggle = false) {
+      this.open = false
+      this.template = null
+      this.style = null
+      if (focusToggle) this.$refs.toggle.focus()
+    },
+    itemsOf(list) {
+      return [...list.children]
+        .map((entry) => entry.querySelector(':scope > .qmenu__item, :scope > form > .qmenu__item'))
+        .filter(Boolean)
+    },
+    focusFirstIn(list) {
+      // The lists open with a class, applied before the next tick
+      this.$nextTick(() => this.itemsOf(list)[0]?.focus())
+    },
+    onKeydown(event) {
+      const current = document.activeElement
+      if (event.key === 'Escape') {
+        if (this.open) {
+          event.preventDefault()
+          this.close(true)
+        }
+        return
+      }
+      if (current === this.$refs.toggle) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault()
+          this.open = true
+          this.focusFirstIn(this.$root.querySelector('.qmenu__list'))
+        }
+        return
+      }
+
+      const list = current?.closest('[role=menu]')
+      if (!list || !this.$root.contains(list)) return
+      const items = this.itemsOf(list)
+      const index = items.indexOf(current)
+      const opensSubmenu = current.getAttribute('aria-haspopup') === 'menu'
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        const step = event.key === 'ArrowDown' ? 1 : -1
+        items[(index + step + items.length) % items.length].focus()
+      } else if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault()
+        items[event.key === 'Home' ? 0 : items.length - 1].focus()
+      } else if (opensSubmenu && ['ArrowRight', 'Enter', ' '].includes(event.key)) {
+        event.preventDefault()
+        current.click()
+        this.focusFirstIn(current.nextElementSibling)
+      } else if (event.key === 'ArrowLeft' && list.dataset.closes) {
+        event.preventDefault()
+        this[list.dataset.closes] = null
+        if (list.dataset.closes === 'template') this.style = null
+        list.previousElementSibling?.focus()
+      }
+    },
+  }
+})
+
 Alpine.start()
 
 /**

@@ -1377,35 +1377,47 @@ table.plans .num {
   margin-bottom: 20px;
   font-size: 13px;
 }
-/* "Planos rápidos" cascading menu */
+/* "Planos rápidos" menu, after Chakra UI's menu with submenus */
 .qmenu {
   position: relative;
 }
-.qmenu__toggle[aria-expanded='true'] {
-  border-color: var(--ink);
+.qmenu__toggle {
+  gap: 6px;
 }
-.qmenu__arrow {
+.qmenu__chevron {
+  flex: none;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1;
 }
 .qmenu__list {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   z-index: 20;
-  min-width: 240px;
+  min-width: 8rem;
   margin: 0;
-  padding: 4px;
+  padding: 6px;
   list-style: none;
   background: var(--card);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-lg);
-  box-shadow: 0 10px 30px -12px rgba(10, 10, 11, 0.25);
+  border-radius: 6px;
+  box-shadow:
+    0 8px 16px rgba(10, 10, 11, 0.12),
+    inset 0 0 0 1px var(--line-2);
+  animation: qmenu-in 0.15s ease-out;
 }
+/* Shown with a class, not x-show: the list is there at once, so focus can move into it */
+.qmenu__list:not(.is-open) {
+  display: none;
+}
+:root[data-theme='dark'] .qmenu__list {
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.64),
+    inset 0 0 0 1px var(--line-2);
+}
+/* A submenu sits against the right edge of its item, top aligned */
 .qmenu__list--sub {
-  top: -5px;
-  left: calc(100% + 2px);
+  top: 0;
+  left: 100%;
+  animation-name: qmenu-sub-in;
 }
 .qmenu__entry {
   position: relative;
@@ -1416,32 +1428,58 @@ table.plans .num {
 .qmenu__item {
   display: flex;
   width: 100%;
+  height: 32px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border: 0;
-  border-radius: var(--r);
+  border-radius: 4px;
   background: none;
   color: var(--ink);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
+  line-height: 20px;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
+}
+.qmenu__label {
+  flex: 1;
+}
+.qmenu__hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .qmenu__item:hover,
 .qmenu__item:focus-visible,
 .qmenu__item[aria-expanded='true'] {
   outline: none;
-  background: color-mix(in oklab, var(--ink) 7%, var(--card));
+  background: color-mix(in oklab, var(--ink) 6%, var(--card));
+}
+@keyframes qmenu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes qmenu-sub-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qmenu__list {
+    animation: none;
+  }
 }
 @media (max-width: 720px) {
-  /* No room for flyouts: sub-menus open below, indented */
+  /* No room for flyouts: submenus open below, indented */
   .qmenu__list--sub {
     position: static;
     margin: 2px 0 4px 12px;
-    box-shadow: none;
+    box-shadow: inset 0 0 0 1px var(--line);
   }
 }
 @media (max-width: 640px) {

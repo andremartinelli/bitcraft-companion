@@ -93,6 +93,8 @@ export default class QuickPlans {
         .filter(({ items }) => items.length > 0)
         .map(({ tier, items }) => ({
           tier,
+          material: materialOf(items),
+          count: items.length,
           label: `T${tier} · ${materialOf(items)} (${items.length} ${items.length === 1 ? 'item' : 'itens'})`,
         }))
       return {

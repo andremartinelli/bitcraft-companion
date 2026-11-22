@@ -1,27 +1,24 @@
 {{--
-  "Planos rápidos" menu: Planos rápidos › set › (style ›) tier. A tier is a
-  small form that creates the plan. Clicking or hovering an entry opens its
-  sub-menu; a click never closes it, since hovering already opened it.
-  Escape or a click outside closes the menu. Uses `quickPlans`.
+  "Planos rápidos" menu, in the style of Chakra UI's menu with submenus:
+  Planos rápidos › set › (style ›) tier. A tier is a small form that creates
+  the plan. Hover or click opens a submenu; arrows, Home/End, Enter and
+  Escape work from the keyboard (Alpine `quickMenu`, resources/js/app.js).
+  Uses `quickPlans` (QuickPlans.catalog).
 --}}
-<div
-  class="qmenu"
-  x-data="{ open: false, template: null, style: null, close() { this.open = false; this.template = null; this.style = null } }"
-  x-on:click.outside="close()"
-  x-on:keydown.escape.window="close()"
->
+<div class="qmenu" x-data="quickMenu" x-on:click.outside="close()" x-on:keydown="onKeydown($event)">
   <button
     type="button"
     class="btn btn--secondary btn--sm qmenu__toggle"
     aria-haspopup="menu"
+    x-ref="toggle"
     x-bind:aria-expanded="open"
-    x-on:click="open ? close() : (open = true)"
+    x-on:click="toggle()"
   >
     Planos rápidos
-    <span class="qmenu__arrow" aria-hidden="true">›</span>
+    @svg('lucide:chevron-down', { width: 14, height: 14, class: 'qmenu__chevron' })
   </button>
 
-  <ul class="qmenu__list" role="menu" aria-label="Planos rápidos" x-show="open" x-cloak>
+  <ul class="qmenu__list" role="menu" aria-label="Planos rápidos" x-bind:class="{ 'is-open': open }">
     @each(quick in quickPlans)
       <li class="qmenu__entry" role="none" x-on:mouseenter="template = '{{ quick.key }}'; style = null">
         <button
@@ -33,11 +30,17 @@
           x-bind:aria-expanded="template === '{{ quick.key }}'"
           x-on:click="template = '{{ quick.key }}'; style = null"
         >
-          <span>{{ quick.label }}</span>
-          <span class="qmenu__arrow" aria-hidden="true">›</span>
+          <span class="qmenu__label">{{ quick.label }}</span>
+          @svg('lucide:chevron-right', { width: 14, height: 14, class: 'qmenu__chevron' })
         </button>
 
-        <ul class="qmenu__list qmenu__list--sub" role="menu" aria-label="{{ quick.label }}" x-show="template === '{{ quick.key }}'" x-cloak>
+        <ul
+          class="qmenu__list qmenu__list--sub"
+          role="menu"
+          aria-label="{{ quick.label }}"
+          data-closes="template"
+          x-bind:class="{ 'is-open': template === '{{ quick.key }}' }"
+        >
           @if(quick.styles)
             @each(style in quick.styles)
               <li class="qmenu__entry" role="none" x-on:mouseenter="style = '{{ style }}'">
@@ -49,10 +52,16 @@
                   x-bind:aria-expanded="style === '{{ style }}'"
                   x-on:click="style = '{{ style }}'"
                 >
-                  <span>{{ style }}</span>
-                  <span class="qmenu__arrow" aria-hidden="true">›</span>
+                  <span class="qmenu__label">{{ style }}</span>
+                  @svg('lucide:chevron-right', { width: 14, height: 14, class: 'qmenu__chevron' })
                 </button>
-                <ul class="qmenu__list qmenu__list--sub" role="menu" aria-label="{{ quick.label }}: {{ style }}" x-show="style === '{{ style }}'" x-cloak>
+                <ul
+                  class="qmenu__list qmenu__list--sub"
+                  role="menu"
+                  aria-label="{{ quick.label }}: {{ style }}"
+                  data-closes="style"
+                  x-bind:class="{ 'is-open': style === '{{ style }}' }"
+                >
                   @each(option in quick.tiers)
                     @include('components/plans/quick_menu_tier')
                   @end

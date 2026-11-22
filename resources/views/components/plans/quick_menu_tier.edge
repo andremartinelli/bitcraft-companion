@@ -6,6 +6,9 @@
     @if(quick.styles)
       <input type="hidden" name="style" value="{{ style }}" />
     @end
-    <button type="submit" role="menuitem" class="qmenu__item">{{ option.label }}</button>
+    <button type="submit" role="menuitem" class="qmenu__item">
+      <span class="qmenu__label">T{{ option.tier }} · {{ option.material }}</span>
+      <span class="qmenu__hint">{{ option.count === 1 ? '1 item' : `${option.count} itens` }}</span>
+    </button>
   @end
 </li>
