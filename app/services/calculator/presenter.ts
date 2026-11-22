@@ -173,11 +173,8 @@ export function present(
     /** "Coletar": every raw material, with what they have of it */
     materials,
     materialsDone: materials.filter((m) => m.complete).length,
-    /** "Dá para fazer agora": crafts whose inputs they have */
-    readySteps: steps.filter((s) => s.readyCrafts > EPSILON),
     /** "Etapas": the crafts by round */
     rounds,
-    effortBySkill: result.effortBySkill,
     warnings: result.warnings,
     choices: Object.entries(state.choices).map(([itemId, value]) => ({
       itemId,

@@ -16,24 +16,47 @@ export interface QuickPlanLine {
 
 /**
  * Settlement upgrades: the Homestead path (decided 22/11/2026), the small
- * settlement, for the two of them. Each tier is a settlement research
- * (claim_tech_desc) that takes items and supplies.
+ * settlement, for the two of them. It starts with the foundation (T1); from
+ * T3 on, each tier is a settlement research (claim_tech_desc) that takes
+ * items and supplies.
  */
 const SETTLEMENT = {
   key: 'homestead' as const,
   label: 'Upgrades de assentamento',
   planName: 'Homestead',
-  description: 'A pesquisa de cada tier do Homestead, o assentamento pequeno',
+  description: 'A fundação e a pesquisa de cada tier do Homestead, o assentamento pequeno',
   techType: 'Homestead',
+}
+
+/**
+ * Founding the settlement, which starts at T1. The Settlement Foundation Kit,
+ * the cargo that builds the Settlement Totem, comes from the trader Rumbagh
+ * for these items (traveler_trade_order_desc 1057802508; the import doesn't
+ * read the trades). By game id, as in item_desc.
+ */
+const FOUNDATION = {
+  tier: 1,
+  label: 'Fundação',
+  planName: 'Fundação do Homestead',
+  notes:
+    'Troque os itens com o Rumbagh pelo Settlement Foundation Kit e construa a ' +
+    'Settlement Totem fora das Safe Meadows (Construction 1 e um Mallet). Quem ' +
+    'constrói vira o dono. Depois vem o Homestead T3.',
+  items: [
+    { gameId: 78117662, quantity: 10 }, // Beginner's Settlement Research
+    { gameId: 1, quantity: 5000 }, // Hex Coin
+  ],
 }
 
 const numberFormat = new Intl.NumberFormat('pt-BR')
 
-/** A settlement research of one tier and the items it takes */
-interface SettlementTech {
+/** A step of the settlement (its foundation or a tier's research) and the items it takes */
+interface SettlementStep {
   tier: number
-  name: string
-  suppliesCost: number
+  /** In the menu, after "T<tier> · " */
+  label: string
+  planName: string
+  notes: string
   inputs: QuickPlanLine[]
 }
 
@@ -108,12 +131,12 @@ export const TEMPLATES: Template[] = [
 
 /**
  * Plans that add many things at once, for the chosen tier: an armor set
- * (leather, cloth or metal), every profession's tool, or what the settlement
- * (Homestead) research takes.
+ * (leather, cloth or metal), every profession's tool, or what founding the
+ * settlement or its (Homestead) research takes.
  */
 export default class QuickPlans {
   #results?: Promise<CraftResult[]>
-  #techs?: Promise<SettlementTech[]>
+  #steps?: Promise<SettlementStep[]>
 
   /** The templates with the tiers the game data has, for the Planos page */
   async catalog() {
@@ -134,22 +157,22 @@ export default class QuickPlans {
       }
     })
 
-    const techs = await this.#settlementTechs()
+    const steps = await this.#settlementSteps()
     const settlement = {
       key: SETTLEMENT.key,
       label: SETTLEMENT.label,
       description: SETTLEMENT.description,
       styles: null,
-      tiers: techs
-        .filter((tech) => tech.inputs.length > 0)
-        .map((tech) => tierOption(tech.tier, SETTLEMENT.planName, tech.inputs.length)),
+      tiers: steps
+        .filter((step) => step.inputs.length > 0)
+        .map((step) => tierOption(step.tier, step.label, step.inputs.length)),
     }
     return [...craft, settlement].filter((entry) => entry.tiers.length > 0)
   }
 
   /**
-   * The items of a quick plan: one of each piece or tool, or what the
-   * settlement research of that tier takes.
+   * The items of a quick plan: one of each piece or tool, or what founding
+   * the settlement (T1) or its research of that tier takes.
    */
   async items(
     key: QuickPlanKey,
@@ -157,8 +180,8 @@ export default class QuickPlans {
     style: MetalStyle = METAL_STYLES[0]
   ): Promise<QuickPlanLine[]> {
     if (key === SETTLEMENT.key) {
-      const techs = await this.#settlementTechs()
-      return techs.find((t) => t.tier === tier)?.inputs ?? []
+      const steps = await this.#settlementSteps()
+      return steps.find((step) => step.tier === tier)?.inputs ?? []
     }
     const template = TEMPLATES.find((t) => t.key === key)!
     return this.#pick(await this.#craftResults(), template, tier, style).map((item) => ({
@@ -177,12 +200,10 @@ export default class QuickPlans {
     let name: string
     let notes: string | null = null
     if (key === SETTLEMENT.key) {
-      const techs = await this.#settlementTechs()
-      const tech = techs.find((t) => t.tier === tier)!
-      name = `${SETTLEMENT.planName} T${tier}`
-      notes =
-        `Pesquisa "${tech.name}" do assentamento. Além dos itens, ela custa ` +
-        `${numberFormat.format(tech.suppliesCost)} de suprimentos do assentamento.`
+      const steps = await this.#settlementSteps()
+      const step = steps.find((s) => s.tier === tier)!
+      name = step.planName
+      notes = step.notes
     } else {
       const template = TEMPLATES.find((t) => t.key === key)!
       name =
@@ -207,9 +228,41 @@ export default class QuickPlans {
     return plan
   }
 
+  /** The foundation (T1), then the Homestead researches by tier */
+  #settlementSteps() {
+    this.#steps ??= Promise.all([this.#foundation(), this.#homesteadTechs()]).then(
+      ([foundation, techs]) => [foundation, ...techs]
+    )
+    return this.#steps
+  }
+
+  /** What the Rumbagh takes for the kit; no items when one of them left the game */
+  async #foundation(): Promise<SettlementStep> {
+    const rows = await db
+      .from('items')
+      .whereNull('removed_at')
+      .where('kind', 'item')
+      .whereIn(
+        'game_id',
+        FOUNDATION.items.map((item) => item.gameId)
+      )
+      .select('id', 'game_id', 'name', 'rarity')
+    const inputs = FOUNDATION.items.flatMap(({ gameId, quantity }) => {
+      const row = rows.find((r) => Number(r.game_id) === gameId)
+      return row ? [{ id: row.id, name: row.name, rarity: row.rarity, quantity }] : []
+    })
+    return {
+      tier: FOUNDATION.tier,
+      label: FOUNDATION.label,
+      planName: FOUNDATION.planName,
+      notes: FOUNDATION.notes,
+      inputs: inputs.length === FOUNDATION.items.length ? inputs : [],
+    }
+  }
+
   /** The Homestead researches, by tier, with the items each one takes */
-  async #settlementTechs() {
-    this.#techs ??= db
+  #homesteadTechs() {
+    return db
       .from('claim_techs as t')
       .leftJoin('claim_tech_inputs as ti', 'ti.claim_tech_id', 't.id')
       .leftJoin('items as i', 'i.id', 'ti.item_id')
@@ -228,27 +281,29 @@ export default class QuickPlans {
         'ti.quantity'
       )
       .then((rows) => {
-        const byTier = new Map<number, SettlementTech>()
+        const byTier = new Map<number, SettlementStep>()
         for (const row of rows) {
-          const tech: SettlementTech = byTier.get(row.tier) ?? {
+          const step: SettlementStep = byTier.get(row.tier) ?? {
             tier: row.tier,
-            name: row.tech_name,
-            suppliesCost: Number(row.supplies_cost),
+            label: SETTLEMENT.planName,
+            planName: `${SETTLEMENT.planName} T${row.tier}`,
+            notes:
+              `Pesquisa "${row.tech_name}" do assentamento. Além dos itens, ela custa ` +
+              `${numberFormat.format(Number(row.supplies_cost))} de suprimentos do assentamento.`,
             inputs: [],
           }
           if (row.item_id !== null) {
-            tech.inputs.push({
+            step.inputs.push({
               id: row.item_id,
               name: row.item_name,
               rarity: row.rarity,
               quantity: Number(row.quantity),
             })
           }
-          byTier.set(row.tier, tech)
+          byTier.set(row.tier, step)
         }
         return [...byTier.values()]
       })
-    return this.#techs
   }
 
   /**

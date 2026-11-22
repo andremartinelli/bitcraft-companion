@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import testUtils from '@adonisjs/core/services/test_utils'
+import db from '@adonisjs/lucid/services/db'
 import Plan from '#models/plan'
 import QuickPlans from '#services/plans/quick_plans'
 import { importTables, withSetsAndTools } from '#tests/helpers/game_data'
@@ -61,7 +62,11 @@ test.group('Quick plans', (group) => {
       cloth: ['T2 · Simple (1 item)'],
       metal: ['T2 · Pyrelite (2 itens)'],
       tools: ['T1 · Ferralith (3 itens)', 'T2 · Pyrelite (1 item)'],
-      homestead: ['T3 · Homestead (3 itens)', 'T4 · Homestead (2 itens)'],
+      homestead: [
+        'T1 · Fundação (2 itens)',
+        'T3 · Homestead (3 itens)',
+        'T4 · Homestead (2 itens)',
+      ],
     })
     assert.deepEqual(catalog.find((entry) => entry.key === 'metal')!.styles, ['Plated', 'Duelist'])
   })
@@ -104,5 +109,38 @@ test.group('Quick plans', (group) => {
       saved.items.map((item) => item.quantity),
       [850, 5]
     )
+  })
+
+  test('the foundation (T1): what the Rumbagh takes for the kit', async ({ assert }) => {
+    const items = await new QuickPlans().items('homestead', 1)
+
+    assert.deepEqual(
+      items.map((item) => `${item.quantity}× ${item.name}`),
+      ["10× Beginner's Settlement Research", '5000× Hex Coin']
+    )
+  })
+
+  test('the foundation plan says how to found the settlement', async ({ assert }) => {
+    const plan = await new QuickPlans().create('homestead', 1, 'Plated', null)
+
+    assert.equal(plan!.name, 'Fundação do Homestead')
+    assert.include(plan!.notes!, 'Rumbagh pelo Settlement Foundation Kit')
+    const saved = await Plan.query().where('id', plan!.id).preload('items').firstOrFail()
+    assert.sameMembers(
+      saved.items.map((item) => item.quantity),
+      [10, 5000]
+    )
+    assert.isTrue(saved.useInventory)
+  })
+
+  test('no foundation when one of its items left the game', async ({ assert }) => {
+    await db.from('items').where('game_id', 1).update({ removed_at: new Date().toISOString() })
+
+    const catalog = await new QuickPlans().catalog()
+    assert.deepEqual(
+      catalog.find((entry) => entry.key === 'homestead')!.tiers.map((tier) => tier.tier),
+      [3, 4]
+    )
+    assert.isNull(await new QuickPlans().create('homestead', 1, 'Plated', null))
   })
 })

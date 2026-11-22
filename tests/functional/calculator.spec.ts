@@ -26,7 +26,10 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('Adicione um ou mais itens')
   })
 
-  test('shows raw materials and effort for the targets in the URL', async ({ client, assert }) => {
+  test('shows what to gather and the steps for the targets in the URL', async ({
+    client,
+    assert,
+  }) => {
     const plank = await idOf('item', 1030)
     const response = await client
       .get(`/calculator?targets[0][item_id]=${plank}&targets[0][quantity]=10`)
@@ -37,8 +40,7 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('0 de 1 completas')
     response.assertTextIncludes('Rough Wood Trunk')
     response.assertTextIncludes('Carpentry')
-    // Nothing in stock: nothing to make now; the steps go log, stripped wood, plank
-    response.assertTextIncludes('Nada ainda: falta material')
+    // Nothing in stock: the steps go log, stripped wood, plank, each waiting
     response.assertTextIncludes('Rodada 3')
     response.assertTextIncludes('espera 10 Rough Wood Trunk')
     response.assertTextIncludes('Árvore de produção')

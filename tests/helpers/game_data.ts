@@ -23,7 +23,8 @@ export function importTables(tables: Record<GameTable, any[]> = fixtureTables())
  * Armor pieces and tools in the shape of the real game data, for the quick
  * plans: craft results, a drop variant with no recipe, a recraft-only item,
  * two rarities of the same craft (T3) and a hand-made Flint tool next to the
- * station-made Ferralith one (T1).
+ * station-made Ferralith one (T1). Also the items the settlement foundation
+ * takes, with their real game ids.
  */
 export function withSetsAndTools(tables: Record<GameTable, any[]> = fixtureTables()) {
   const item = (id: number, name: string, tier: number, tag: string, rarity = 'Common') => ({
@@ -65,7 +66,9 @@ export function withSetsAndTools(tables: Record<GameTable, any[]> = fixtureTable
     item(9042, 'Ferralith Axe', 1, 'Forester Tool'),
     item(9043, 'Ferralith Pickaxe', 1, 'Miner Tool'),
     item(9044, 'Cooking Pot', 1, 'Cook Tool'),
-    item(9051, 'Pyrelite Axe', 2, 'Forester Tool')
+    item(9051, 'Pyrelite Axe', 2, 'Forester Tool'),
+    item(78117662, "Beginner's Settlement Research", 1, 'Research'),
+    item(1, 'Hex Coin', -1, 'Currency')
   )
   tables.crafting_recipe_desc.push(
     recipe(901, 'Craft', 9001, 2),

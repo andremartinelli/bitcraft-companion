@@ -41,6 +41,8 @@
     @end
 
     @if(panel.targets.length)
+      {{-- Scrolls past about five items; keeps its position when the panel redraws --}}
+      <div class="calc__targets-scroll" x-data="targetsScroll({{ panel.targets.length }})" x-on:scroll.debounce.100ms="save()">
       <table class="calc__targets">
         <thead>
           <tr><th>Item</th><th class="num">Quantidade</th><th></th></tr>
@@ -76,6 +78,7 @@
           @end
         </tbody>
       </table>
+      </div>
     @end
 
     @each(choice in panel.choices)

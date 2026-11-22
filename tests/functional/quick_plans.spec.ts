@@ -50,6 +50,34 @@ test.group('Quick plans page', (group) => {
       html,
       /<span class="qmenu__label">T3 · Homestead<\/span>\s*<span class="qmenu__hint">3 itens<\/span>/
     )
+    // ...starting with the foundation
+    assert.match(
+      html,
+      /<span class="qmenu__label">T1 · Fundação<\/span>\s*<span class="qmenu__hint">2 itens<\/span>/
+    )
+  })
+
+  test('the foundation opens a plan with the items and how to found it', async ({
+    client,
+    assert,
+  }) => {
+    await client
+      .post('/quick_plans')
+      .form({ template: 'homestead', tier: 1 })
+      .withCsrfToken()
+      .redirects(0)
+      .loginAs(user)
+
+    const plan = await Plan.query().preload('items').firstOrFail()
+    assert.equal(plan.name, 'Fundação do Homestead')
+    assert.sameMembers(
+      plan.items.map((item) => item.quantity),
+      [10, 5000]
+    )
+
+    const page = await client.get(`/plans/${plan.id}`).loginAs(user)
+    page.assertStatus(200)
+    page.assertTextIncludes('Troque os itens com o Rumbagh')
   })
 
   test('a settlement upgrade opens a plan with the quantities and the supplies', async ({

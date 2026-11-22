@@ -1,15 +1,23 @@
 {{--
-  Calculator result. Uses `panel`. What to gather, what can be made now and
-  the crafts in order come first; the full tree, for changing recipes and
-  "já tenho", stays folded at the end.
+  Calculator result. Uses `panel`. What to gather and the crafts in order
+  come first, side by side on wide screens; the full tree, for changing
+  recipes and "já tenho", stays folded at the end.
 --}}
 @if(!panel.targets.length)
   <div class="empty calc__empty">
-    <p>Adicione um ou mais itens para ver a matéria-prima e o esforço até o fim da cadeia.</p>
+    <p>Adicione um ou mais itens para ver a matéria-prima e as etapas até o fim da cadeia.</p>
     <p class="muted">Em cada etapa dá para trocar a receita ou marcar o que vocês já têm.</p>
   </div>
 @else
-  <div class="calc__summary">
+  @if(panel.warnings.length)
+    <div class="calc__warnings" role="status">
+      @each(warning in panel.warnings)
+        <p>{{ warning }}</p>
+      @end
+    </div>
+  @end
+
+  <div class="calc__overview">
     <section class="calc__box" aria-labelledby="calc-gather">
       <h2 id="calc-gather" class="calc__title">
         Coletar
@@ -47,92 +55,44 @@
       @end
     </section>
 
-    <section class="calc__box" aria-labelledby="calc-now">
-      <h2 id="calc-now" class="calc__title">Dá para fazer agora</h2>
-      @if(panel.readySteps.length)
-        <ul class="steps">
-          @each(step in panel.readySteps)
-            <li class="steps__row">
-              <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeReadyCrafts) }}×</span>
-              <span class="steps__main">
-                @!itemChip({ item: step.item })
-                @!calculator.stepWhere({ step, brief: true })
-                @if(!step.ready)
-                  <span class="steps__status">{{ formatNumber(step.wholeReadyCrafts) }} de {{ formatNumber(step.wholeCrafts) }} crafts; o resto espera material</span>
-                @end
-              </span>
-            </li>
-          @end
-        </ul>
-        <p class="calc__hint">Crafts com tudo o que entra já no inventário.</p>
-      @elseif(panel.rounds.length)
-        <p class="muted">Nada ainda: falta material. Comece pelo que está em Coletar.</p>
+    <section class="calc__box" aria-labelledby="calc-steps">
+      <h2 id="calc-steps" class="calc__title">Etapas</h2>
+      @if(panel.rounds.length)
+        <p class="calc__hint calc__hint--top">Cada item uma vez, somando a árvore inteira. Uma rodada só depende das anteriores; dentro dela, por estação.</p>
+        @each(group in panel.rounds)
+          <h3 class="steps__round">
+            Rodada {{ group.round }}
+            @if(group.round === 1)
+              <small>só com matéria-prima e o que vocês já têm</small>
+            @end
+          </h3>
+          <ul class="steps">
+            @each(step in group.steps)
+              <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
+                <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
+                <span class="steps__main">
+                  @!itemChip({ item: step.item })
+                  @!calculator.stepWhere({ step })
+                  @if(step.ready)
+                    <span class="steps__status steps__status--ready">
+                      @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
+                      pronto para fazer
+                    </span>
+                  @elseif(step.wholeReadyCrafts > 0)
+                    <span class="steps__status">{{ formatNumber(step.wholeReadyCrafts) }} de {{ formatNumber(step.wholeCrafts) }} já dá para fazer · espera {{ step.waitingLabel }}</span>
+                  @else
+                    <span class="steps__status">espera {{ step.waitingLabel }}</span>
+                  @end
+                </span>
+              </li>
+            @end
+          </ul>
+        @end
       @else
         <p class="muted">Nada para fabricar: vocês já têm tudo.</p>
       @end
     </section>
-
-    <section class="calc__box" aria-labelledby="calc-effort">
-      <h2 id="calc-effort" class="calc__title">Esforço por skill</h2>
-      @if(panel.effortBySkill.length)
-        <table class="calc__table">
-          <tbody>
-            @each(row in panel.effortBySkill)
-              <tr>
-                <td>{{ row.skill }}</td>
-                <td class="num">{{ formatNumber(Math.round(row.actions)) }}</td>
-              </tr>
-            @end
-          </tbody>
-        </table>
-        <p class="calc__hint">Soma das ações de todas as receitas. O tempo real depende do poder da ferramenta.</p>
-      @else
-        <p class="muted">Nenhum craft necessário.</p>
-      @end
-    </section>
   </div>
-
-  @if(panel.warnings.length)
-    <div class="calc__warnings" role="status">
-      @each(warning in panel.warnings)
-        <p>{{ warning }}</p>
-      @end
-    </div>
-  @end
-
-  @if(panel.rounds.length)
-    <section class="calc__box" aria-labelledby="calc-steps">
-      <h2 id="calc-steps" class="calc__title">Etapas</h2>
-      <p class="calc__hint calc__hint--top">Cada item uma vez, somando a árvore inteira. Uma rodada só depende das anteriores; dentro dela, por estação.</p>
-      @each(group in panel.rounds)
-        <h3 class="steps__round">
-          Rodada {{ group.round }}
-          @if(group.round === 1)
-            <small>só com matéria-prima e o que vocês já têm</small>
-          @end
-        </h3>
-        <ul class="steps">
-          @each(step in group.steps)
-            <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
-              <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
-              <span class="steps__main">
-                @!itemChip({ item: step.item })
-                @!calculator.stepWhere({ step, brief: false })
-                @if(step.ready)
-                  <span class="steps__status steps__status--ready">
-                    @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
-                    pronto para fazer
-                  </span>
-                @else
-                  <span class="steps__status">espera {{ step.waitingLabel }}</span>
-                @end
-              </span>
-            </li>
-          @end
-        </ul>
-      @end
-    </section>
-  @end
 
   <details class="calc__tree" x-data="rememberOpen('calc:tree')" x-on:toggle="remember()">
     <summary class="calc__tree-summary">

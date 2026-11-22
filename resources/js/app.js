@@ -103,6 +103,34 @@ Alpine.data('rememberOpen', function (key) {
 })
 
 /**
+ * The calculator's item list scrolls. Every change redraws it: it comes back
+ * where it was, or at the end when an item was added (new items go last).
+ */
+Alpine.data('targetsScroll', function (count) {
+  const storageKey = `targets-scroll:${location.pathname}`
+  return {
+    init() {
+      let saved = null
+      try {
+        saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null')
+      } catch {
+        // Storage blocked: it starts at the top
+      }
+      if (saved && count > saved.count) this.$el.scrollTop = this.$el.scrollHeight
+      else if (saved) this.$el.scrollTop = saved.top
+      this.save()
+    },
+    save() {
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify({ count, top: this.$el.scrollTop }))
+      } catch {
+        // Storage blocked: nothing to remember with
+      }
+    },
+  }
+})
+
+/**
  * "Planos rápidos" menu with submenus (resources/views/components/plans/quick_menu.edge),
  * keyboard included: arrows move and open/close submenus, Home/End jump,
  * Enter/Space open a submenu, Escape closes everything.
