@@ -80,16 +80,18 @@ Alpine.data('inventorySections', function (searching) {
 
 /**
  * A <details> that stays open or closed as the user left it, also after htmx
- * swaps it (the calculator redraws on every change). Remembered per browser.
+ * swaps it (the calculator redraws on every change). Remembered per browser;
+ * until then, the `open` attribute in the HTML decides.
  */
 Alpine.data('rememberOpen', function (key) {
   const storageKey = `open:${key}`
   return {
     init() {
       try {
-        if (localStorage.getItem(storageKey) === '1') this.$el.open = true
+        const saved = localStorage.getItem(storageKey)
+        if (saved !== null) this.$el.open = saved === '1'
       } catch {
-        // Storage blocked: it just starts closed
+        // Storage blocked: the HTML default stays
       }
     },
     remember() {

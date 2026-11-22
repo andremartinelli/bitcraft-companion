@@ -36,12 +36,14 @@ test.group('Quick calculator', (group) => {
       .loginAs(user)
 
     response.assertStatus(200)
-    response.assertTextIncludes('Coletar')
+    // Round 1 gathers; nothing in stock, so the crafts (log, stripped wood,
+    // plank) take rounds 2 to 4, each waiting
+    response.assertTextIncludes('Rodada 1 · Coletar')
     response.assertTextIncludes('0 de 1 completas')
     response.assertTextIncludes('Rough Wood Trunk')
     response.assertTextIncludes('Carpentry')
-    // Nothing in stock: the steps go log, stripped wood, plank, each waiting
-    response.assertTextIncludes('Rodada 3')
+    response.assertTextIncludes('Rodada 4')
+    assert.notInclude(response.text(), 'Rodada 5')
     response.assertTextIncludes('espera 10 Rough Wood Trunk')
     response.assertTextIncludes('Árvore de produção')
     response.assertTextIncludes('Salvar como plano')

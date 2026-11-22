@@ -121,12 +121,15 @@ export function present(
         .join(', '),
     }
   }
+  // Round 1 of the page is gathering ("Coletar"): the crafts start at round 2
   const steps = result.steps.map(step)
-  const rounds: { round: number; steps: typeof steps }[] = []
+  const rounds: { round: number; steps: typeof steps; readyCount: number }[] = []
   for (const s of steps) {
+    const round = s.round + 1
     const last = rounds.at(-1)
-    if (last?.round === s.round) last.steps.push(s)
-    else rounds.push({ round: s.round, steps: [s] })
+    if (last?.round === round) last.steps.push(s)
+    else rounds.push({ round, steps: [s], readyCount: 0 })
+    if (s.ready) rounds.at(-1)!.readyCount++
   }
 
   const node = (n: PlanNode): PresentedNode => {
@@ -173,7 +176,7 @@ export function present(
     /** "Coletar": every raw material, with what they have of it */
     materials,
     materialsDone: materials.filter((m) => m.complete).length,
-    /** "Etapas": the crafts by round */
+    /** "Etapas": the crafts by round, from round 2 (round 1 is `materials`) */
     rounds,
     warnings: result.warnings,
     choices: Object.entries(state.choices).map(([itemId, value]) => ({

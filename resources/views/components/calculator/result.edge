@@ -1,6 +1,7 @@
 {{--
-  Calculator result. Uses `panel`. What to gather and the crafts in order
-  come first, side by side on wide screens; the full tree, for changing
+  Calculator result. Uses `panel` and `form` (the rounds remember, per page,
+  which ones were folded). Round 1 gathers the raw materials; the next ones
+  make each item once, in an order that works. The full tree, for changing
   recipes and "já tenho", stays folded at the end.
 --}}
 @if(!panel.targets.length)
@@ -17,82 +18,87 @@
     </div>
   @end
 
-  <div class="calc__overview">
-    <section class="calc__box" aria-labelledby="calc-gather">
-      <h2 id="calc-gather" class="calc__title">
-        Coletar
-        @if(panel.materials.length)
-          <span class="calc__count">{{ panel.materialsDone }} de {{ panel.materials.length }} completas</span>
-        @end
-      </h2>
+  <section class="calc__box" aria-labelledby="calc-steps">
+    <h2 id="calc-steps" class="calc__title">Etapas</h2>
+    <p class="calc__hint calc__hint--top">Primeiro, coletar a matéria-prima. Depois, cada item uma vez, somando a árvore inteira: uma rodada só depende das anteriores e, dentro dela, vai por estação.</p>
+
+    <details class="round" open x-data="rememberOpen('{{ form.action }}:round:1')" x-on:toggle="remember()">
+      <summary class="round__summary">
+        <span class="round__title">Rodada 1 · Coletar</span>
+        <span class="round__count">
+          @if(panel.materials.length)
+            {{ panel.materialsDone }} de {{ panel.materials.length }} completas
+          @else
+            nada a coletar
+          @end
+        </span>
+      </summary>
       @if(panel.materials.length)
-        <ul class="gather">
+        <ul class="steps">
           @each(row in panel.materials)
-            <li class="gather__row {{ row.complete ? 'is-done' : '' }}">
-              <span class="gather__mark" title="{{ row.complete ? 'Completo' : `Faltam ${formatNumber(row.missing)}` }}">
-                @if(row.complete)
-                  @svg('lucide:circle-check', { width: 16, height: 16, 'aria-label': 'Completo' })
-                @else
-                  @svg('lucide:circle', { width: 16, height: 16, 'aria-hidden': 'true' })
-                @end
-              </span>
-              <span class="gather__item">
+            <li class="steps__row gather__row {{ row.complete ? 'is-done' : '' }}">
+              <span class="steps__qty">{{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.owned) }} / {{ formatNumber(row.needed) }}</span>
+              <span class="steps__main">
+                <span class="gather__mark">
+                  @if(row.complete)
+                    @svg('lucide:circle-check', { width: 16, height: 16, 'aria-hidden': 'true' })
+                  @else
+                    @svg('lucide:circle', { width: 16, height: 16, 'aria-hidden': 'true' })
+                  @end
+                </span>
                 @!itemChip({ item: row.item })
                 @if(row.holdersLabel)
                   <span class="gather__holders">{{ row.holdersLabel }}</span>
                 @end
+                <span class="gather__status">
+                  <span class="gather__bar" aria-hidden="true"><span style="width: {{ row.percent.toFixed(1) }}%"></span></span>
+                  {{ row.complete ? 'completo' : `faltam ${row.approximate ? '≈ ' : ''}${formatNumber(row.missing)}` }}
+                </span>
               </span>
-              <span class="gather__qty">
-                {{ row.approximate ? '≈ ' : '' }}{{ formatNumber(row.owned) }} / {{ formatNumber(row.needed) }}
-              </span>
-              <span class="gather__bar" aria-hidden="true"><span style="width: {{ row.percent.toFixed(1) }}%"></span></span>
             </li>
           @end
         </ul>
-        <p class="calc__hint">O que vocês têm / o que o plano precisa. Embaixo do item, com quem está.</p>
+        <p class="calc__hint round__hint">À esquerda, o que vocês têm / o que o plano precisa; ao lado do item, com quem está.</p>
       @else
-        <p class="muted">Nada para coletar: vocês já têm tudo.</p>
+        <p class="muted round__hint">Nada para coletar: vocês já têm tudo.</p>
       @end
-    </section>
+    </details>
 
-    <section class="calc__box" aria-labelledby="calc-steps">
-      <h2 id="calc-steps" class="calc__title">Etapas</h2>
-      @if(panel.rounds.length)
-        <p class="calc__hint calc__hint--top">Cada item uma vez, somando a árvore inteira. Uma rodada só depende das anteriores; dentro dela, por estação.</p>
-        @each(group in panel.rounds)
-          <h3 class="steps__round">
-            Rodada {{ group.round }}
-            @if(group.round === 1)
-              <small>só com matéria-prima e o que vocês já têm</small>
-            @end
-          </h3>
-          <ul class="steps">
-            @each(step in group.steps)
-              <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
-                <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
-                <span class="steps__main">
-                  @!itemChip({ item: step.item })
-                  @!calculator.stepWhere({ step })
-                  @if(step.ready)
-                    <span class="steps__status steps__status--ready">
-                      @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
-                      pronto para fazer
-                    </span>
-                  @elseif(step.wholeReadyCrafts > 0)
-                    <span class="steps__status">{{ formatNumber(step.wholeReadyCrafts) }} de {{ formatNumber(step.wholeCrafts) }} já dá para fazer · espera {{ step.waitingLabel }}</span>
-                  @else
-                    <span class="steps__status">espera {{ step.waitingLabel }}</span>
-                  @end
-                </span>
-              </li>
-            @end
-          </ul>
-        @end
-      @else
-        <p class="muted">Nada para fabricar: vocês já têm tudo.</p>
-      @end
-    </section>
-  </div>
+    @each(group in panel.rounds)
+      <details class="round" open x-data="rememberOpen('{{ form.action }}:round:{{ group.round }}')" x-on:toggle="remember()">
+        <summary class="round__summary">
+          <span class="round__title">Rodada {{ group.round }}</span>
+          <span class="round__count">
+            {{ group.steps.length }} {{ group.steps.length === 1 ? 'item' : 'itens' }}{{ group.readyCount ? ` · ${group.readyCount} ${group.readyCount === 1 ? 'pronto' : 'prontos'} para fazer` : '' }}
+          </span>
+        </summary>
+        <ul class="steps">
+          @each(step in group.steps)
+            <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
+              <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
+              <span class="steps__main">
+                @!itemChip({ item: step.item })
+                @!calculator.stepWhere({ step })
+                @if(step.ready)
+                  <span class="steps__status steps__status--ready">
+                    @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
+                    pronto para fazer
+                  </span>
+                @elseif(step.wholeReadyCrafts > 0)
+                  <span class="steps__status">{{ formatNumber(step.wholeReadyCrafts) }} de {{ formatNumber(step.wholeCrafts) }} já dá para fazer · espera {{ step.waitingLabel }}</span>
+                @else
+                  <span class="steps__status">espera {{ step.waitingLabel }}</span>
+                @end
+              </span>
+            </li>
+          @end
+        </ul>
+      </details>
+    @end
+    @if(!panel.rounds.length)
+      <p class="muted round__hint">Nada para fabricar: vocês já têm tudo.</p>
+    @end
+  </section>
 
   <details class="calc__tree" x-data="rememberOpen('calc:tree')" x-on:toggle="remember()">
     <summary class="calc__tree-summary">
