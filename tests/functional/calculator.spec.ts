@@ -44,6 +44,12 @@ test.group('Quick calculator', (group) => {
     response.assertTextIncludes('Carpentry')
     response.assertTextIncludes('Rodada 4')
     assert.notInclude(response.text(), 'Rodada 5')
+    // Inside a round, by profession: Forestry splits the trunk, Carpentry does the rest
+    const professions = [...response.text().matchAll(/class="steps__profession">\s*(\w+)/g)]
+    assert.deepEqual(
+      professions.map((match) => match[1]),
+      ['Forestry', 'Carpentry', 'Carpentry']
+    )
     response.assertTextIncludes('espera 10 Rough Wood Trunk')
     response.assertTextIncludes('Árvore de produção')
     response.assertTextIncludes('Salvar como plano')

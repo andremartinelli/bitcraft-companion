@@ -72,27 +72,33 @@
             {{ group.steps.length }} {{ group.steps.length === 1 ? 'item' : 'itens' }}{{ group.readyCount ? ` · ${group.readyCount} ${group.readyCount === 1 ? 'pronto' : 'prontos'} para fazer` : '' }}
           </span>
         </summary>
-        <ul class="steps">
-          @each(step in group.steps)
-            <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
-              <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
-              <span class="steps__main">
-                @!itemChip({ item: step.item })
-                @!calculator.stepWhere({ step })
-                @if(step.ready)
-                  <span class="steps__status steps__status--ready">
-                    @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
-                    pronto para fazer
-                  </span>
-                @elseif(step.wholeReadyCrafts > 0)
-                  <span class="steps__status">{{ formatNumber(step.wholeReadyCrafts) }} de {{ formatNumber(step.wholeCrafts) }} já dá para fazer · espera {{ step.waitingLabel }}</span>
-                @else
-                  <span class="steps__status">espera {{ step.waitingLabel }}</span>
-                @end
-              </span>
-            </li>
-          @end
-        </ul>
+        @each(profession in group.professions)
+          <h3 class="steps__profession">
+            {{ profession.name }}
+            <span>{{ profession.steps.length }} {{ profession.steps.length === 1 ? 'item' : 'itens' }}</span>
+          </h3>
+          <ul class="steps">
+            @each(step in profession.steps)
+              <li class="steps__row {{ step.ready ? 'is-ready' : '' }}">
+                <span class="steps__qty">{{ step.approximate ? '≈ ' : '' }}{{ formatNumber(step.wholeCrafts) }}×</span>
+                <span class="steps__main">
+                  @!itemChip({ item: step.item })
+                  @!calculator.stepWhere({ step })
+                  @if(step.ready)
+                    <span class="steps__status steps__status--ready">
+                      @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
+                      pronto para fazer
+                    </span>
+                  @elseif(step.wholeReadyCrafts > 0)
+                    <span class="steps__status">{{ formatNumber(step.wholeReadyCrafts) }} de {{ formatNumber(step.wholeCrafts) }} já dá para fazer · espera {{ step.waitingLabel }}</span>
+                  @else
+                    <span class="steps__status">espera {{ step.waitingLabel }}</span>
+                  @end
+                </span>
+              </li>
+            @end
+          </ul>
+        @end
       </details>
     @end
     @if(!panel.rounds.length)

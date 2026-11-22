@@ -1,7 +1,10 @@
-{{-- Recipe, station and skill of a step. Props: step. --}}
+{{--
+  Recipe, station and level of a step. The profession is the heading above
+  it, so only its level shows here. Props: step.
+--}}
 @let(recipe = $props.get('step').recipe)
 @if(recipe)
   <span class="steps__meta">
-    {{ recipe.name }} · {{ recipe.stationName ? `${recipe.stationName} T${recipe.stationTier}` : 'sem estação' }}{{ recipe.skillName ? ` · ${recipe.skillName} Nv ${recipe.skillLevel}` : '' }}
+    {{ recipe.name }} · {{ recipe.stationName ? `${recipe.stationName} T${recipe.stationTier}` : 'sem estação' }}{{ recipe.skillLevel ? ` · Nv ${recipe.skillLevel}` : '' }}
   </span>
 @end

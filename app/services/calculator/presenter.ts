@@ -8,7 +8,7 @@ import type {
   PlanResult,
   PlanStep,
 } from '#services/calculator/production_planner'
-import type { ItemHolder } from '#services/inventory/stock'
+import { ANY_PROFESSION, type ItemHolder } from '#services/inventory/stock'
 
 const EPSILON = 1e-9
 // The same format as the views' formatNumber, for labels built here
@@ -16,6 +16,19 @@ const numberFormat = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }
 
 /** Whole crafts: random outputs give fractions, and nobody does 0,01 of a craft */
 const wholeCrafts = (crafts: number) => Math.ceil(crafts - EPSILON)
+
+/** A recipe without a skill (rare in the game data) */
+const NO_SKILL = 'Sem profissão'
+
+/** The profession of a step: its recipe's skill; "ANY" in Portuguese */
+function professionOf(recipe: GraphRecipe | null) {
+  const skill = recipe?.skillName
+  if (!skill) return NO_SKILL
+  return skill === 'ANY' ? ANY_PROFESSION : skill
+}
+
+/** Named professions first, alphabetically; then "any"; then none */
+const professionRank = (name: string) => (name === NO_SKILL ? 2 : name === ANY_PROFESSION ? 1 : 0)
 
 /** Where "já tenho" came from, per item, and the inventory option (see withInventory) */
 export interface PresentOptions {
@@ -123,13 +136,30 @@ export function present(
   }
   // Round 1 of the page is gathering ("Coletar"): the crafts start at round 2
   const steps = result.steps.map(step)
-  const rounds: { round: number; steps: typeof steps; readyCount: number }[] = []
+  type PresentedStep = (typeof steps)[number]
+  const rounds: {
+    round: number
+    steps: PresentedStep[]
+    readyCount: number
+    /** The round's steps by the profession that makes them */
+    professions: { name: string; steps: PresentedStep[] }[]
+  }[] = []
   for (const s of steps) {
     const round = s.round + 1
     const last = rounds.at(-1)
     if (last?.round === round) last.steps.push(s)
-    else rounds.push({ round, steps: [s], readyCount: 0 })
+    else rounds.push({ round, steps: [s], readyCount: 0, professions: [] })
     if (s.ready) rounds.at(-1)!.readyCount++
+  }
+  for (const group of rounds) {
+    const byProfession = new Map<string, PresentedStep[]>()
+    for (const s of group.steps) {
+      const name = professionOf(s.recipe)
+      byProfession.set(name, [...(byProfession.get(name) ?? []), s])
+    }
+    group.professions = [...byProfession]
+      .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
+      .map(([name, professionSteps]) => ({ name, steps: professionSteps }))
   }
 
   const node = (n: PlanNode): PresentedNode => {
