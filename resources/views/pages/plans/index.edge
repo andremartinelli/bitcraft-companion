@@ -5,33 +5,10 @@
     @end
 
     @if(quickPlans.length)
-      <section class="quick-plans" aria-labelledby="quick-plans-title">
-        <h2 id="quick-plans-title" class="item-section__title">Planos rápidos</h2>
-        <div class="quick-plans__grid">
-          @each(quick in quickPlans)
-            @form({ route: 'quick_plans.store', method: 'POST', class: 'quick-plan' })
-              <input type="hidden" name="template" value="{{ quick.key }}" />
-              <p class="quick-plan__title">{{ quick.label }}</p>
-              <p class="quick-plan__description">{{ quick.description }}</p>
-              <div class="quick-plan__controls">
-                <select id="quick-{{ quick.key }}-tier" name="tier" class="field__input" aria-label="Tier: {{ quick.label }}">
-                  @each(option in quick.tiers)
-                    <option value="{{ option.tier }}">{{ option.label }}</option>
-                  @end
-                </select>
-                @if(quick.styles)
-                  <select id="quick-{{ quick.key }}-style" name="style" class="field__input" aria-label="Estilo: {{ quick.label }}">
-                    @each(style in quick.styles)
-                      <option value="{{ style }}">{{ style }}</option>
-                    @end
-                  </select>
-                @end
-                <button type="submit" class="btn btn--secondary btn--sm">Criar plano</button>
-              </div>
-            @end
-          @end
-        </div>
-      </section>
+      <div class="quick-plans">
+        @include('components/plans/quick_menu')
+        <span class="muted">um set inteiro ou todas as ferramentas de um tier, num plano novo</span>
+      </div>
     @end
 
     @if(plans.length)

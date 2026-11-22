@@ -1,0 +1,71 @@
+{{--
+  "Planos rápidos" menu: Planos rápidos › set › (style ›) tier. A tier is a
+  small form that creates the plan. Clicking or hovering an entry opens its
+  sub-menu; a click never closes it, since hovering already opened it.
+  Escape or a click outside closes the menu. Uses `quickPlans`.
+--}}
+<div
+  class="qmenu"
+  x-data="{ open: false, template: null, style: null, close() { this.open = false; this.template = null; this.style = null } }"
+  x-on:click.outside="close()"
+  x-on:keydown.escape.window="close()"
+>
+  <button
+    type="button"
+    class="btn btn--secondary btn--sm qmenu__toggle"
+    aria-haspopup="menu"
+    x-bind:aria-expanded="open"
+    x-on:click="open ? close() : (open = true)"
+  >
+    Planos rápidos
+    <span class="qmenu__arrow" aria-hidden="true">›</span>
+  </button>
+
+  <ul class="qmenu__list" role="menu" aria-label="Planos rápidos" x-show="open" x-cloak>
+    @each(quick in quickPlans)
+      <li class="qmenu__entry" role="none" x-on:mouseenter="template = '{{ quick.key }}'; style = null">
+        <button
+          type="button"
+          role="menuitem"
+          class="qmenu__item"
+          aria-haspopup="menu"
+          title="{{ quick.description }}"
+          x-bind:aria-expanded="template === '{{ quick.key }}'"
+          x-on:click="template = '{{ quick.key }}'; style = null"
+        >
+          <span>{{ quick.label }}</span>
+          <span class="qmenu__arrow" aria-hidden="true">›</span>
+        </button>
+
+        <ul class="qmenu__list qmenu__list--sub" role="menu" aria-label="{{ quick.label }}" x-show="template === '{{ quick.key }}'" x-cloak>
+          @if(quick.styles)
+            @each(style in quick.styles)
+              <li class="qmenu__entry" role="none" x-on:mouseenter="style = '{{ style }}'">
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="qmenu__item"
+                  aria-haspopup="menu"
+                  x-bind:aria-expanded="style === '{{ style }}'"
+                  x-on:click="style = '{{ style }}'"
+                >
+                  <span>{{ style }}</span>
+                  <span class="qmenu__arrow" aria-hidden="true">›</span>
+                </button>
+                <ul class="qmenu__list qmenu__list--sub" role="menu" aria-label="{{ quick.label }}: {{ style }}" x-show="style === '{{ style }}'" x-cloak>
+                  @each(option in quick.tiers)
+                    @include('components/plans/quick_menu_tier')
+                  @end
+                </ul>
+              </li>
+            @end
+          @else
+            @each(option in quick.tiers)
+              @include('components/plans/quick_menu_tier')
+            @end
+          @end
+        </ul>
+      </li>
+    @end
+  </ul>
+</div>

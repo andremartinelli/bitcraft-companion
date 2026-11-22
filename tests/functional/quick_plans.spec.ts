@@ -14,8 +14,12 @@ test.group('Quick plans page', (group) => {
     return rollback
   })
 
-  test('the Planos page offers the quick plans, with tier and style', async ({ client }) => {
+  test('the Planos page has the menu: Planos rápidos › set › (style ›) tier', async ({
+    client,
+    assert,
+  }) => {
     const response = await client.get('/plans').loginAs(user)
+    const html = response.text()
 
     response.assertStatus(200)
     response.assertTextIncludes('Planos rápidos')
@@ -24,7 +28,15 @@ test.group('Quick plans page', (group) => {
     response.assertTextIncludes('Set de minério completo')
     response.assertTextIncludes('Ferramentas')
     response.assertTextIncludes('T2 · Simple (2 itens)')
-    response.assertTextIncludes('<option value="Duelist">Duelist</option>')
+    assert.notInclude(html, '@!', 'an Edge tag leaked into the HTML')
+    // Each tier is a form that creates the plan; the metal set has one per style
+    assert.match(
+      html,
+      /name="template" value="tools"\s*\/>\s*<input type="hidden" name="tier" value="1"/
+    )
+    assert.include(html, '<input type="hidden" name="style" value="Duelist" />')
+    assert.include(html, '<input type="hidden" name="style" value="Plated" />')
+    assert.notInclude(html, '<select')
   })
 
   test('creating one opens the new plan with the whole set', async ({ client, assert }) => {
