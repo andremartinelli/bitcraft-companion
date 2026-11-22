@@ -5,6 +5,7 @@ import { withInventory } from '#services/calculator/inventory_owned'
 import { plan as runPlan } from '#services/calculator/production_planner'
 import { present } from '#services/calculator/presenter'
 import { readState } from '#services/calculator/state_params'
+import QuickPlans from '#services/plans/quick_plans'
 import { planNameValidator } from '#validators/plan'
 
 const STATE_KEYS = ['targets', 'choices', 'owned', 'inventory', 'add', 'remove']
@@ -18,12 +19,15 @@ const isHtmx = (request: HttpContext['request']) =>
  */
 export default class PlansController {
   async index({ view }: HttpContext) {
-    const plans = await Plan.query()
-      .preload('updatedBy')
-      .withCount('items')
-      .orderBy('updated_at', 'desc')
-      .orderBy('id', 'desc')
-    return view.render('pages/plans/index', { plans })
+    const [plans, quickPlans] = await Promise.all([
+      Plan.query()
+        .preload('updatedBy')
+        .withCount('items')
+        .orderBy('updated_at', 'desc')
+        .orderBy('id', 'desc'),
+      new QuickPlans().catalog(),
+    ])
+    return view.render('pages/plans/index', { plans, quickPlans })
   }
 
   async store({ request, response, auth, session }: HttpContext) {

@@ -28,6 +28,8 @@ router
     router
       .resource('plans', controllers.Plans)
       .only(['index', 'store', 'show', 'update', 'destroy'])
+    // A whole set or every tool of a tier, as a new plan
+    router.resource('quick_plans', controllers.QuickPlans).only(['store'])
     router.get('inventory', [controllers.Inventory, 'index']).as('inventory.index')
     // The "Sincronizar agora" button: reads BitJita now
     router.post('inventory/sync', [controllers.Inventory, 'sync']).as('inventory.sync')

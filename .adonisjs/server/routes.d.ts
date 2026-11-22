@@ -16,6 +16,7 @@ export type ScannedRoutes = {
     'plans.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'plans.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'quick_plans.store': { paramsTuple?: []; params?: {} }
     'inventory.index': { paramsTuple?: []; params?: {} }
     'inventory.sync': { paramsTuple?: []; params?: {} }
     'game_players.index': { paramsTuple?: []; params?: {} }
@@ -50,6 +51,7 @@ export type ScannedRoutes = {
   POST: {
     'session.store': { paramsTuple?: []; params?: {} }
     'plans.store': { paramsTuple?: []; params?: {} }
+    'quick_plans.store': { paramsTuple?: []; params?: {} }
     'inventory.sync': { paramsTuple?: []; params?: {} }
     'game_players.store': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
