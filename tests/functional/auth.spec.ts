@@ -32,6 +32,18 @@ test.group('Without login (LOGIN_REQUIRED off)', (group) => {
     response.assertHeader('location', '/')
   })
 
+  test('the app opens on Planos, the first entry of the menu', async ({ client, assert }) => {
+    await importTables()
+
+    const home = await client.get('/').redirects(0)
+    home.assertStatus(302)
+    home.assertHeader('location', '/plans')
+
+    const plans = await client.get('/plans')
+    const menu = plans.text().slice(plans.text().indexOf('class="subnav__inner"'))
+    assert.isBelow(menu.indexOf('Planos'), menu.indexOf('Receitas'))
+  })
+
   test('a plan can be saved without an author', async ({ client, assert }) => {
     await importTables()
     const plank = await Item.findByOrFail({ kind: 'item', gameId: 1030 })
@@ -63,7 +75,7 @@ test.group('Auth', (group) => {
     response.assertStatus(404)
   })
 
-  test('logs in and lands on /recipes', async ({ client }) => {
+  test('logs in and lands on /plans', async ({ client }) => {
     await User.create({ email: 'vitor@example.com', fullName: 'Vitor', password: 'secret-123' })
 
     const response = await client
@@ -73,7 +85,7 @@ test.group('Auth', (group) => {
       .redirects(0)
 
     response.assertStatus(302)
-    response.assertHeader('location', '/recipes')
+    response.assertHeader('location', '/plans')
   })
 
   test('rejects a wrong password', async ({ client }) => {
