@@ -47,7 +47,7 @@ export default class Plan extends PlanSchema {
    * Replaces the plan's targets, choices and owned quantities in one
    * transaction. Repeated targets are merged.
    */
-  async saveState(state: CalculatorState, user: User) {
+  async saveState(state: CalculatorState, user: User | null) {
     const targets = new Map<number, number>()
     for (const t of state.targets) targets.set(t.itemId, (targets.get(t.itemId) ?? 0) + t.quantity)
 
@@ -78,7 +78,7 @@ export default class Plan extends PlanSchema {
 
       this.useTransaction(trx)
       if (state.useInventory !== undefined) this.useInventory = state.useInventory
-      this.updatedById = user.id
+      this.updatedById = user?.id ?? null
       // touch updated_at even when only the state changed
       this.updatedAt = DateTime.now()
       await this.save()

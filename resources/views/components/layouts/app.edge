@@ -39,11 +39,13 @@
             @end
           </span>
           @!themeToggle()
-          @form({ route: 'session.destroy', method: 'POST' })
-            <button type="submit" class="btn btn--secondary btn--sm">
-              @svg('lucide:log-out', { width: 15, height: 15 })
-              Sair
-            </button>
+          @if(auth.user)
+            @form({ route: 'session.destroy', method: 'POST' })
+              <button type="submit" class="btn btn--secondary btn--sm">
+                @svg('lucide:log-out', { width: 15, height: 15 })
+                Sair
+              </button>
+            @end
           @end
         </div>
       </div>

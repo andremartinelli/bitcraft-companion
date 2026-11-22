@@ -30,7 +30,9 @@ Opções:
 
 ## Contas
 
-Não existe cadastro pelo site. Crie as duas contas pela linha de comando. Quando `--password` não é passado, a senha é pedida de forma oculta.
+Por enquanto o app **não pede login**: quem alcança o servidor (a rede local ou o Tailscale) usa o app direto. Para voltar a pedir login, ponha `LOGIN_REQUIRED=true` no `.env` (ou no `.env.production`) e reinicie o servidor.
+
+Com o login ligado, não existe cadastro pelo site. Crie as duas contas pela linha de comando. Quando `--password` não é passado, a senha é pedida de forma oculta.
 
 ```bash
 node ace users:create --email=voce@exemplo.com --name="Seu nome"

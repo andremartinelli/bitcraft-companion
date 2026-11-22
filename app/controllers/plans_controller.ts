@@ -34,8 +34,13 @@ export default class PlansController {
       return response.redirect().back()
     }
 
-    const user = auth.getUserOrFail()
-    const plan = await Plan.create({ name, createdById: user.id, updatedById: user.id })
+    // Without login (LOGIN_REQUIRED off) there is no user: the plan has no author
+    const user = auth.user ?? null
+    const plan = await Plan.create({
+      name,
+      createdById: user?.id ?? null,
+      updatedById: user?.id ?? null,
+    })
     await plan.saveState(state, user)
     return response.redirect().toRoute('plans.show', { id: plan.id })
   }
@@ -54,11 +59,11 @@ export default class PlansController {
    */
   async update({ params, request, response, auth, view }: HttpContext) {
     const plan = await this.#find(params.id)
-    const user = auth.getUserOrFail()
+    const user = auth.user ?? null
 
     if (request.input('name') !== undefined) {
       const { name } = await request.validateUsing(planNameValidator)
-      plan.merge({ name, updatedById: user.id })
+      plan.merge({ name, updatedById: user?.id ?? null })
       await plan.save()
     }
 
