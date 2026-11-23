@@ -8,6 +8,8 @@ import type { GraphRecipe, Producer } from '#services/calculator/recipe_graph'
  */
 export interface CalculatorState {
   targets: { itemId: number; quantity: number }[]
+  /** Buildings to build: construction recipes (a Loom, a Kiln...) */
+  buildings?: { recipeId: number; quantity: number }[]
   /** itemId -> recipe to use, or 'raw' to stop expanding there */
   choices: Record<number, number | 'raw'>
   /** itemId -> quantity already owned, as typed (0 means "ignore the inventory") */
@@ -77,8 +79,21 @@ export interface PlanStep {
   waitingOn: { itemId: number; missing: number; crafted: boolean }[]
 }
 
+/** A building to build: the last round of the steps */
+export interface PlanBuild {
+  /** The construction recipe */
+  recipeId: number
+  quantity: number
+  /** Everything it takes is in hand */
+  ready: boolean
+  waitingOn: { itemId: number; missing: number; crafted: boolean }[]
+  /** What it takes, expanded like any target */
+  children: PlanNode[]
+}
+
 export interface PlanResult {
   trees: PlanNode[]
+  builds: PlanBuild[]
   rawMaterials: { itemId: number; quantity: number; approximate: boolean }[]
   /** Every raw material, the incomplete ones first */
   materials: PlanMaterial[]
@@ -394,8 +409,45 @@ export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
     trees.push(expand(itemId, quantity, new Set(), false, null))
   }
 
+  // Buildings: what each takes is expanded like a target; building them is the last step
+  const buildTotals = new Map<number, number>()
+  for (const b of state.buildings ?? []) {
+    buildTotals.set(b.recipeId, (buildTotals.get(b.recipeId) ?? 0) + b.quantity)
+  }
+  const builds: PlanBuild[] = []
+  for (const [recipeId, quantity] of buildTotals) {
+    const recipe = graph.constructions.get(recipeId)
+    if (!recipe) {
+      warnings.push(`A construção #${recipeId} não existe nos dados do jogo.`)
+      continue
+    }
+    const skill = recipe.skillName ?? '—'
+    effort.set(skill, (effort.get(skill) ?? 0) + recipe.actionsRequired * quantity)
+    const children = recipe.inputs.map((input) =>
+      expand(input.itemId, input.quantity * quantity, new Set(), false, null)
+    )
+    const waiting = new Map<number, { missing: number; crafted: boolean }>()
+    for (const child of children) {
+      if (child.missing <= EPSILON) continue
+      const entry = waiting.get(child.itemId) ?? { missing: 0, crafted: false }
+      entry.missing += child.missing
+      entry.crafted ||= child.recipeId !== null
+      waiting.set(child.itemId, entry)
+    }
+    builds.push({
+      recipeId,
+      quantity,
+      ready: waiting.size === 0,
+      waitingOn: [...waiting]
+        .map(([itemId, entry]) => ({ itemId, ...entry }))
+        .sort((a, b) => Number(b.crafted) - Number(a.crafted) || b.missing - a.missing),
+      children,
+    })
+  }
+
   return {
     trees,
+    builds,
     rawMaterials: [...raw.entries()]
       .map(([itemId, total]) => ({ itemId, ...total }))
       .sort((a, b) => b.quantity - a.quantity || nameOf(a.itemId).localeCompare(nameOf(b.itemId))),

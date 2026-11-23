@@ -1,10 +1,15 @@
 {{--
-  Recipe, station and level of a step. The profession is the heading above
-  it, so only its level shows here. Props: step.
+  What a step turns into what ("6 Cervus → 6 Sturdy Raw Pelt"), then where:
+  station and level (the profession is the heading above). The recipe's name
+  is in the tooltip. Props: step.
 --}}
-@let(recipe = $props.get('step').recipe)
+@let(step = $props.get('step'))
+@let(recipe = step.recipe)
+@if(step.flowLabel)
+  <span class="steps__flow">{{ step.flowLabel }}</span>
+@end
 @if(recipe)
-  <span class="steps__meta">
-    {{ recipe.name }} · {{ recipe.stationName ? `${recipe.stationName} T${recipe.stationTier}` : 'sem estação' }}{{ recipe.skillLevel ? ` · Nv ${recipe.skillLevel}` : '' }}
+  <span class="steps__meta" title="{{ recipe.name }}">
+    {{ recipe.stationName ? `${recipe.stationName} T${recipe.stationTier}` : (recipe.toolName ? `${recipe.toolName} T${recipe.toolTier}` : 'sem estação') }}{{ recipe.skillLevel ? ` · Nv ${recipe.skillLevel}` : '' }}
   </span>
 @end

@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import Item from '#models/item'
+import Recipe from '#models/recipe'
 import SyncRun from '#models/sync_run'
 import { itemStock } from '#services/inventory/stock'
 
@@ -39,7 +40,24 @@ export default class ItemsController {
         : []
 
     if (request.header('HX-Request')) {
-      return view.render('components/calculator/suggestions', { items, q })
+      // The calculator's picker also finds buildings (construction recipes)
+      const buildings =
+        words.length && (q ?? '').length >= 2
+          ? await Recipe.query()
+              .withScopes((s) => s.active())
+              .where('kind', 'construction')
+              .where((query) => {
+                for (const word of words) {
+                  query.whereRaw(`recipes.name LIKE ? ESCAPE '\\'`, [
+                    `%${word.replace(/[%_\\]/g, '\\$&')}%`,
+                  ])
+                }
+              })
+              .orderByRaw('length(recipes.name)')
+              .orderBy('recipes.id')
+              .limit(10)
+          : []
+      return view.render('components/calculator/suggestions', { items, buildings, q })
     }
     return view.render('pages/items/index', { items, q })
   }

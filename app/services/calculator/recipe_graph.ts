@@ -20,6 +20,9 @@ export interface GraphRecipe {
   skillLevel: number | null
   stationName: string | null
   stationTier: number | null
+  /** Hammer, Mallet...: the tool it takes, if any */
+  toolName: string | null
+  toolTier: number | null
   actionsRequired: number
   hidden: boolean
   inputs: { itemId: number; quantity: number }[]
@@ -55,7 +58,9 @@ export default class RecipeGraph {
      * Items the world gives as they are, not only through a random list:
      * sand dug from the ground, braxite from a vein, logs from a tree.
      */
-    public gatheredDirectly: Set<number> = new Set()
+    public gatheredDirectly: Set<number> = new Set(),
+    /** Buildings (construction recipes): what each takes; they make no item */
+    public constructions: Map<number, GraphRecipe> = new Map()
   ) {}
 
   /**
@@ -95,24 +100,28 @@ export default class RecipeGraph {
         .from('recipes as r')
         .leftJoin('skills as s', 's.id', 'r.skill_id')
         .leftJoin('building_types as b', 'b.id', 'r.building_type_id')
+        .leftJoin('tool_types as t', 't.id', 'r.tool_type_id')
         .whereNull('r.removed_at')
-        .where('r.kind', 'crafting')
+        .whereIn('r.kind', ['crafting', 'construction'])
         .select(
           'r.id',
+          'r.kind',
           'r.name',
           'r.verb',
           'r.skill_level',
           'r.building_tier',
+          'r.tool_tier',
           'r.actions_required',
           'r.hidden_without_knowledge',
           's.name as skill_name',
-          'b.name as station_name'
+          'b.name as station_name',
+          't.name as tool_name'
         ),
       db
         .from('recipe_inputs as ri')
         .join('recipes as r', 'r.id', 'ri.recipe_id')
         .whereNull('r.removed_at')
-        .where('r.kind', 'crafting')
+        .whereIn('r.kind', ['crafting', 'construction'])
         .orderBy('ri.id')
         .select('ri.recipe_id', 'ri.item_id', 'ri.quantity'),
       db
@@ -157,8 +166,9 @@ export default class RecipeGraph {
     }
 
     const recipes = new Map<number, GraphRecipe>()
+    const constructions = new Map<number, GraphRecipe>()
     for (const row of recipeRows) {
-      recipes.set(row.id, {
+      const recipe: GraphRecipe = {
         id: row.id,
         name: row.name,
         verb: row.verb,
@@ -166,13 +176,17 @@ export default class RecipeGraph {
         skillLevel: row.skill_level,
         stationName: row.station_name,
         stationTier: row.building_tier,
+        toolName: row.tool_name,
+        toolTier: row.tool_tier,
         actionsRequired: row.actions_required,
         hidden: Boolean(row.hidden_without_knowledge),
         inputs: [],
-      })
+      }
+      ;(row.kind === 'construction' ? constructions : recipes).set(row.id, recipe)
     }
     for (const row of inputRows) {
-      recipes.get(row.recipe_id)?.inputs.push({ itemId: row.item_id, quantity: row.quantity })
+      const recipe = recipes.get(row.recipe_id) ?? constructions.get(row.recipe_id)
+      recipe?.inputs.push({ itemId: row.item_id, quantity: row.quantity })
     }
 
     const lists = new Map<number, Map<number, Possibility>>()
@@ -232,7 +246,14 @@ export default class RecipeGraph {
     }
 
     const gathered = gatherersOf(gatherRows, listGameIdOf, lists)
-    return new RecipeGraph(items, recipes, producers, gathered.skills, gathered.direct)
+    return new RecipeGraph(
+      items,
+      recipes,
+      producers,
+      gathered.skills,
+      gathered.direct,
+      constructions
+    )
   }
 }
 

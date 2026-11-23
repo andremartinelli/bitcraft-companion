@@ -161,8 +161,31 @@ export function present(
     }
   })
 
+  /**
+   * "45 Rough Plank + 9 Basic Wood Polish → 9 Refined Rough Plank": what goes
+   * in and what comes out of all the crafts of a step (expected values, "≈",
+   * when the output is random).
+   */
+  const flowOf = (
+    recipe: GraphRecipe | undefined,
+    times: number,
+    approximate: boolean,
+    output: string
+  ) => {
+    if (!recipe) return null
+    const approx = approximate ? '≈ ' : ''
+    const inputs = recipe.inputs
+      .map((i) => `${approx}${numberFormat.format(i.quantity * times)} ${item(i.itemId).name}`)
+      .join(' + ')
+    return `${inputs} → ${output}`
+  }
+
   const step = (s: PlanStep) => {
     const waitingOn = s.waitingOn.map((w) => ({ ...w, item: item(w.itemId) }))
+    const recipe = graph.recipes.get(s.recipeId)
+    const producer = graph.producers.get(s.itemId)?.find((p) => p.recipeId === s.recipeId)
+    const made = s.crafts * (producer?.yield ?? 1)
+    const approx = s.approximate ? '≈ ' : ''
     return {
       ...s,
       item: item(s.itemId),
@@ -180,6 +203,15 @@ export function present(
             : `${s.approximate ? '≈ ' : ''}${numberFormat.format(w.missing)} ${w.item.name}`
         )
         .join(', '),
+      /** What the crafts take and give; nothing for a done step */
+      flowLabel: s.done
+        ? null
+        : flowOf(
+            recipe,
+            s.crafts,
+            s.approximate,
+            `${approx}${numberFormat.format(made)} ${item(s.itemId).name}`
+          ),
       /**
        * Done: why nothing goes into it, "vocês já têm 614 · Nimbus 600 · Quartz 14"
        * (the plan takes only part of it)
@@ -294,13 +326,66 @@ export function present(
     }
   }
 
+  /** A construction recipe by id; one that left the game still shows */
+  const construction = (id: number): GraphRecipe =>
+    graph.constructions.get(id) ?? {
+      id,
+      name: `Construção #${id}`,
+      verb: 'Build',
+      skillName: null,
+      skillLevel: null,
+      stationName: null,
+      stationTier: null,
+      toolName: null,
+      toolTier: null,
+      actionsRequired: 0,
+      hidden: false,
+      inputs: [],
+    }
+
+  // Building comes after every craft: the round after the last one
+  const buildRound = {
+    round: (rounds.at(-1)?.round ?? 1) + 1,
+    entries: result.builds.map((b) => {
+      const waitingOn = b.waitingOn.map((w) => ({ ...w, item: item(w.itemId) }))
+      const recipe = construction(b.recipeId)
+      return {
+        ...b,
+        recipe,
+        flowLabel: flowOf(recipe, b.quantity, false, `${b.quantity} ${recipe.name}`),
+        waitingLabel: waitingOn
+          .map((w) =>
+            w.crafted ? w.item.name : `${numberFormat.format(w.missing)} ${w.item.name}`
+          )
+          .join(', '),
+      }
+    }),
+  }
+
   return {
     targets: state.targets.map((t, index) => ({
       index,
       item: item(t.itemId),
       quantity: t.quantity,
     })),
+    /** The buildings of the plan, as listed at the top */
+    buildings: (state.buildings ?? []).map((b, index) => ({
+      index,
+      recipe: construction(b.recipeId),
+      quantity: b.quantity,
+      removed: !graph.constructions.has(b.recipeId),
+    })),
+    /** Nothing asked yet: no item and no building */
+    empty: !state.targets.length && !(state.buildings ?? []).length,
     trees: result.trees.map(node),
+    /** Each building and the tree of what it takes */
+    buildTrees: result.builds.map((b) => ({
+      recipe: construction(b.recipeId),
+      quantity: b.quantity,
+      children: b.children.map(node),
+    })),
+    /** "Construir": the last round, when there are buildings */
+    buildRound: result.builds.length ? buildRound : null,
     rawMaterials: result.rawMaterials.map((r) => ({ ...r, item: item(r.itemId) })),
     /** "Coletar": every raw material, with what they have of it */
     materials,

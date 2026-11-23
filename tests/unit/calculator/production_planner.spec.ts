@@ -377,6 +377,53 @@ test.group('Production planner', (group) => {
     assert.lengthOf(result.trees[0].alternatives, 2)
   })
 
+  test('a building: what it takes is planned, building it is the last step', async ({ assert }) => {
+    const item = await ids()
+    const house = await Recipe.findByOrFail({ kind: 'construction', gameId: 50 })
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ buildings: [{ recipeId: house.id, quantity: 2 }] })
+    )
+
+    const [build] = result.builds
+    assert.equal(build.quantity, 2)
+    assert.isFalse(build.ready)
+    // 10 planks and 2 trunks a house
+    assert.deepEqual(
+      build.children.map((c) => [c.itemId, c.needed]),
+      [
+        [item.plank, 20],
+        [item.trunk, 4],
+      ]
+    )
+    assert.deepEqual(
+      build.waitingOn.map((w) => [w.itemId, w.crafted]),
+      [
+        [item.plank, true],
+        [item.trunk, false],
+      ]
+    )
+    // 20 planks: 40 stripped wood, 40 logs, 20 trunks; plus 4 for the houses
+    assert.deepEqual(
+      result.materials.map((m) => [m.itemId, m.needed]),
+      [[item.trunk, 24]]
+    )
+    assert.include(
+      result.effortBySkill.map((e) => e.skill),
+      'Construction'
+    )
+  })
+
+  test('a building that left the game is a warning', async ({ assert }) => {
+    const result = plan(
+      await RecipeGraph.current(),
+      state({ buildings: [{ recipeId: 999_999, quantity: 1 }] })
+    )
+
+    assert.lengthOf(result.builds, 0)
+    assert.include(result.warnings[0], 'não existe nos dados do jogo')
+  })
+
   test('the graph is cached until the next import', async ({ assert }) => {
     const first = await RecipeGraph.current()
     assert.strictEqual(await RecipeGraph.current(), first)

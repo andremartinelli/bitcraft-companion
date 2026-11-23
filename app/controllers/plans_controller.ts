@@ -8,7 +8,17 @@ import { readState } from '#services/calculator/state_params'
 import QuickPlans from '#services/plans/quick_plans'
 import { planNameValidator } from '#validators/plan'
 
-const STATE_KEYS = ['targets', 'choices', 'owned', 'inventory', 'add', 'remove']
+const STATE_KEYS = [
+  'targets',
+  'buildings',
+  'choices',
+  'owned',
+  'inventory',
+  'add',
+  'remove',
+  'add_building',
+  'remove_building',
+]
 
 const isHtmx = (request: HttpContext['request']) =>
   Boolean(request.header('HX-Request')) && !request.header('HX-Boosted')
@@ -23,6 +33,7 @@ export default class PlansController {
       Plan.query()
         .preload('updatedBy')
         .withCount('items')
+        .withCount('buildings')
         .orderBy('updated_at', 'desc')
         .orderBy('id', 'desc'),
       new QuickPlans().catalog(),
@@ -105,6 +116,7 @@ export default class PlansController {
     return Plan.query()
       .where('id', Number(id) || 0)
       .preload('items', (q) => q.orderBy('position'))
+      .preload('buildings', (q) => q.orderBy('position'))
       .preload('choices')
       .preload('ownedItems')
       .preload('updatedBy')

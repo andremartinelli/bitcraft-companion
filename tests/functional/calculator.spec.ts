@@ -23,7 +23,7 @@ test.group('Quick calculator', (group) => {
     const response = await client.get('/calculator').loginAs(user)
 
     response.assertStatus(200)
-    response.assertTextIncludes('Adicione um ou mais itens')
+    response.assertTextIncludes('Adicione itens ou construções')
   })
 
   test('shows what to gather and the steps for the targets in the URL', async ({

@@ -1,7 +1,7 @@
 @layouts.app({ title: 'Planos' })
-  @page({ title: 'Planos', description: 'Cálculos salvos, compartilhados entre vocês. Para criar um, monte o cálculo na calculadora e salve como plano.' })
+  @page({ title: 'Planos', description: 'Planos salvos, compartilhados entre vocês. "Novo plano" cria um vazio: adicione itens ou construções, e cada mudança é salva sozinha.' })
     @slot('actions')
-      <a href="{{ route('calculator.show') }}" class="btn btn--primary btn--sm">Nova calculadora</a>
+      @!plans.newButton({ variant: 'primary' })
     @end
 
     @if(quickPlans.length)
@@ -21,7 +21,7 @@
             @each(plan in plans)
               <tr>
                 <td><a href="{{ route('plans.show', { id: plan.id }) }}" class="plans__name">{{ plan.name }}</a></td>
-                <td class="num">{{ plan.$extras.items_count }}</td>
+                <td class="num">{{ Number(plan.$extras.items_count) + Number(plan.$extras.buildings_count) }}</td>
                 <td class="muted">
                   {{ formatDate(plan.updatedAt) }}
                   @if(plan.updatedBy)
@@ -36,7 +36,7 @@
     @else
       <div class="empty">
         <p>Nenhum plano ainda.</p>
-        <a href="{{ route('calculator.show') }}" class="btn btn--secondary btn--sm">Abrir a calculadora</a>
+        @!plans.newButton({ variant: 'secondary' })
       </div>
     @end
   @end

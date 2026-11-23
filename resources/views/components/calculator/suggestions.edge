@@ -1,6 +1,15 @@
-{{-- Item picker suggestions. Buttons submit #calc-form with add=<item id>. --}}
-@if(items.length)
+{{--
+  Item picker suggestions. Buttons submit #calc-form with add=<item id>, or
+  add_building=<construction recipe id> for a building (a Loom, a Kiln...).
+--}}
+@if(items.length || buildings.length)
   <div class="suggestions">
+    @each(building in buildings)
+      <button type="submit" form="calc-form" name="add_building" value="{{ building.id }}" class="suggestion">
+        <span>{{ building.name }}</span>
+        <span class="badge badge--rarity">construção</span>
+      </button>
+    @end
     @each(item in items)
       <button type="submit" form="calc-form" name="add" value="{{ item.id }}" class="suggestion">
         <span>{{ item.name }}</span>
@@ -19,5 +28,5 @@
     @end
   </div>
 @elseif(q && q.length >= 2)
-  <p class="muted">Nenhum item encontrado.</p>
+  <p class="muted">Nada encontrado.</p>
 @end

@@ -4,9 +4,9 @@
   make each item once, in an order that works. The full tree, for changing
   recipes and "já tenho", stays folded at the end.
 --}}
-@if(!panel.targets.length)
+@if(panel.empty)
   <div class="empty calc__empty">
-    <p>Adicione um ou mais itens para ver a matéria-prima e as etapas até o fim da cadeia.</p>
+    <p>Adicione itens ou construções (um Loom, um Kiln...) para ver a matéria-prima e as etapas até o fim da cadeia.</p>
     <p class="muted">Em cada etapa dá para trocar a receita ou marcar o que vocês já têm.</p>
   </div>
 @else
@@ -127,8 +127,40 @@
         @end
       </details>
     @end
-    @if(!panel.rounds.length)
+    @if(!panel.rounds.length && !panel.buildRound)
       <p class="muted round__hint">Nada para fabricar: vocês já têm tudo.</p>
+    @end
+
+    @if(panel.buildRound)
+      {{-- The buildings, once everything they take is made --}}
+      <details class="round" open x-data="rememberOpen('{{ form.action }}:round:build')" x-on:toggle="remember()">
+        <summary class="round__summary">
+          <span class="round__title">Rodada {{ panel.buildRound.round }} · Construir</span>
+          <span class="round__count">{{ panel.buildRound.entries.length }} {{ panel.buildRound.entries.length === 1 ? 'construção' : 'construções' }}</span>
+        </summary>
+        <ul class="steps">
+          @each(build in panel.buildRound.entries)
+            <li class="steps__row {{ build.ready ? 'is-ready' : '' }}">
+              <span class="steps__qty">{{ formatNumber(build.quantity) }}×</span>
+              <span class="steps__main">
+                <span class="chip chip--static">{{ build.recipe.name }}</span>
+                @if(build.flowLabel)
+                  <span class="steps__flow">{{ build.flowLabel }}</span>
+                @end
+                <span class="steps__meta">{{ build.recipe.skillName ?? 'Construção' }}{{ build.recipe.skillLevel ? ` Nv ${build.recipe.skillLevel}` : '' }}{{ build.recipe.toolName ? ` · ${build.recipe.toolName} T${build.recipe.toolTier}` : '' }}</span>
+                @if(build.ready)
+                  <span class="steps__status steps__status--ready">
+                    @svg('lucide:circle-check', { width: 14, height: 14, 'aria-hidden': 'true' })
+                    pronto para construir
+                  </span>
+                @else
+                  <span class="steps__status">espera {{ build.waitingLabel }}</span>
+                @end
+              </span>
+            </li>
+          @end
+        </ul>
+      </details>
     @end
   </section>
 
@@ -138,6 +170,20 @@
       <span class="muted">trocar receitas e corrigir o "já tenho"</span>
     </summary>
     <p class="calc__hint calc__hint--top">Troque a receita de cada etapa ou informe quanto vocês já têm. "≈" marca valores médios de saídas aleatórias.</p>
+    @each(build in panel.buildTrees)
+      <div class="node">
+        <div class="node__line">
+          <span class="node__qty">{{ formatNumber(build.quantity) }}</span>
+          <span class="chip chip--static">{{ build.recipe.name }}</span>
+          <span class="node__reason">construção{{ build.recipe.skillName ? ` · ${build.recipe.skillName} Nv ${build.recipe.skillLevel}` : '' }}</span>
+        </div>
+        <div class="node__children">
+          @each(child in build.children)
+            @!calculator.node({ node: child, depth: 1 })
+          @end
+        </div>
+      </div>
+    @end
     @each(node in panel.trees)
       @!calculator.node({ node, depth: 0 })
     @end

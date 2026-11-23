@@ -32,9 +32,11 @@ function compact(value: unknown): unknown {
 }
 
 const MESSAGES: Record<string, string> = {
-  quantity: 'A quantidade precisa ser um número inteiro entre 1 e 100.000.',
-  owned: 'O "já tenho" precisa ser um número inteiro entre 0 e 1.000.000.',
-  targets: 'Dá para calcular no máximo 30 itens de uma vez.',
+  'buildings.': 'A quantidade de uma construção precisa ser um número inteiro entre 1 e 1.000.',
+  'quantity': 'A quantidade precisa ser um número inteiro entre 1 e 100.000.',
+  'owned': 'O "já tenho" precisa ser um número inteiro entre 0 e 1.000.000.',
+  'targets': 'Dá para calcular no máximo 30 itens de uma vez.',
+  'buildings': 'Dá para calcular no máximo 30 construções de uma vez.',
 }
 
 /**
@@ -52,7 +54,7 @@ export async function readState(input: Record<string, unknown>): Promise<ReadSta
       return key ? MESSAGES[key] : 'Alguns dados do cálculo são inválidos.'
     })
     return {
-      state: { targets: [], choices: {}, owned: {}, useInventory: true },
+      state: { targets: [], buildings: [], choices: {}, owned: {}, useInventory: true },
       errors: [...new Set(messages)],
       changed: false,
     }
@@ -72,6 +74,21 @@ export async function readState(input: Record<string, unknown>): Promise<ReadSta
     changed = true
   }
 
+  const buildings = (data.buildings ?? []).map((b) => ({
+    recipeId: b.recipe_id,
+    quantity: b.quantity ?? 1,
+  }))
+  if (data.remove_building !== undefined && data.remove_building < buildings.length) {
+    buildings.splice(data.remove_building, 1)
+    changed = true
+  }
+  if (data.add_building !== undefined) {
+    if (!buildings.some((b) => b.recipeId === data.add_building)) {
+      buildings.push({ recipeId: data.add_building, quantity: 1 })
+    }
+    changed = true
+  }
+
   const choices: CalculatorState['choices'] = {}
   for (const [itemId, value] of Object.entries(data.choices ?? {})) {
     const id = itemIdFromKey(itemId)
@@ -85,7 +102,7 @@ export async function readState(input: Record<string, unknown>): Promise<ReadSta
   }
 
   const useInventory = data.inventory !== '0'
-  return { state: { targets, choices, owned, useInventory }, errors: [], changed }
+  return { state: { targets, buildings, choices, owned, useInventory }, errors: [], changed }
 }
 
 /** The state as form fields, in the same bracket format readState reads */
@@ -95,6 +112,12 @@ export function stateToFields(state: CalculatorState): [string, string][] {
     fields.push(
       [`targets[${i}][item_id]`, String(t.itemId)],
       [`targets[${i}][quantity]`, String(t.quantity)]
+    )
+  })
+  ;(state.buildings ?? []).forEach((b, i) => {
+    fields.push(
+      [`buildings[${i}][recipe_id]`, String(b.recipeId)],
+      [`buildings[${i}][quantity]`, String(b.quantity)]
     )
   })
   for (const [itemId, choice] of Object.entries(state.choices))

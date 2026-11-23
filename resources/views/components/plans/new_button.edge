@@ -1,0 +1,9 @@
+{{--
+  "Novo plano": creates an empty plan and opens it; every change on it is
+  saved. Props: variant ('primary' | 'secondary').
+--}}
+<form method="POST" action="{{ route('plans.store') }}" class="plans__new">
+  {{ csrfField() }}
+  <input type="hidden" name="name" value="Novo plano" />
+  <button type="submit" class="btn btn--{{ $props.get('variant') ?? 'primary' }} btn--sm">Novo plano</button>
+</form>

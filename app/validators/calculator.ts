@@ -14,6 +14,16 @@ export const calculatorStateValidator = vine.create({
     )
     .maxLength(30)
     .optional(),
+  // Buildings to build (construction recipes): buildings[0][recipe_id]
+  buildings: vine
+    .array(
+      vine.object({
+        recipe_id: vine.number().withoutDecimals().positive(),
+        quantity: vine.number().withoutDecimals().min(1).max(1_000).optional(),
+      })
+    )
+    .maxLength(30)
+    .optional(),
   choices: vine.record(vine.string().regex(/^(raw|\d+)$/)).optional(),
   owned: vine.record(vine.number().withoutDecimals().min(0).max(1_000_000)).optional(),
   // "Usar inventário do grupo": "0" turns it off; absent or "1" leaves it on
@@ -21,4 +31,7 @@ export const calculatorStateValidator = vine.create({
   // Buttons of the form: add an item from the search, remove a target by position
   add: vine.number().withoutDecimals().positive().optional(),
   remove: vine.number().withoutDecimals().min(0).optional(),
+  // The same for buildings: a construction recipe id, a position
+  add_building: vine.number().withoutDecimals().positive().optional(),
+  remove_building: vine.number().withoutDecimals().min(0).optional(),
 })

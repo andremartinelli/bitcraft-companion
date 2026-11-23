@@ -264,6 +264,21 @@ export class ItemSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class PlanBuildingSchema extends BaseModel {
+  static $columns = ['id', 'planId', 'position', 'quantity', 'recipeId'] as const
+  $columns = PlanBuildingSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare planId: number
+  @column()
+  declare position: number
+  @column()
+  declare quantity: number
+  @column()
+  declare recipeId: number
+}
+
 export class PlanChoiceSchema extends BaseModel {
   static $columns = ['id', 'itemId', 'planId', 'recipeId'] as const
   $columns = PlanChoiceSchema.$columns

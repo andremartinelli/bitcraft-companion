@@ -3,6 +3,7 @@ import { belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
+import PlanBuilding from '#models/plan_building'
 import PlanChoice from '#models/plan_choice'
 import PlanItem from '#models/plan_item'
 import PlanOwnedItem from '#models/plan_owned_item'
@@ -16,6 +17,9 @@ export default class Plan extends PlanSchema {
   @hasMany(() => PlanItem)
   declare items: HasMany<typeof PlanItem>
 
+  @hasMany(() => PlanBuilding)
+  declare buildings: HasMany<typeof PlanBuilding>
+
   @hasMany(() => PlanChoice)
   declare choices: HasMany<typeof PlanChoice>
 
@@ -28,7 +32,7 @@ export default class Plan extends PlanSchema {
   @belongsTo(() => User, { foreignKey: 'updatedById' })
   declare updatedBy: BelongsTo<typeof User>
 
-  /** Needs items, choices and ownedItems preloaded */
+  /** Needs items, buildings, choices and ownedItems preloaded */
   toCalculatorState(): CalculatorState {
     const choices: CalculatorState['choices'] = {}
     for (const choice of this.choices) choices[choice.itemId] = choice.recipeId ?? 'raw'
@@ -37,6 +41,10 @@ export default class Plan extends PlanSchema {
 
     return {
       targets: this.items.map((item) => ({ itemId: item.itemId, quantity: item.quantity })),
+      buildings: this.buildings.map((building) => ({
+        recipeId: building.recipeId,
+        quantity: building.quantity,
+      })),
       choices,
       owned,
       useInventory: this.useInventory,
@@ -44,21 +52,32 @@ export default class Plan extends PlanSchema {
   }
 
   /**
-   * Replaces the plan's targets, choices and owned quantities in one
-   * transaction. Repeated targets are merged.
+   * Replaces the plan's targets, buildings, choices and owned quantities in
+   * one transaction. Repeated targets (and buildings) are merged.
    */
   async saveState(state: CalculatorState, user: User | null) {
     const targets = new Map<number, number>()
     for (const t of state.targets) targets.set(t.itemId, (targets.get(t.itemId) ?? 0) + t.quantity)
+    const buildings = new Map<number, number>()
+    for (const b of state.buildings ?? []) {
+      buildings.set(b.recipeId, (buildings.get(b.recipeId) ?? 0) + b.quantity)
+    }
 
     await db.transaction(async (trx) => {
-      for (const table of ['plan_items', 'plan_choices', 'plan_owned_items']) {
+      for (const table of ['plan_items', 'plan_buildings', 'plan_choices', 'plan_owned_items']) {
         await trx.from(table).where('plan_id', this.id).delete()
       }
       let position = 0
       const items = [...targets].map(([itemId, quantity]) => ({
         plan_id: this.id,
         item_id: itemId,
+        quantity,
+        position: position++,
+      }))
+      position = 0
+      const buildingRows = [...buildings].map(([recipeId, quantity]) => ({
+        plan_id: this.id,
+        recipe_id: recipeId,
         quantity,
         position: position++,
       }))
@@ -73,6 +92,9 @@ export default class Plan extends PlanSchema {
         quantity,
       }))
       if (items.length) await trx.insertQuery().table('plan_items').multiInsert(items)
+      if (buildingRows.length) {
+        await trx.insertQuery().table('plan_buildings').multiInsert(buildingRows)
+      }
       if (choices.length) await trx.insertQuery().table('plan_choices').multiInsert(choices)
       if (owned.length) await trx.insertQuery().table('plan_owned_items').multiInsert(owned)
 
