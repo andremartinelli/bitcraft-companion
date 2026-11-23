@@ -162,22 +162,23 @@ export function present(
   })
 
   /**
-   * "45 Rough Plank + 9 Basic Wood Polish → 9 Refined Rough Plank": what goes
-   * in and what comes out of all the crafts of a step (expected values, "≈",
-   * when the output is random).
+   * "← 45 Rough Plank + 9 Basic Wood Polish": what all the crafts of a step
+   * take, pointing at the card of what they make (expected values, "≈", when
+   * the output is random). `yields`: how many come out, when it is not the
+   * crafts count shown beside it (a split giving 2 logs a craft).
    */
   const flowOf = (
     recipe: GraphRecipe | undefined,
     times: number,
     approximate: boolean,
-    output: string
+    yields: string | null
   ) => {
     if (!recipe) return null
     const approx = approximate ? '≈ ' : ''
     const inputs = recipe.inputs
       .map((i) => `${approx}${numberFormat.format(i.quantity * times)} ${item(i.itemId).name}`)
       .join(' + ')
-    return `${inputs} → ${output}`
+    return `← ${inputs}${yields ? ` · rende ${yields}` : ''}`
   }
 
   const step = (s: PlanStep) => {
@@ -210,7 +211,9 @@ export function present(
             recipe,
             s.crafts,
             s.approximate,
-            `${approx}${numberFormat.format(made)} ${item(s.itemId).name}`
+            Math.abs(made - wholeCrafts(s.crafts)) > EPSILON
+              ? `${approx}${numberFormat.format(made)}`
+              : null
           ),
       /**
        * Done: why nothing goes into it, "vocês já têm 614 · Nimbus 600 · Quartz 14"
@@ -352,7 +355,7 @@ export function present(
       return {
         ...b,
         recipe,
-        flowLabel: flowOf(recipe, b.quantity, false, `${b.quantity} ${recipe.name}`),
+        flowLabel: flowOf(recipe, b.quantity, false, null),
         waitingLabel: waitingOn
           .map((w) =>
             w.crafted ? w.item.name : `${numberFormat.format(w.missing)} ${w.item.name}`

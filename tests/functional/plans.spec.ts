@@ -122,7 +122,7 @@ test.group('Plans', (group) => {
     response.assertTextIncludes('Starter House')
     response.assertTextIncludes('· Construir')
     // 10 planks and 2 trunks per house
-    response.assertTextIncludes('10 Rough Plank + 2 Rough Wood Trunk → 1 Starter House')
+    response.assertTextIncludes('← 10 Rough Plank + 2 Rough Wood Trunk')
     const saved = await loadPlan(plan.id)
     assert.deepEqual(saved.toCalculatorState().buildings, [{ recipeId: house.id, quantity: 1 }])
 
