@@ -10,7 +10,7 @@ Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consul
 
 O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num ambiente só deste repositório.
 
-- **Ao abrir a sessão,** o hook SessionStart (`.claude/settings.json` → `scripts/workspace/session-start.sh`) roda `scripts/workspace/cloud-start.sh`:
+- **Ao abrir a sessão,** o hook SessionStart (`.claude/settings.json` → `scripts/workspace/session-start.sh`) primeiro confere o branch. Uma sessão aberta num branch que o cache do ambiente já guarda pode começar no commit do cache, e não no último push. Se a árvore estiver sem mudanças e o branch só estiver atrás do GitHub, o hook o avança (`git merge --ff-only`) e diz isso no resumo. Se o branch tiver mudanças ou tiver divergido, o hook só avisa. Depois ele roda `scripts/workspace/cloud-start.sh`:
   - liga o Docker e um Postgres 17 em `127.0.0.1:54320`, com os bancos `bitcraft_dev` (o app) e `bitcraft_test` (os testes de integração);
   - roda `npm ci` se o `package-lock.json` mudou, gera o cliente do Prisma e aplica as migrations do branch nos dois bancos.
 
