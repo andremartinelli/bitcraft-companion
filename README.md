@@ -4,7 +4,7 @@ Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculad
 
 Stack: Next.js, Prisma, Postgres e Chakra UI. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md), e o desenho em [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md).
 
-> **Em transição.** Esta versão está sendo portada do app AdonisJS, que fica em [`legacy/`](legacy/README.md) até o fim do port e continua sendo o que roda no PC a partir do `main`. Áreas já portadas: nenhuma ainda (o esqueleto sobe, com o menu e as páginas vazias).
+> **Em transição.** Esta versão está sendo portada do app AdonisJS, que fica em [`legacy/`](legacy/README.md) até o fim do port e continua sendo o que roda no PC a partir do `main`. Já portados: a importação dos dados do jogo, as receitas (`/recipes`) e os itens (`/items`, `/items/[id]`). Faltam o login, a calculadora, os planos e o inventário.
 
 ## Requisitos
 
@@ -30,8 +30,16 @@ Depois, noutro terminal:
 ```bash
 npx prisma migrate dev        # cria as tabelas no banco de dev
 npx prisma migrate deploy     # e no de testes, com DATABASE_URL_UNPOOLED apontando para a porta 51224
+npm run game-data:import      # dados do jogo (uns 15 s); rode de novo a cada patch
 npm run dev                   # http://localhost:3100
 ```
+
+O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e grava no banco de `DATABASE_URL_UNPOOLED` (no Neon, a URL direta). Ele roda do PC, nunca na Vercel:
+- o que é novo entra;
+- o que saiu do jogo é marcado como removido (nada é apagado);
+- itens renomeados aparecem no resumo.
+
+Opções: `-- --commit=<sha>` importa um commit específico, e `-- --path=<pasta>` lê os JSONs de uma pasta local.
 
 ## Testes
 
