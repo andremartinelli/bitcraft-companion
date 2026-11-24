@@ -1,0 +1,915 @@
+# BitCraft Companion na Vercel (fork): design
+
+Data: 2026-11-24 · Status: **rascunho para aprovação do André**
+
+## Intenção
+
+Um fork pessoal do BitCraft Companion que roda **de graça na Vercel**, sem depender de um PC ligado. O app faz o mesmo que hoje: consultar receitas e itens, calcular custos (calculadora e planos com etapas, construções e coleta) e acompanhar o inventário do grupo pela API pública da BitJita. Ele continua sendo de duas pessoas.
+
+O app atual (AdonisJS 7, SQLite, Edge, htmx e Alpine) não cabe na Vercel:
+
+- a Vercel não guarda arquivos entre execuções, e o SQLite se perderia;
+- não existe processo contínuo para o timer de 15 minutos do sync;
+- o AdonisJS não tem suporte oficial lá.
+
+Por isso o fork é **reescrito em Next.js**, portando a lógica que já existe e está testada (calculadora, importador, sync), e não reinventando.
+
+## Decisões já tomadas
+
+- **Stack:** Next.js (App Router, TypeScript), Prisma, Postgres no Neon e Chakra UI. Interface em pt-BR, código em inglês e nomes dos itens como vêm do jogo.
+- **Sync do inventário sob demanda:** quando alguém abre uma página que usa o inventário e o último sync tem mais de 15 minutos, o app sincroniza. Também há um Vercel Cron diário. Nunca um timer de 15 minutos.
+- **Importação dos dados do jogo:** é um script rodado do PC do André contra o banco do Neon, não uma função da Vercel. Continua tratando o que é novo, o que foi removido (`removed_at`) e o que foi renomeado.
+- **Login ligado:** o app fica público em `*.vercel.app`. São duas contas, criadas por script, sem cadastro aberto.
+- **Regras do jogo, sem exceção:**
+  - só a API pública da BitJita;
+  - nunca conectar nos servidores do jogo (SpacetimeDB) com token de jogador;
+  - nunca guardar token;
+  - nada de reducers ou automação.
+
+## Limites que mandam no desenho
+
+| Serviço (plano grátis) | Limite | Consequência no desenho |
+|---|---|---|
+| Vercel Hobby | Sem disco persistente | Todo dado fica no Postgres. |
+| Vercel Hobby | Cron no máximo 1 vez por dia, com horário aproximado | Sync sob demanda, mais um cron diário. |
+| Vercel Hobby | Função com no máximo 300 s | O sync de dois personagens leva poucos segundos (5 a 6 chamadas à BitJita, espaçadas em 500 ms). A importação não roda na Vercel. |
+| Vercel Hobby | Uso pessoal, não comercial | É o caso. |
+| Neon Free | 100 CU-horas de compute por mês, por projeto | O banco dorme depois de 5 minutos parado, e nada pode acordá-lo de 15 em 15 minutos. Deixar o compute fixo em 0,25 CU: 100 CU-horas dão 400 horas acordado no mês. |
+| Neon Free | 1 GB de armazenamento | O banco atual tem 5,5 MB. No Postgres, com índices, deve ficar entre 20 e 30 MB. |
+| Neon Free | 5 GB de transferência por mês | Carregar o grafo de receitas da calculadora lendo as tabelas custa cerca de 2,5 MB a cada cold start. Por isso o grafo é guardado comprimido (ver "Grafo de receitas"). |
+| Neon Free | Ao estourar um limite, o compute fica suspenso até o próximo ciclo | Se isso acontecer, o app fica fora do ar até o próximo ciclo. Acompanhar o uso no console do Neon no primeiro mês. |
+
+Os números do Neon foram conferidos em 24/11/2026, na [FAQ de limites](https://neon.com/faqs/free-plan-limits-and-quotas) e no [changelog de outubro de 2026](https://neon.com/docs/changelog/2026-10-02), que subiu o armazenamento para 1 GB.
+
+## Stack e versões
+
+As versões estáveis em 24/11/2026, conferidas no npm:
+
+| Pacote | Versão | Observação |
+|---|---|---|
+| `next` | 16.4 | App Router. No Next 16, o `middleware.ts` virou `proxy.ts`. |
+| `prisma` e `@prisma/client` | 7.10.1 | **Fixar a 7.10.1.** A tag `latest` do pacote `prisma` aponta hoje para um RC da versão 8. O Prisma 7 usa `prisma.config.ts`, o gerador `prisma-client` e um driver adapter. |
+| `@prisma/adapter-pg` | 7.10.1 | No app, usa a URL com pooler do Neon. Nos scripts e nas migrations, usa a URL direta. |
+| `@chakra-ui/react` | 3.38 | Com `next-themes` para o modo escuro. |
+| `zod` | — | Substitui o VineJS: é o padrão para validar `FormData` e `searchParams` no Next. |
+| `jose` | 6.2 | Sessão em cookie assinado. Funciona no `proxy.ts`. |
+| `vitest` | 5.1 | Testes. |
+| `tsx` | 4.23 | Roda os scripts (importação, usuários, sync). |
+
+As senhas usam o `scrypt` do `node:crypto`, sem dependência nativa (a mesma família de hash do Adonis).
+
+## Estrutura e convenções
+
+O fork segue as mesmas convenções do Rails que o projeto já usa, traduzidas para o Next.
+
+| Rails | Adonis (hoje) | Next (fork) |
+|---|---|---|
+| `resources` RESTful | `router.resource()` | Pastas em `src/app/` com as mesmas URLs de hoje (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/inventory`, `/game_players`). Mutações em server actions, num `actions.ts` por recurso (`createPlan`, `updatePlan`, `destroyPlan`…). |
+| Controllers magros | Controllers | Páginas (server components) e actions só leem a entrada, validam, chamam um service e renderizam ou redirecionam. Regras ficam em `src/services/` e `src/models/`. |
+| Service objects | `app/services/<area>/<nome>.ts` | `src/services/<area>/<nome>.ts`, portados quase sem mudança. |
+| Models | Lucid com escopos | Prisma não tem classes. As consultas e regras de cada tabela ficam em `src/models/<model>.ts` (por exemplo `recipe.ts` com `searchRecipes` e `filterOptions`, e `plan.ts` com `toCalculatorState` e `savePlanState`). O "escopo `active`" vira um filtro `active = { removedAt: null }` exportado e usado em todas as consultas dos dados do jogo. |
+| Strong params | VineJS em `app/validators/` | Zod em `src/validators/<recurso>.ts`, um schema por recurso e ação. |
+| Migrations | Lucid | `prisma migrate`. Nunca editar uma migration aplicada. O SQL que o Prisma não expressa (índice parcial) vai na própria migration. |
+| `db/seeds.rb` | Seeders | `prisma/seed.ts`, só para dev e teste. Os dados do jogo vêm do script de importação. |
+| Rake tasks | Comandos `ace` | Scripts em `scripts/`, rodados com `tsx` pelos `npm run` (ver tabela abaixo). |
+| Partials e layouts | Componentes Edge e respostas htmx | Layouts do App Router e componentes React com Chakra em `src/components/<area>/`. Componentes de cliente só onde há interação. |
+| Specs | Japa | Vitest: `tests/unit/` sem banco e `tests/integration/` com Postgres, mais as fixtures em `tests/fixtures/`. |
+
+Os comandos ficam assim:
+
+| Hoje | No fork |
+|---|---|
+| `node ace bitcraft:import [--commit=sha] [--path=pasta]` | `npm run game-data:import -- [--commit=sha] [--path=pasta]` |
+| `node ace users:create --email= --name=` | `npm run users:create -- --email= --name=` (a senha é pedida de forma oculta) |
+| `node ace inventory:sync` | `npm run inventory:sync` |
+| `node ace migration:run` | `npx prisma migrate dev` (local) e `npx prisma migrate deploy` (Neon, rodado do PC) |
+| `npm run dev` (porta 3333) | `npm run dev` na porta **3100** (a 3333 e a 3000 estão ocupadas pelo app atual) |
+
+A estrutura de pastas:
+
+```
+src/
+  app/
+    login/page.tsx, login/actions.ts
+    (app)/layout.tsx             cabeçalho, menu, "Dados do jogo de …"
+    (app)/plans/…  recipes/…  items/…  calculator/…  inventory/…  game_players/…
+    api/items/search/route.ts    o seletor de itens da calculadora (GET, JSON)
+    api/cron/inventory-sync/route.ts
+  proxy.ts                       exige sessão em tudo, menos /login e /api/cron
+  components/                    Chakra, por área
+  models/  services/  validators/
+  lib/                           prisma, sessão, formatação (pt-BR, fuso de São Paulo)
+  generated/prisma/              cliente gerado (fora do git)
+prisma/schema.prisma, prisma/migrations/, prisma.config.ts
+scripts/import-game-data.ts, scripts/create-user.ts, scripts/sync-inventory.ts
+tests/unit/, tests/integration/, tests/fixtures/
+legacy/                          o app Adonis, só para consulta durante o port; apagado no fim
+```
+
+**O código Adonis vai para `legacy/`** no commit do esqueleto, fora do build, do lint e do typecheck. Ele fica à mão para portar área por área, e é apagado quando a última área for portada. O `main` continua com tudo.
+
+## Schema Prisma
+
+O schema sai das 18 migrations Lucid aplicadas, já com o estado final: sem a tabela `game_credentials`, que foi criada e depois apagada, com a coluna `source` em `extraction_recipes` e com `plans.use_inventory`.
+
+Mudanças em relação ao SQLite, cada uma com o motivo:
+
+1. **Os IDs do jogo são `Int`, e não `BigInt`.** O maior ID nos dados atuais é 2.147.483.647, exatamente o máximo do `integer` do Postgres. O `BigInt` viraria `bigint` no JavaScript e complicaria o JSON e as comparações. Se um patch trouxer um ID maior, a importação falha com erro do banco, não em silêncio, e aí cria-se uma migration para `BigInt`.
+2. **`items.item_list_id` é novo:** uma FK para `item_lists.id`, resolvida pelo importador depois de gravar as listas. Hoje a ligação é feita pelo `item_list_game_id`, sem FK. Com a FK, o Prisma consegue navegar de item para lista nas consultas (`include`), e a busca de receitas por conteúdo de saída aleatória fica uma relação comum. O `item_list_game_id` continua guardado, como vem do jogo.
+3. **`item_list_possibilities.position` é novo,** único com `item_list_id`. Hoje o importador insere cada possibilidade numa chamada separada para saber o ID: são cerca de 6 mil idas ao banco, o que é lento pela rede até o Neon. Com a posição, todas entram num `INSERT` só, e os IDs são lidos de volta pela chave (`item_list_id`, `position`).
+4. **`last_import_id` vira coluna simples, sem FK.** Uma relação no Prisma exige o lado inverso em `GameDataImport` para cada tabela, e as importações nunca são apagadas.
+5. **Enums do Postgres** para os conjuntos fechados: tipo de item, de receita, de origem da coleta, de local do inventário, de origem do lançamento, e o gatilho e o status do sync.
+6. **`sync_runs.trigger`** passa de `manual | schedule` para `manual | auto | cron`:
+   - `manual` é o botão;
+   - `auto` é o sync por estar velho ao abrir uma página;
+   - `cron` é o diário.
+7. **Novas tabelas:**
+   - `recipe_graph_snapshots`, o grafo da calculadora comprimido, gravado pela importação;
+   - `login_attempts`, para limitar tentativas de login.
+8. **Índice parcial** `sync_runs (status) WHERE status = 'running'`, único, criado com SQL na migration. Ele é a trava de "um sync por vez" entre instâncias da Vercel, que substitui a trava em memória de hoje.
+9. **Datas em `timestamptz`.** Elas são exibidas no fuso `America/Sao_Paulo`, porque as funções da Vercel rodam em UTC.
+
+```prisma
+// prisma/schema.prisma. A URL do banco fica em prisma.config.ts (Prisma 7).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ItemKind {
+  item
+  cargo
+
+  @@map("item_kind")
+}
+
+enum RecipeKind {
+  crafting
+  construction
+
+  @@map("recipe_kind")
+}
+
+/// resource: árvore, veio, planta. enemy: um animal caçado.
+enum ExtractionSource {
+  resource
+  enemy
+
+  @@map("extraction_source")
+}
+
+enum ContainerKind {
+  personal
+  toolbelt
+  wallet
+  bank
+  stash
+  housing
+  claim
+  deployable
+  other
+
+  @@map("container_kind")
+}
+
+enum EntrySource {
+  sync
+  manual
+
+  @@map("entry_source")
+}
+
+enum SyncTrigger {
+  manual
+  auto
+  cron
+
+  @@map("sync_trigger")
+}
+
+enum SyncStatus {
+  running
+  ok
+  partial
+  failed
+
+  @@map("sync_status")
+}
+
+// ---------------------------------------------------------------- contas
+
+model User {
+  id        Int      @id @default(autoincrement())
+  fullName  String?  @map("full_name")
+  email     String   @unique @db.VarChar(254)
+  /// Hash scrypt (node:crypto), nunca a senha
+  password  String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plansCreated Plan[]       @relation("PlanCreatedBy")
+  plansUpdated Plan[]       @relation("PlanUpdatedBy")
+  gamePlayers  GamePlayer[]
+
+  @@map("users")
+}
+
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  email     String   @db.VarChar(254)
+  ip        String?
+  succeeded Boolean
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([email, createdAt])
+  @@map("login_attempts")
+}
+
+// ---------------------------------------------------------- dados do jogo
+
+model GameDataImport {
+  id         Int       @id @default(autoincrement())
+  /// github, local ou memory (testes)
+  source     String
+  commitSha  String?   @map("commit_sha")
+  sourceDate DateTime? @map("source_date") @db.Timestamptz(3)
+  counts     Json?
+  renamed    Json?
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  graph RecipeGraphSnapshot?
+
+  @@map("game_data_imports")
+}
+
+/// O grafo de receitas da calculadora, em JSON comprimido com gzip. É gravado
+/// pela importação, na mesma transação. Fica numa tabela própria para que as
+/// consultas a game_data_imports nunca tragam esses bytes.
+model RecipeGraphSnapshot {
+  importId  Int            @id @map("import_id")
+  import    GameDataImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  data      Bytes
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("recipe_graph_snapshots")
+}
+
+/// O id é o do jogo
+model Skill {
+  id   Int    @id
+  name String
+
+  recipes           Recipe[]
+  extractionRecipes ExtractionRecipe[]
+
+  @@map("skills")
+}
+
+model ToolType {
+  id   Int    @id
+  name String
+
+  recipes           Recipe[]
+  extractionRecipes ExtractionRecipe[]
+
+  @@map("tool_types")
+}
+
+model BuildingType {
+  id   Int    @id
+  name String
+
+  recipes Recipe[]
+
+  @@map("building_types")
+}
+
+/// Um item ou um cargo do jogo. Nunca é apagado: quando sai do jogo, ganha removed_at.
+model Item {
+  id             Int       @id @default(autoincrement())
+  kind           ItemKind
+  gameId         Int       @map("game_id")
+  name           String
+  description    String?
+  tier           Int
+  tag            String?
+  rarity         String?
+  /// item_list_id do jogo: este item é uma saída aleatória ("... Output")
+  itemListGameId Int?      @map("item_list_game_id")
+  /// A mesma lista pelo nosso id, resolvida pelo importador
+  itemListId     Int?      @map("item_list_id")
+  itemList       ItemList? @relation(fields: [itemListId], references: [id])
+  removedAt      DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId   Int?      @map("last_import_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  recipeInputs      RecipeInput[]
+  recipeOutputs     RecipeOutput[]
+  listEntries       ItemListPossibilityItem[]
+  claimTechInputs   ClaimTechInput[]
+  extractionOutputs ExtractionRecipeOutput[]
+  planItems         PlanItem[]
+  planChoices       PlanChoice[]
+  planOwnedItems    PlanOwnedItem[]
+  inventoryEntries  InventoryEntry[]
+
+  @@unique([kind, gameId])
+  @@index([name])
+  @@index([itemListId])
+  @@map("items")
+}
+
+model ItemList {
+  id           Int       @id @default(autoincrement())
+  gameId       Int       @unique @map("game_id")
+  name         String
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?      @map("last_import_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  possibilities ItemListPossibility[]
+  outputItems   Item[]
+
+  @@map("item_lists")
+}
+
+model ItemListPossibility {
+  id          Int      @id @default(autoincrement())
+  itemListId  Int      @map("item_list_id")
+  itemList    ItemList @relation(fields: [itemListId], references: [id], onDelete: Cascade)
+  /// Ordem dentro da lista, como vem do jogo
+  position    Int
+  probability Float
+
+  items ItemListPossibilityItem[]
+
+  @@unique([itemListId, position])
+  @@map("item_list_possibilities")
+}
+
+model ItemListPossibilityItem {
+  id            Int                 @id @default(autoincrement())
+  possibilityId Int                 @map("possibility_id")
+  possibility   ItemListPossibility @relation(fields: [possibilityId], references: [id], onDelete: Cascade)
+  itemId        Int                 @map("item_id")
+  item          Item                @relation(fields: [itemId], references: [id])
+  quantity      Int
+
+  @@index([possibilityId])
+  @@index([itemId])
+  @@map("item_list_possibility_items")
+}
+
+/// Receita de craft ou de construção. Uma skill, no máximo uma ferramenta e
+/// no máximo uma estação (o importador para com erro se um patch mudar isso).
+model Recipe {
+  id                     Int           @id @default(autoincrement())
+  kind                   RecipeKind
+  gameId                 Int           @map("game_id")
+  /// Com os placeholders resolvidos: {0} é o primeiro produto, {1} o primeiro ingrediente
+  name                   String
+  /// Craft, Scrap, Cook...; "Build" nas construções
+  verb                   String
+  actionsRequired        Int           @map("actions_required")
+  timePerAction          Float         @map("time_per_action")
+  staminaPerAction       Float         @map("stamina_per_action")
+  skillId                Int?          @map("skill_id")
+  skill                  Skill?        @relation(fields: [skillId], references: [id])
+  skillLevel             Int?          @map("skill_level")
+  toolTypeId             Int?          @map("tool_type_id")
+  toolType               ToolType?     @relation(fields: [toolTypeId], references: [id])
+  toolTier               Int?          @map("tool_tier")
+  buildingTypeId         Int?          @map("building_type_id")
+  buildingType           BuildingType? @relation(fields: [buildingTypeId], references: [id])
+  buildingTier           Int?          @map("building_tier")
+  isPassive              Boolean       @default(false) @map("is_passive")
+  hiddenWithoutKnowledge Boolean       @default(false) @map("hidden_without_knowledge")
+  shards                 Int           @default(0)
+  pavingTier             Int?          @map("paving_tier")
+  removedAt              DateTime?     @map("removed_at") @db.Timestamptz(3)
+  lastImportId           Int?          @map("last_import_id")
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inputs        RecipeInput[]
+  outputs       RecipeOutput[]
+  planChoices   PlanChoice[]
+  planBuildings PlanBuilding[]
+
+  @@unique([kind, gameId])
+  @@index([verb])
+  @@index([skillId])
+  @@index([buildingTypeId])
+  @@map("recipes")
+}
+
+model RecipeInput {
+  id       Int    @id @default(autoincrement())
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  itemId   Int    @map("item_id")
+  item     Item   @relation(fields: [itemId], references: [id])
+  quantity Int
+
+  @@index([recipeId])
+  @@index([itemId])
+  @@map("recipe_inputs")
+}
+
+model RecipeOutput {
+  id       Int    @id @default(autoincrement())
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  itemId   Int    @map("item_id")
+  item     Item   @relation(fields: [itemId], references: [id])
+  quantity Int
+
+  @@index([recipeId])
+  @@index([itemId])
+  @@map("recipe_outputs")
+}
+
+/// Pesquisa do assentamento: upgrade de tier, Township, Homestead...
+model ClaimTech {
+  id           Int       @id @default(autoincrement())
+  gameId       Int       @unique @map("game_id")
+  name         String
+  description  String?
+  tier         Int
+  /// TierUpgrade, Settlement, Homestead, Carpentry, MemberCount...
+  techType     String    @map("tech_type")
+  /// Suprimentos do assentamento, que não são item
+  suppliesCost Int       @default(0) @map("supplies_cost")
+  /// Não aparece no jogo, ou não pode ser pesquisada
+  hidden       Boolean   @default(false)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?      @map("last_import_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inputs ClaimTechInput[]
+
+  @@index([techType, tier])
+  @@map("claim_techs")
+}
+
+model ClaimTechInput {
+  id          Int       @id @default(autoincrement())
+  claimTechId Int       @map("claim_tech_id")
+  claimTech   ClaimTech @relation(fields: [claimTechId], references: [id], onDelete: Cascade)
+  itemId      Int       @map("item_id")
+  item        Item      @relation(fields: [itemId], references: [id])
+  quantity    Int
+
+  @@index([claimTechId])
+  @@map("claim_tech_inputs")
+}
+
+/// Coleta no mundo (Chop, Mine, Gather...) ou caça (Hunt, Slay)
+model ExtractionRecipe {
+  id           Int              @id @default(autoincrement())
+  source       ExtractionSource @default(resource)
+  gameId       Int              @map("game_id")
+  verb         String
+  skillId      Int?             @map("skill_id")
+  skill        Skill?           @relation(fields: [skillId], references: [id])
+  skillLevel   Int?             @map("skill_level")
+  toolTypeId   Int?             @map("tool_type_id")
+  toolType     ToolType?        @relation(fields: [toolTypeId], references: [id])
+  toolTier     Int?             @map("tool_tier")
+  removedAt    DateTime?        @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?             @map("last_import_id")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outputs ExtractionRecipeOutput[]
+
+  @@unique([source, gameId])
+  @@index([skillId])
+  @@map("extraction_recipes")
+}
+
+model ExtractionRecipeOutput {
+  id                 Int              @id @default(autoincrement())
+  extractionRecipeId Int              @map("extraction_recipe_id")
+  extractionRecipe   ExtractionRecipe @relation(fields: [extractionRecipeId], references: [id], onDelete: Cascade)
+  itemId             Int              @map("item_id")
+  item               Item             @relation(fields: [itemId], references: [id])
+  quantity           Int
+
+  @@index([extractionRecipeId])
+  @@index([itemId])
+  @@map("extraction_recipe_outputs")
+}
+
+// ------------------------------------------------------------------ planos
+
+/// Um estado da calculadora com nome, compartilhado entre os dois
+model Plan {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(80)
+  notes        String?
+  useInventory Boolean  @default(true) @map("use_inventory")
+  createdById  Int?     @map("created_by_id")
+  createdBy    User?    @relation("PlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById  Int?     @map("updated_by_id")
+  updatedBy    User?    @relation("PlanUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items      PlanItem[]
+  buildings  PlanBuilding[]
+  choices    PlanChoice[]
+  ownedItems PlanOwnedItem[]
+
+  @@map("plans")
+}
+
+model PlanItem {
+  id       Int  @id @default(autoincrement())
+  planId   Int  @map("plan_id")
+  plan     Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId   Int  @map("item_id")
+  item     Item @relation(fields: [itemId], references: [id])
+  quantity Int
+  position Int  @default(0)
+
+  @@unique([planId, itemId])
+  @@map("plan_items")
+}
+
+/// Uma construção do plano (receita de construção)
+model PlanBuilding {
+  id       Int    @id @default(autoincrement())
+  planId   Int    @map("plan_id")
+  plan     Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+  quantity Int
+  position Int    @default(0)
+
+  @@unique([planId, recipeId])
+  @@map("plan_buildings")
+}
+
+model PlanChoice {
+  id       Int     @id @default(autoincrement())
+  planId   Int     @map("plan_id")
+  plan     Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId   Int     @map("item_id")
+  item     Item    @relation(fields: [itemId], references: [id])
+  /// null: tratar o item como matéria-prima
+  recipeId Int?    @map("recipe_id")
+  recipe   Recipe? @relation(fields: [recipeId], references: [id])
+
+  @@unique([planId, itemId])
+  @@map("plan_choices")
+}
+
+model PlanOwnedItem {
+  id       Int  @id @default(autoincrement())
+  planId   Int  @map("plan_id")
+  plan     Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId   Int  @map("item_id")
+  item     Item @relation(fields: [itemId], references: [id])
+  quantity Int
+
+  @@unique([planId, itemId])
+  @@map("plan_owned_items")
+}
+
+// -------------------------------------------------------------- inventário
+
+/// Um personagem acompanhado, pelo entityId público da BitJita. Nenhum token.
+model GamePlayer {
+  id           Int       @id @default(autoincrement())
+  username     String
+  /// 18 dígitos: não cabe num number do JavaScript
+  entityId     String    @unique @map("entity_id")
+  regionId     Int?      @map("region_id")
+  /// As claims do personagem na última leitura: [{ entityId, name }]
+  claims       Json?
+  userId       Int?      @map("user_id")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  lastSyncedAt DateTime? @map("last_synced_at") @db.Timestamptz(3)
+  lastError    String?   @map("last_error")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  containers InventoryContainer[]
+
+  @@map("game_players")
+}
+
+model InventoryContainer {
+  id            Int           @id @default(autoincrement())
+  kind          ContainerKind
+  /// entityId do inventário ou do prédio, como a BitJita manda
+  gameEntityId  String        @map("game_entity_id")
+  /// Nulo nos baús da claim, que são do grupo
+  gamePlayerId  Int?          @map("game_player_id")
+  gamePlayer    GamePlayer?   @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  claimEntityId String?       @map("claim_entity_id")
+  claimName     String?       @map("claim_name")
+  name          String
+  lastSeenAt    DateTime?     @map("last_seen_at") @db.Timestamptz(3)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entries InventoryEntry[]
+
+  @@unique([kind, gameEntityId])
+  @@index([claimEntityId])
+  @@map("inventory_containers")
+}
+
+model InventoryEntry {
+  id          Int                @id @default(autoincrement())
+  containerId Int                @map("container_id")
+  container   InventoryContainer @relation(fields: [containerId], references: [id], onDelete: Cascade)
+  itemId      Int                @map("item_id")
+  item        Item               @relation(fields: [itemId], references: [id])
+  quantity    Int
+  source      EntrySource        @default(sync)
+  syncedAt    DateTime?          @map("synced_at") @db.Timestamptz(3)
+
+  @@unique([containerId, itemId, source])
+  @@index([itemId])
+  @@map("inventory_entries")
+}
+
+/// Um sync do inventário. O índice parcial único (SQL na migration) garante um
+/// só "running" por vez:
+///   CREATE UNIQUE INDEX sync_runs_one_running ON sync_runs (status) WHERE status = 'running';
+model SyncRun {
+  id         Int         @id @default(autoincrement())
+  trigger    SyncTrigger
+  /// bitjita
+  source     String
+  status     SyncStatus
+  message    String?
+  counts     Json?
+  startedAt  DateTime    @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime?   @map("finished_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("sync_runs")
+}
+```
+
+Duas diferenças do Postgres que a lógica portada precisa levar em conta:
+
+- **O `LIKE` do SQLite ignora maiúsculas; o do Postgres, não.** As buscas viram `ILIKE` (no Prisma, `mode: 'insensitive'`), com o mesmo escape de `%` e `_`.
+- **A ordem por nome segue a collation do banco,** e não a ordem binária do SQLite. Os testes que conferem ordem usam nomes que não dependem disso.
+
+Com 9,3 mil itens e 8,8 mil receitas, o `ILIKE` sem índice responde em poucos milissegundos. Um índice trigram (`pg_trgm`) só entra se a busca ficar lenta.
+
+## Grafo de receitas da calculadora
+
+Hoje o `RecipeGraph` carrega todas as receitas ativas na memória (cerca de 9 mil receitas e 20 mil ingredientes) e guarda em cache até a próxima importação. Na Vercel, cada instância nova teria de refazer esse carregamento: seis consultas e cerca de 2,5 MB vindos do Neon a cada cold start.
+
+**No fork:**
+
+- **A importação monta o grafo** com a mesma lógica de hoje, separada em duas funções:
+  - `loadGraphRows(db)`, que faz as consultas;
+  - `buildRecipeGraph(rows)`, pura, que monta o grafo.
+- **A importação também guarda o grafo** em `recipe_graph_snapshots`, como JSON compacto (arrays, e não objetos) comprimido com gzip. A estimativa é de 400 a 600 KB. Isso acontece na mesma transação da importação.
+- **No app, `getRecipeGraph()`:**
+  1. lê o id da última importação concluída (uma consulta pequena, que o layout já faz para mostrar "Dados do jogo de …");
+  2. se for o id do cache da instância, usa o cache;
+  3. se não for, lê o snapshot, descomprime e monta os `Map`s.
+- **Sem snapshot** (por exemplo, numa importação feita antes desta mudança), o app monta o grafo pelas consultas e avisa no log.
+
+Assim, cada cold start custa uma consulta de cerca de 0,5 MB em vez de seis consultas com 2,5 MB. Com 5 GB de transferência, isso dá para uns 10 mil cold starts por mês. O fluid compute da Vercel reaproveita as instâncias, então dois usuários devem gerar algumas dezenas por dia.
+
+O planner (`production_planner.ts`) e o presenter continuam funções puras e são portados como estão. O planner roda no servidor, nas páginas da calculadora e dos planos, como hoje.
+
+## Áreas: rotas e server actions
+
+Todas as páginas exigem sessão (ver "Login").
+
+**Padrão das interações**, no lugar do htmx:
+
+- **O que é só leitura e cabe na URL** (filtros, busca, abas, o estado da calculadora rápida) fica nos `searchParams`. A página é um server component que lê os parâmetros e renderiza. O formulário é um componente de cliente que troca a URL com `router.replace` (com debounce e `useTransition`), e o servidor renderiza de novo, como o `hx-get` com `hx-push-url` de hoje.
+- **O que grava** usa server actions:
+  - recebem `FormData` ou um objeto, validam com Zod e chamam um service;
+  - depois fazem `revalidatePath` e `redirect`, ou devolvem `{ error }` para `useActionState`;
+  - as mensagens "flash" viram toasts do Chakra.
+- **Estado de abrir e fechar** (rodadas, profissões, seções do inventário, a árvore) continua no `localStorage`, com um hook `useRememberedOpen(key)` portado do `rememberOpen` do Alpine.
+
+### Layout e login
+
+| Hoje | No fork |
+|---|---|
+| `layouts/app.edge`: cabeçalho, "Dados do jogo de …", tema, "Sair" e o menu Planos · Receitas · Calculadora · Inventário | `src/app/(app)/layout.tsx`. A data vem da última importação, lida uma vez por request com `cache()` do React. O tema usa `next-themes` (claro e escuro). "Sair" é a action `logout`. |
+| `GET/POST /login` (`SessionController`) | `src/app/login/page.tsx` e a action `login`. |
+| `POST /logout` | A action `logout`, que apaga o cookie. |
+| `GET /` redireciona para `/plans` | `src/app/(app)/page.tsx` com `redirect('/plans')`. |
+
+### Itens e receitas (a primeira área a portar)
+
+| Hoje | No fork |
+|---|---|
+| `GET /recipes`, com abas Crafting e Construção, busca e filtros (skill, estação, tier, tipo, "incluir desmontar…"), paginação de 50 e o htmx trocando só a lista | `src/app/(app)/recipes/page.tsx`. Os filtros ficam nos `searchParams`, validados com Zod (`validators/recipe.ts`). `models/recipe.ts` tem `searchRecipes(filters, page)` com as mesmas regras: verbos escondidos por padrão, cada palavra precisa casar com o nome, um ingrediente ou um produto (incluindo o conteúdo das saídas aleatórias). Também tem `filterOptions(kind)`. Os componentes são `RecipeFilters` (cliente) e `RecipeTable`/`RecipeRow` (servidor), com os chips de item como links. |
+| `GET /items?q=`, a busca de itens | `src/app/(app)/items/page.tsx`. A mesma ordenação de hoje: primeiro os itens que têm receita de craft, depois o nome mais curto, o tier e o id. |
+| O mesmo `GET /items?q=` com htmx, para o seletor da calculadora (itens e construções) | `GET /api/items/search?q=` (route handler, JSON). Uma busca enquanto se digita não deve ser server action: as actions são POST e rodam em fila. |
+| `GET /items/:id`: dados do item, "Vocês têm: N" com os locais, "Como obter" (incluindo saída aleatória, com a chance) e "Usado em"; 404 para item removido ou id inválido | `src/app/(app)/items/[id]/page.tsx`, com `notFound()`. `models/item.ts` tem `producingRecipes(itemId)` (a consulta pelas listas aleatórias vira SQL com `$queryRaw`) e `consumingRecipes(itemId)`. O botão "Calcular custo" leva à calculadora. |
+
+### Calculadora
+
+| Hoje | No fork |
+|---|---|
+| `GET /calculator` com o estado na query string, em colchetes (`targets[0][item_id]`, `choices[i123]`, `owned[i123]`, `inventory=0`). Uma mudança redesenha o painel com htmx. | `src/app/(app)/calculator/page.tsx`. **A URL fica mais curta:** `?t=123x10,456x1&b=789x1&c=123:raw,456:999&o=123:0&inv=0` (itens, construções, escolhas e "já tenho"). Links antigos não existem fora do PC, então não há o que manter. `services/calculator/state_params.ts` é portado com Zod: os mesmos limites (30 itens, 30 construções, quantidade até 100.000, "já tenho" até 1.000.000) e as mesmas mensagens. |
+| O painel: o seletor, a tabela de itens e construções, "Usar inventário do grupo", "Sincronizar agora" e "Salvar como plano" | `components/calculator/CalculatorPanel` (cliente) recebe o estado e o resultado já apresentado (dados simples, vindos do `present()`). Uma mudança na calculadora gera uma URL nova. Num plano, uma mudança chama a action do plano. O seletor é um `Combobox` do Chakra sobre `/api/items/search`. |
+| O resultado: avisos, "Etapas" (Rodada 1 · Coletar por profissão; as rodadas de craft por profissão; "Construir" por último), "Colapsar todos os concluídos", e a "Árvore de produção" com troca de receita e "já tenho" | `components/calculator/Rounds`, `GatherRound`, `StepRow`, `BuildRound` e `ProductionTree` (recursivo). Usam `Collapsible` do Chakra, `NativeSelect` para a receita e `NumberInput` para o "já tenho", que salva ao sair do campo ou com Enter, como o evento `change` de hoje. |
+| `withInventory`: o estoque do grupo preenche o "já tenho", e o valor digitado ganha, até 0 | É portado igual (`services/calculator/inventory_owned.ts`). |
+
+### Planos (com etapas, construções e coleta)
+
+As etapas, a coleta (Rodada 1, com quem tem cada material e o "já têm em …") e as construções ("Rodada N · Construir") são o mesmo resultado da calculadora. Elas vêm do planner, do presenter e do `RecipeGraph`, com `gatherers`, `gatheredDirectly` e `constructions` montados a partir de `extraction_recipes` e das receitas de construção. Portar a calculadora porta tudo isso. Os planos acrescentam o que é salvo.
+
+| Hoje | No fork |
+|---|---|
+| `GET /plans`: a lista (itens, quando, por quem), "Novo plano" e o menu "Planos rápidos" com sub-menus | `src/app/(app)/plans/page.tsx`. O menu usa `Menu` do Chakra, com sub-menus (o menu atual já imita o do Chakra). |
+| `POST /plans`: "Salvar como plano" na calculadora e "Novo plano" | A action `createPlan(name, state)`, que redireciona para `/plans/[id]`. |
+| `POST /quick_plans`: um set, as ferramentas ou o upgrade do Homestead, por tier | A action `createQuickPlan(template, tier, style)`. `services/plans/quick_plans.ts` é portado com as mesmas regras: a peça comum a partir do T3, a ferramenta de estação em vez da Flint, a fundação com o Rumbagh e o Homestead por tier. |
+| `GET /plans/:id`: o painel da calculadora ligado ao plano, com o nome editável e as notas | `src/app/(app)/plans/[id]/page.tsx`. |
+| `PATCH /plans/:id`: salva o estado a cada mudança, ou só o nome | As actions `updatePlanState(id, state)` e `renamePlan(id, name)`. `models/plan.ts` porta `toCalculatorState` e `savePlanState`, que troca itens, construções, escolhas e "já tenho" numa transação e junta repetidos. Um estado inválido devolve os erros sem gravar. |
+| `DELETE /plans/:id`, com confirmação | A action `destroyPlan(id)`, com um `Dialog` de confirmação do Chakra. |
+
+### Inventário e personagens
+
+| Hoje | No fork |
+|---|---|
+| `GET /inventory`: o status do último sync e os avisos, as abas Por profissão · Grupo · Por jogador · Por local, a busca e as seções recolhíveis | `src/app/(app)/inventory/page.tsx`, com aba e busca nos `searchParams`. `services/inventory/stock.ts` é portado (`inventoryListing`, `groupTotals`, `holdersByItem` e `itemStock`). As agregações viram `$queryRaw` ou `groupBy` do Prisma. |
+| `POST /inventory/sync`: "Sincronizar agora", na página do inventário e na calculadora e nos planos | A action `syncNow()`, que depois chama `router.refresh()` no cliente. |
+| O timer de 15 minutos (`start/scheduler.ts`) | Sai. Entram o sync **sob demanda** e o **cron diário** (ver "Sincronização"). |
+| `GET/POST/DELETE /game_players`: adicionar pelo nick, conferido na BitJita, e remover | `src/app/(app)/game_players/page.tsx`, com as actions `addGamePlayer(username)` e `removeGamePlayer(id)`. Remover leva junto os locais e os itens do personagem (cascade). |
+
+## Sincronização do inventário
+
+O que é portado sem mudança de regra:
+
+- `bitjita_client.ts`:
+  - `User-Agent: bitcraft-companion`;
+  - timeout de 15 s;
+  - no máximo 2 chamadas por segundo;
+  - os erros `NotFoundError`, `RateLimitedError` e `UpstreamError`.
+- `inventory_source.ts`: a interface `InventorySource`, a fonte BitJita e a classificação dos inventários, já validada com respostas reais.
+- `inventory_sync.ts`:
+  - grava por jogador, cada um na sua transação;
+  - uma falha mantém os dados anteriores daquele jogador;
+  - um 429 para as chamadas seguintes;
+  - itens desconhecidos são contados, e o aviso sugere rodar `npm run game-data:import`;
+  - os baús da claim continuam desligados, com `readClaims` para religar.
+
+O que muda por causa da Vercel:
+
+1. **A trava vem do banco.** A trava em memória (`static #running`) não vale entre instâncias, então ela sai. O sync insere um `sync_runs` com status `running`. Se o índice parcial único recusar, outra execução já está rodando, e a resposta é "Já existe uma sincronização em andamento." Antes de inserir, uma execução `running` com mais de 5 minutos é fechada como `failed` ("Interrompida antes de terminar"). Hoje esse prazo é de 10 minutos; na Vercel, a função morre em 60 s.
+2. **Sob demanda (`trigger = auto`):**
+   - As páginas que mostram o inventário são `/inventory`, `/plans/[id]` e `/calculator` (as duas últimas quando "Usar inventário do grupo" está ligado). Elas renderizam na hora com o que está no banco, e incluem o componente de cliente `InventoryFreshness`, que mostra "sincronizado há X".
+   - Se o último sync **começou** há mais de `INVENTORY_STALE_MINUTES` (15), em qualquer status, o componente chama a action `syncIfStale()`. Contar também os que falharam evita insistir na BitJita quando ela está fora do ar.
+   - Enquanto o sync roda, a página mostra "Sincronizando com a BitJita…". No fim, o componente chama `router.refresh()`.
+   - A action confere de novo, no servidor, se o sync está mesmo velho. Duas abas abertas não sincronizam duas vezes.
+   - As páginas exportam `maxDuration = 60`.
+   - O sync não acontece no render da página porque, assim, ela abre na hora e não espera os 3 a 5 segundos da BitJita. Também evita trabalho escondido em segundo plano.
+3. **Cron diário (`trigger = cron`):**
+   - O `vercel.json` tem `{ "crons": [{ "path": "/api/cron/inventory-sync", "schedule": "0 9 * * *" }] }`, ou seja, às 9h UTC (6h em Brasília). No plano Hobby, o horário é aproximado dentro da hora.
+   - O route handler exige `Authorization: Bearer ${CRON_SECRET}`, que a Vercel manda sozinha.
+   - Ele não faz nada se não houver personagens ou se o sync estiver em dia (a mesma regra do `scheduled_sync.ts` de hoje).
+4. **Botão (`trigger = manual`):** a action `syncNow()` sincroniza na hora, mesmo que o último sync seja recente. A trava continua valendo.
+
+**Custo no Neon:** cada sync acorda o banco, que dorme 5 minutos depois. Sem timer, o compute só roda quando alguém usa o app, mais uns 5 minutos por dia do cron.
+
+## Importação dos dados do jogo
+
+`scripts/import-game-data.ts`, rodado do PC do André:
+
+- **Comando:** `npm run game-data:import -- [--commit=sha] [--path=pasta]`. O banco vem de `DATABASE_URL_UNPOOLED` no `.env`: a URL direta do Neon, sem pooler. Também funciona contra o Postgres local.
+- **Fonte:** a mesma de hoje. É o repositório BitCraftToolBox/BitCraft_GameData, branch `cereal/cs`, pasta `static/`, num commit fixo (o mais recente, se nenhum for informado), ou uma pasta local. `source.ts` e `transform.ts` são portados sem mudança: são puros e já testados.
+- **Escrita em lote,** porque a rede até o Neon torna cara cada ida ao banco. Cada tabela é gravada com um `INSERT … SELECT * FROM unnest($1::int[], $2::text[], …) ON CONFLICT … DO UPDATE`: um comando por tabela, com todas as linhas em arrays. Hoje são lotes de 500, mais uma ida ao banco por possibilidade de lista aleatória. Os filhos (ingredientes, produtos, possibilidades, entradas das pesquisas e das coletas) das linhas desta importação são apagados e inseridos de novo, também com `unnest`.
+- **Mesmas regras de hoje:**
+  - roda numa transação só (com timeout de 5 minutos no `$transaction` do Prisma);
+  - transforma tudo antes de gravar, e um erro de formato não grava nada;
+  - rodar duas vezes dá o mesmo resultado;
+  - o que é **novo** é contado;
+  - o que **sumiu** da fonte ganha `removed_at` (pelo `last_import_id` diferente) e volta a `null` se reaparecer;
+  - um `game_id` com **outro nome** atualiza o nome e entra no resumo (`renamed`);
+  - referências a itens inexistentes e a skills, ferramentas ou estações desconhecidas são puladas e contadas;
+  - grava uma linha em `game_data_imports`.
+- **Novo:** `items.item_list_id` é resolvido com um `UPDATE … FROM item_lists`. O grafo da calculadora é montado e gravado em `recipe_graph_snapshots`, e só então `finished_at` é preenchido. O app troca de grafo sozinho quando vê uma importação nova.
+- **Saída:** o mesmo resumo do `bitcraft:import` (contagens, novos, removidos, renomeados e referências ignoradas).
+
+## Login
+
+- **Contas:** `users` com e-mail, nome e o hash da senha, criadas por `npm run users:create -- --email=… --name=…`. A senha é pedida de forma oculta e tem no mínimo 12 caracteres, porque o app vai ser público. Não existe tela de cadastro. O `LOGIN_REQUIRED` sai: o login é sempre exigido.
+- **Senha:** `scrypt` do `node:crypto`, com sal aleatório, guardado como `scrypt$N$r$p$sal$hash`. A comparação usa `timingSafeEqual`.
+- **Sessão:** um cookie `session` com um JWT HS256 assinado com `SESSION_SECRET` (`jose`), com `{ sub: userId }`. O cookie é `httpOnly`, `secure` e `sameSite=lax`, e vale 30 dias. "Sair" apaga o cookie.
+- **Proteção:**
+  - `src/proxy.ts` manda para `/login` toda requisição sem sessão válida, menos `/login`, `/api/cron/*` (que tem a própria chave) e os arquivos estáticos.
+  - Como o proxy sozinho não é barreira de segurança, toda action e todo route handler chama `requireUser()`.
+  - As server actions já conferem `Origin` contra `Host`, o que protege contra CSRF.
+- **Tentativas:** depois de 10 falhas para o mesmo e-mail em 15 minutos, o login responde "Muitas tentativas. Espere 15 minutos." Isso usa a tabela `login_attempts`. A mensagem de erro não diz se foi o e-mail ou a senha.
+- Os planos continuam guardando quem criou e quem mudou por último.
+
+## Testes (Vitest)
+
+**Dois projetos no Vitest:**
+
+- `unit`: sem banco, em paralelo;
+- `integration`: com Postgres, um arquivo por vez (`fileParallelism: false`), com `TRUNCATE … RESTART IDENTITY CASCADE` antes de cada teste e um banco só de testes.
+
+As fixtures de hoje (`tests/fixtures/game_data/*.json` e `tests/fixtures/bitjita/*.json`) são reaproveitadas como estão.
+
+| Hoje (Japa) | No fork | Banco |
+|---|---|---|
+| `unit/game_data/transform.spec.ts` | `unit/game_data/transform.test.ts` | não |
+| `unit/game_data/importer.spec.ts`: as 12 regras (item e cargo com o mesmo id, nomes resolvidos, referências puladas, idempotência, removido e de volta, renomeado, pesquisas, coleta, caça, erro de formato não grava nada) | `integration/game_data/importer.test.ts`, mais: `item_list_id` resolvido e o snapshot do grafo gravado | sim |
+| `unit/models/game_data_models.spec.ts` | Sai o teste de tipos (o Prisma já tipa). Ficam "o filtro `active` esconde removidos" e "a receita vem com ingredientes, produtos e skill", em `integration/models/` | sim |
+| `unit/calculator/production_planner.spec.ts`: 21 casos | `unit/calculator/production_planner.test.ts`, com o grafo montado em memória por `buildRecipeGraph()` a partir das fixtures, sem banco. O caso "o grafo fica em cache até a próxima importação" vai para `integration/calculator/recipe_graph.test.ts`, junto com o snapshot (gravar, ler e dar o mesmo grafo). | não e sim |
+| `unit/calculator/inventory_owned.spec.ts` | `unit/calculator/inventory_owned.test.ts` | não |
+| (sem teste próprio) | novos: `unit/calculator/state_params.test.ts` (URL nova, ida e volta, limites e mensagens) e `unit/calculator/presenter.test.ts` (rótulos, rodadas e profissões) | não |
+| `unit/game_sync/bitjita_client.spec.ts` | `unit/game_sync/bitjita_client.test.ts` | não |
+| `unit/game_sync/inventory_source.spec.ts` | `unit/game_sync/inventory_source.test.ts` | não |
+| `unit/game_sync/inventory_sync.spec.ts`: 13 casos | `integration/game_sync/inventory_sync.test.ts`. "Uma segunda sync não roda" passa a testar a trava pelo índice. "Uma `running` de processo morto não trava" fica com o prazo novo. | sim |
+| `unit/game_sync/scheduled_sync.spec.ts` | `integration/game_sync/stale_sync.test.ts`: o sob demanda e o cron (sem personagens não faz nada; recente não sincroniza; velho sincroniza; uma falha recente também conta como recente) | sim |
+| `unit/inventory/stock.spec.ts` | `integration/inventory/stock.test.ts` | sim |
+| `unit/plans/quick_plans.spec.ts`: 12 casos | `integration/plans/quick_plans.test.ts` | sim |
+| `unit/commands/users_create.spec.ts`, `unit/commands/inventory_sync.spec.ts` | `integration/scripts/create_user.test.ts` e `sync_inventory.test.ts` | sim |
+| `functional/*.spec.ts`: 9 arquivos de testes de rota, com HTML e htmx | As regras desses testes passam para os testes dos services e models que as actions chamam: salvar plano, renomear sem perder o cálculo, escolha que saiu do jogo, inventário por aba, adicionar personagem com a BitJita fora do ar, `return_to` só para caminhos do próprio site… As asserções de HTML e de htmx não têm equivalente. Os route handlers (`/api/items/search` e `/api/cron/inventory-sync`, com e sem a chave) são testados chamando a função `GET` com um `Request`. | sim |
+| (novo) | `unit/auth/password.test.ts` (hash e verificação), `unit/auth/session.test.ts` (token assinado, vencido e adulterado), `integration/auth/login.test.ts` (o limite de tentativas) | não e sim |
+
+Testes de ponta a ponta no navegador (Playwright), para o login, a calculadora e salvar um plano, ficam para depois. Durante o port, cada área é conferida também no navegador, na porta 3100.
+
+## Ambiente local
+
+- **Node:** `C:\Users\Andre\tools\node-v26.13.1-win-x64`, que não está no PATH. O Next 16 pede Node 20.9 ou mais novo. O git fica em `C:\Users\Andre\tools\mingit\cmd`.
+- **Dev:** `npm run dev`, que roda `next dev --port 3100`.
+- **Postgres local sem instalar serviço:** a primeira tentativa é `npx prisma dev`, o Postgres local do Prisma, que roda dentro do processo do Node e não instala nada no Windows. São dois bancos, um de dev e um de teste. Isso precisa ser conferido no esqueleto, porque ele aceita uma conexão por vez e precisa funcionar com o `@prisma/adapter-pg`. **Se não funcionar, pergunto antes de instalar qualquer coisa.** As alternativas são o PostgreSQL para Windows ou um branch de dev no Neon (que precisa da conta).
+- **Variáveis de ambiente (`.env`, fora do git; `.env.example` no git):**
+  - `DATABASE_URL`: no Neon, a URL com pooler;
+  - `DATABASE_URL_UNPOOLED`: no Neon, a URL direta, usada nas migrations e nos scripts;
+  - `SESSION_SECRET` e `CRON_SECRET`;
+  - `INVENTORY_STALE_MINUTES=15`.
+
+## Deploy (depois, e só com o OK do André)
+
+Tudo aqui usa contas e chaves do André. Peço antes de cada passo.
+
+1. Criar o repositório ou o fork no GitHub e dar push do branch.
+2. Criar o projeto no Neon e escolher a região. Fixar o compute em 0,25 CU.
+3. Criar o projeto na Vercel a partir do repositório, com a região das funções na mesma região do Neon, e cadastrar as variáveis.
+4. Do PC: `npx prisma migrate deploy`, `npm run game-data:import` e `npm run users:create`, duas vezes.
+5. Adicionar os dois personagens em `/game_players` e conferir o cron no painel da Vercel.
+
+As migrations rodam do PC, e não no build da Vercel, para que nenhum preview deployment mexa no banco de produção.
+
+## Etapas de implementação
+
+Cada etapa termina com testes e um commit neste branch (`claude/fork-vercel-e03995`), sem push.
+
+1. **Este design doc.**
+2. **Esqueleto:**
+   - Next 16, TypeScript, Chakra UI 3, Prisma 7.10.1, Vitest, ESLint e Prettier;
+   - o schema e a primeira migration (com o índice parcial);
+   - o Postgres local;
+   - o layout com o menu e as páginas vazias;
+   - o app Adonis em `legacy/`;
+   - o `CLAUDE.md` novo (convenções do fork e regras do jogo) e o README.
+3. **Importação:** `transform`, `importer` com `unnest`, o grafo com o snapshot e o script; os testes; os dados importados no Postgres local.
+4. **Itens e receitas:** `/recipes`, `/items`, `/items/[id]` e `/api/items/search`, com os testes. **Este é o marco "pronto" desta rodada:** o esqueleto sobe local, com itens e receitas funcionando sobre o Postgres e os dados importados.
+
+As próximas etapas são combinadas com o André, nesta ordem sugerida:
+
+5. Login. Precisa vir antes de qualquer deploy.
+6. A calculadora (planner, presenter, estado na URL).
+7. Planos, planos rápidos, construções e coleta.
+8. Inventário, personagens, sync sob demanda e cron.
+9. Deploy (ver a seção acima), e apagar `legacy/`.
+
+## Riscos e pontos de atenção
+
+- **Estourar o plano grátis do Neon tira o app do ar até o próximo ciclo.** As defesas são o compute fixo em 0,25 CU, o grafo comprimido, nenhum timer e o sync só quando alguém abre uma página. Vale olhar o uso no console no primeiro mês.
+- **Primeira abertura do dia lenta:** o Neon acordando (menos de 1 s), o cold start da Vercel e o snapshot do grafo. Deve ficar em 2 a 3 segundos na primeira página e normal depois disso.
+- **Compatibilidade entre Next 16, Prisma 7 e Chakra 3:** a ser conferida logo no esqueleto, antes de portar qualquer área. Por exemplo, até onde os componentes do Chakra podem ser usados direto em server components.
+- **Collation e `ILIKE`** (ver "Schema Prisma") podem mudar a ordem de alguns resultados em relação ao app atual.
+- **Fuso horário:** as datas passam a ser formatadas explicitamente em `America/Sao_Paulo`.
+- **A BitJita mudar o formato:** o risco é o mesmo de hoje, e os mesmos testes com fixtures cobrem.
+- **App público:** a página de login fica à vista de qualquer um. A proteção são as senhas longas e o limite de tentativas. Nenhum dado do app é segredo (o inventário já é público na BitJita), mas os planos e as contas são de vocês.
+
+## Perguntas para o André
+
+1. **Ordem e marco:** as etapas 2 a 4 nesta rodada (esqueleto, importação, itens e receitas), e o resto combinado depois. Pode ser?
+2. **Sync sob demanda também nos planos e na calculadora** (quando "Usar inventário do grupo" está ligado), e não só em `/inventory`? A recomendação é sim, porque o app abre em Planos e os planos usam o inventário por padrão.
+3. **Região:** Neon em São Paulo (`aws-sa-east-1`) e as funções da Vercel em São Paulo (`gru1`), para ficar perto de vocês? Isso só é decidido no deploy, mas muda pouco no código.
+4. **Visual:** o Chakra com o tema padrão (neutro, claro e escuro, como o app de hoje) e o verde-azulado do protótipo `bitcraft-receitas.html` como cor de destaque. Ou prefere outra cor?
+5. **`legacy/`:** deixar o app Adonis numa pasta `legacy/` até o fim do port (recomendado, para consultar ao portar), ou apagar já no esqueleto, já que o `main` guarda tudo?
