@@ -20,7 +20,9 @@
     "postinstall": "prisma generate",
     "db:dev": "prisma dev --name bitcraft-dev --port 51213 --db-port 51214 --shadow-db-port 51215",
     "db:test": "prisma dev --name bitcraft-test --port 51223 --db-port 51224 --shadow-db-port 51225",
-    "game-data:import": "tsx scripts/import-game-data.ts"
+    "game-data:import": "tsx scripts/import-game-data.ts",
+    "users:create": "tsx scripts/create-user.ts",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "3.38.0",
@@ -28,6 +30,7 @@
     "@emotion/react": "11.14.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "jose": "6.2.18",
     "next": "16.4.6",
     "pg": "8.23.1",
     "react": "19.3.1",

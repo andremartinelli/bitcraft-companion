@@ -28,6 +28,17 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 | Model e request specs | Vitest: `tests/unit/` sem banco e `tests/integration/` com o Postgres de teste (zerado a cada teste), com fixtures em `tests/fixtures/`. Teste os services e models que as actions chamam. |
 | Nomes | Tabelas no plural em snake_case (`@@map`), models no singular em PascalCase, campos em camelCase (`@map` para snake_case), arquivos em snake_case. Código em inglês, interface em português (pt-BR). Os nomes dos itens ficam como vêm do jogo, em inglês. |
 
+**Login (o app é público na internet):**
+
+- O `src/proxy.ts` manda para `/login` quem não tem sessão, e responde 401 nas rotas `/api`. Ele é só a primeira barreira.
+- **Toda página, action e route handler confere de novo:**
+  - páginas e actions usam `requireUser()`;
+  - route handlers usam `userFromRequest(request)`;
+  - os dois estão em `src/lib/session.ts`.
+- Só `/login` e `/api/cron/*` são abertos. O cron tem a própria chave, `CRON_SECRET`.
+- Não existe cadastro pelo site: as contas vêm de `npm run users:create`.
+- Senhas usam scrypt (`src/services/auth/password.ts`). Depois de 10 erros seguidos, o e-mail fica bloqueado por 15 minutos.
+
 Detalhes que já custaram tempo:
 
 - **Chakra no App Router:** os estilos do Emotion vão para o `<head>` pelo `EmotionRegistry` (`src/components/ui/emotion_registry.tsx`); sem ele, a hidratação falha. O tema claro e escuro é uma classe no `<html>` posta por um script `beforeInteractive` (`src/components/ui/color_mode.ts`), sem `next-themes`.
@@ -64,6 +75,8 @@ npm run typecheck
 npm run lint
 npx prisma migrate dev       # cria e aplica migrations no banco de dev
 npm run game-data:import     # importa os dados do jogo (último commit do BitCraft_GameData)
+npm run users:create -- --email=voce@exemplo.com --name="Nome"   # cria uma conta (a senha é pedida)
+npm run db:seed              # só local: o usuário de desenvolvimento (veja prisma/seed.ts)
 ```
 
 O `prisma dev` só respeita as portas do `.env` rodando em primeiro plano (`--detach` escolhe outras).

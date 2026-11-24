@@ -1,6 +1,9 @@
+import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { GET } from '@/app/api/items/search/route'
 import { db } from '@/lib/db'
+import { createUser } from '@/services/auth/create_user'
+import { createSessionToken, SESSION_COOKIE } from '@/services/auth/session_token'
 import {
   consumingRecipes,
   findActiveItem,
@@ -68,15 +71,26 @@ describe('items', () => {
     expect(await searchBuildings('h')).toEqual([])
   })
 
-  test('GET /api/items/search answers items and buildings as JSON', async () => {
-    const response = await GET(new Request('http://localhost/api/items/search?q=rough'))
-    const body = await response.json()
+  test('GET /api/items/search answers items and buildings as JSON, with a session', async () => {
+    const user = await createUser({ email: 'a@example.com', password: 'a-long-enough-password' })
+    const token = await createSessionToken(user.id)
+    const search = (query: string, cookie?: string) =>
+      GET(
+        new NextRequest(`http://localhost/api/items/search${query}`, {
+          headers: cookie ? { cookie: `${SESSION_COOKIE}=${cookie}` } : {},
+        })
+      )
 
+    const response = await search('?q=rough', token)
+    const body = await response.json()
     expect(response.status).toBe(200)
     expect(body.items.map((i: { name: string }) => i.name)).toContain('Rough Plank')
     expect(body.buildings).toEqual([])
+    expect(await (await search('', token)).json()).toEqual({ items: [], buildings: [] })
 
-    const empty = await GET(new Request('http://localhost/api/items/search'))
-    expect(await empty.json()).toEqual({ items: [], buildings: [] })
+    // No session, or the account was deleted: 401
+    expect((await search('?q=rough')).status).toBe(401)
+    await db.user.delete({ where: { id: user.id } })
+    expect((await search('?q=rough', token)).status).toBe(401)
   })
 })

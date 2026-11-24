@@ -1,10 +1,11 @@
 'use client'
 
-import { Box, Code, Container, Flex, HStack, Link, Text } from '@chakra-ui/react'
+import { Box, Button, Code, Container, Flex, HStack, Link, Text } from '@chakra-ui/react'
 import NextLink from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { LuBookOpen, LuCalculator, LuClipboardList, LuPackage } from 'react-icons/lu'
+import { LuBookOpen, LuCalculator, LuClipboardList, LuLogOut, LuPackage } from 'react-icons/lu'
+import { destroySession } from '@/app/login/actions'
 import { ColorModeButton } from '@/components/ui/color_mode_button'
 
 /** Every area of the app. A new area gets an entry here */
@@ -18,11 +19,13 @@ const NAV = [
 interface AppShellProps {
   /** "21/11/2026": the date of the game data, or null before the first import */
   gameDataDate: string | null
+  /** Who is logged in: the name, or the e-mail */
+  userName: string
   children: ReactNode
 }
 
 /** Header, menu and the page */
-export function AppShell({ gameDataDate, children }: AppShellProps) {
+export function AppShell({ gameDataDate, userName, children }: AppShellProps) {
   const pathname = usePathname()
 
   return (
@@ -44,6 +47,15 @@ export function AppShell({ gameDataDate, children }: AppShellProps) {
                 )}
               </Text>
               <ColorModeButton />
+              <Text textStyle="sm" fontWeight="medium" hideBelow="md">
+                {userName}
+              </Text>
+              <form action={destroySession}>
+                <Button type="submit" size="sm" variant="outline">
+                  <LuLogOut aria-hidden />
+                  Sair
+                </Button>
+              </form>
             </HStack>
           </Flex>
         </Container>

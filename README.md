@@ -4,7 +4,7 @@ Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculad
 
 Stack: Next.js, Prisma, Postgres e Chakra UI. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md), e o desenho em [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md).
 
-> **Em transição.** Esta versão está sendo portada do app AdonisJS, que fica em [`legacy/`](legacy/README.md) até o fim do port e continua sendo o que roda no PC a partir do `main`. Já portados: a importação dos dados do jogo, as receitas (`/recipes`) e os itens (`/items`, `/items/[id]`). Faltam o login, a calculadora, os planos e o inventário.
+> **Em transição.** Esta versão está sendo portada do app AdonisJS, que fica em [`legacy/`](legacy/README.md) até o fim do port e continua sendo o que roda no PC a partir do `main`. Já portados: a importação dos dados do jogo, as receitas (`/recipes`), os itens (`/items`, `/items/[id]`) e o login. Faltam a calculadora, os planos e o inventário.
 
 ## Requisitos
 
@@ -40,6 +40,20 @@ O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolB
 - itens renomeados aparecem no resumo.
 
 Opções: `-- --commit=<sha>` importa um commit específico, e `-- --path=<pasta>` lê os JSONs de uma pasta local.
+
+## Contas
+
+O app vai ficar público na internet, então **sempre pede login**. Não existe cadastro pelo site: crie as duas contas pela linha de comando. Se `--password` não for passado, a senha (de no mínimo 12 caracteres) é pedida duas vezes, de forma oculta.
+
+```bash
+npm run users:create -- --email=voce@exemplo.com --name="Seu nome"
+```
+
+A conta é criada no banco de `DATABASE_URL_UNPOOLED`: o local, ou o do Neon quando o `.env` apontar para ele.
+
+Para desenvolver, `npm run db:seed` cria um usuário de teste. O e-mail e a senha estão em `prisma/seed.ts`, e o seed se recusa a rodar fora de um banco local.
+
+Depois de 10 senhas erradas seguidas para o mesmo e-mail, ele fica bloqueado por 15 minutos, mesmo com a senha certa. A sessão vale 30 dias, e "Sair" a encerra neste navegador.
 
 ## Testes
 

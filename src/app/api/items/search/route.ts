@@ -1,3 +1,5 @@
+import type { NextRequest } from 'next/server'
+import { userFromRequest } from '@/lib/session'
 import { searchBuildings, searchItems } from '@/models/item'
 import { itemSearchSchema } from '@/validators/item'
 import { parseSearchParams } from '@/validators/search_params'
@@ -7,9 +9,14 @@ import { parseSearchParams } from '@/validators/search_params'
  * and buildings (construction recipes). A route handler, not a server
  * action: actions are POST and run one after another.
  */
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const { q } = parseSearchParams(itemSearchSchema, Object.fromEntries(searchParams))
+export async function GET(request: NextRequest) {
+  if (!(await userFromRequest(request))) {
+    return Response.json({ error: 'Faça login para continuar.' }, { status: 401 })
+  }
+  const { q } = parseSearchParams(
+    itemSearchSchema,
+    Object.fromEntries(request.nextUrl.searchParams)
+  )
   const [items, buildings] = await Promise.all([searchItems(q), searchBuildings(q)])
   return Response.json({ items, buildings })
 }
