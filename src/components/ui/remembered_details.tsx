@@ -11,6 +11,8 @@ interface RememberedDetailsProps extends HTMLChakraProps<'details'> {
   defaultOpen?: boolean
   /** All done: "Colapsar todos os concluídos" closes it */
   complete?: boolean
+  /** False: always starts as `defaultOpen` and forgets toggles (the inventory during a search) */
+  remember?: boolean
 }
 
 /**
@@ -22,12 +24,13 @@ export function RememberedDetails({
   rememberKey,
   defaultOpen = true,
   complete = false,
+  remember = true,
   children,
   ...props
 }: RememberedDetailsProps) {
   const restore = useCallback(
     (element: HTMLDetailsElement | null) => {
-      if (!element) return
+      if (!element || !remember) return
       try {
         const saved = localStorage.getItem(storageKey(rememberKey))
         if (saved !== null) element.open = saved === '1'
@@ -35,7 +38,7 @@ export function RememberedDetails({
         // Storage blocked: the default stays
       }
     },
-    [rememberKey]
+    [rememberKey, remember]
   )
 
   return (
@@ -46,6 +49,7 @@ export function RememberedDetails({
       // The arrow of its summary turns when it is open
       css={{ '&[open] > summary::before': { transform: 'rotate(90deg)' } }}
       onToggle={(event) => {
+        if (!remember) return
         try {
           localStorage.setItem(storageKey(rememberKey), event.currentTarget.open ? '1' : '0')
         } catch {
@@ -58,3 +62,18 @@ export function RememberedDetails({
     </chakra.details>
   )
 }
+
+/** The title line of a RememberedDetails, with an arrow that turns when it is open */
+export const DetailsSummary = chakra('summary', {
+  base: {
+    'cursor': 'pointer',
+    'display': 'flex',
+    'alignItems': 'baseline',
+    'gap': '3',
+    'py': '2',
+    'listStyle': 'none',
+    '_marker': { display: 'none' },
+    '&::-webkit-details-marker': { display: 'none' },
+    '_before': { content: '"▸"', color: 'fg.muted', transition: 'transform 0.15s' },
+  },
+})

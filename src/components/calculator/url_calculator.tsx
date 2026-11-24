@@ -6,7 +6,10 @@ import { CalculatorView, type CalculatorViewProps } from '@/components/calculato
 import { SavePlanForm } from '@/components/plans/save_plan_form'
 import { stateToQuery } from '@/services/calculator/state_params'
 
-type UrlCalculatorProps = Pick<CalculatorViewProps, 'state' | 'panel' | 'errors'>
+type UrlCalculatorProps = Pick<
+  CalculatorViewProps,
+  'state' | 'panel' | 'errors' | 'inventoryControls'
+>
 
 /**
  * The quick calculator: the whole state lives in the URL, so a link

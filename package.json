@@ -22,6 +22,7 @@
     "db:test": "prisma dev --name bitcraft-test --port 51223 --db-port 51224 --shadow-db-port 51225",
     "game-data:import": "tsx scripts/import-game-data.ts",
     "users:create": "tsx scripts/create-user.ts",
+    "inventory:sync": "tsx scripts/sync-inventory.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {

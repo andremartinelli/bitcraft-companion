@@ -2,7 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from 'react'
 import { updatePlan } from '@/app/(app)/plans/actions'
-import { CalculatorView } from '@/components/calculator/calculator_view'
+import { CalculatorView, type CalculatorViewProps } from '@/components/calculator/calculator_view'
 import type { CalculatorState } from '@/services/calculator/production_planner'
 import type { CalculatorPanel } from '@/services/calculator/presenter'
 
@@ -11,6 +11,7 @@ interface PlanCalculatorProps {
   /** The saved state */
   state: CalculatorState
   panel: CalculatorPanel
+  inventoryControls?: CalculatorViewProps['inventoryControls']
 }
 
 /**
@@ -18,7 +19,7 @@ interface PlanCalculatorProps {
  * saved state calculated again. While it saves, further changes build on the
  * latest one. A state the server refuses saves nothing and shows why.
  */
-export function PlanCalculator({ planId, state, panel }: PlanCalculatorProps) {
+export function PlanCalculator({ planId, state, panel, inventoryControls }: PlanCalculatorProps) {
   const [pending, startTransition] = useTransition()
   const [latest, setLatest] = useOptimistic(state)
   const [errors, setErrors] = useState<string[]>([])
@@ -34,6 +35,7 @@ export function PlanCalculator({ planId, state, panel }: PlanCalculatorProps) {
       storageKey={`/plans/${planId}`}
       pending={pending}
       pendingLabel="Salvando…"
+      inventoryControls={inventoryControls}
       onChange={(next) =>
         startTransition(async () => {
           setLatest(next)

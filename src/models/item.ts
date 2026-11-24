@@ -1,6 +1,6 @@
 import { Prisma } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
-import { escapeLike, searchWords } from '@/lib/search'
+import { namesMatch, searchWords } from '@/lib/search'
 import { recipeDetails, type RecipeWithDetails } from '@/models/recipe'
 
 /** An item found by the search (the items page and the calculator's picker) */
@@ -22,12 +22,6 @@ export interface BuildingSearchResult {
 
 /** Searches need at least 2 letters */
 const MIN_QUERY = 2
-
-const namesMatch = (column: string, words: string[]) =>
-  Prisma.join(
-    words.map((word) => Prisma.sql`${Prisma.raw(column)} ILIKE ${`%${escapeLike(word)}%`}`),
-    ' AND '
-  )
 
 /**
  * Active items whose name has every word. Craftable items first: the same

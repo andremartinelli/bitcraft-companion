@@ -46,6 +46,8 @@ export interface CalculatorViewProps {
   pendingLabel?: string
   /** Under the item list: "Salvar como plano" in the quick calculator */
   actions?: ReactNode
+  /** "Sincronizar agora", which also reads BitJita when the inventory is old */
+  inventoryControls?: ReactNode
 }
 
 /** A quantity from a field; a blank one changes nothing */
@@ -65,6 +67,7 @@ export function CalculatorView({
   pending,
   pendingLabel = 'Calculando…',
   actions,
+  inventoryControls,
 }: CalculatorViewProps) {
   const change = (next: CalculatorState) => {
     if (next !== state) onChange(next)
@@ -197,6 +200,7 @@ export function CalculatorView({
             </Text>
           </>
         )}
+        {inventoryControls}
         {actions}
         {pending && (
           <HStack gap="1.5" color="fg.muted" ml="auto">

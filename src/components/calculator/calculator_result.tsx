@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  chakra,
   Flex,
   Heading,
   HStack,
@@ -17,7 +16,7 @@ import { LuCircleCheck } from 'react-icons/lu'
 import { ItemChip, StaticChip } from '@/components/items/item_chip'
 import { EmptyNotice } from '@/components/layout/empty_notice'
 import { CommitInput } from '@/components/ui/commit_input'
-import { RememberedDetails } from '@/components/ui/remembered_details'
+import { DetailsSummary as Summary, RememberedDetails } from '@/components/ui/remembered_details'
 import { formatNumber } from '@/lib/format'
 import type { CalculatorPanel, PresentedNode } from '@/services/calculator/presenter'
 
@@ -33,20 +32,6 @@ interface ResultProps {
   onChoice: (itemId: number, value: string) => void
   onOwned: (itemId: number, value: string) => void
 }
-
-const Summary = chakra('summary', {
-  base: {
-    'cursor': 'pointer',
-    'display': 'flex',
-    'alignItems': 'baseline',
-    'gap': '3',
-    'py': '2',
-    'listStyle': 'none',
-    '_marker': { display: 'none' },
-    '&::-webkit-details-marker': { display: 'none' },
-    '_before': { content: '"▸"', color: 'fg.muted', transition: 'transform 0.15s' },
-  },
-})
 
 function Hint({ children }: { children: ReactNode }) {
   return (

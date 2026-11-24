@@ -44,7 +44,9 @@ Detalhes que já custaram tempo:
 - **Chakra no App Router:** os estilos do Emotion vão para o `<head>` pelo `EmotionRegistry` (`src/components/ui/emotion_registry.tsx`); sem ele, a hidratação falha. O tema claro e escuro é uma classe no `<html>` posta por um script `beforeInteractive` (`src/components/ui/color_mode.ts`), sem `next-themes`.
 - **O cliente do Prisma é gerado** em `src/generated/prisma` (fora do git) e importado de `@/generated/prisma/client.ts`. Use `db` de `src/lib/db.ts`, que só conecta no primeiro uso.
 - **Datas:** a Vercel roda em UTC. Formate com `src/lib/format.ts`, que usa o fuso `America/Sao_Paulo`.
-- **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_`.
+- **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_` (`namesMatch` e `containsWord` em `src/lib/search.ts`).
+- **Sync do inventário:** sob demanda (uma página que mostra o inventário e o acha velho chama a action `syncIfStale`), pelo botão (`syncNow`) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
+- **`prisma dev`:** se o banco local passar a fechar as conexões ("Server has closed the connection"), pare e suba de novo (`npx prisma dev stop bitcraft-dev`, depois `npm run db:dev`). Os dados ficam no disco.
 
 ## Limites do plano grátis (não negociáveis)
 
@@ -76,6 +78,7 @@ npm run lint
 npx prisma migrate dev       # cria e aplica migrations no banco de dev
 npm run game-data:import     # importa os dados do jogo (último commit do BitCraft_GameData)
 npm run users:create -- --email=voce@exemplo.com --name="Nome"   # cria uma conta (a senha é pedida)
+npm run inventory:sync       # lê os inventários na BitJita agora (o mesmo do botão)
 npm run db:seed              # só local: o usuário de desenvolvimento (veja prisma/seed.ts)
 ```
 

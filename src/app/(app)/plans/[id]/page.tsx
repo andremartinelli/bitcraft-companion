@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
+import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
 import { PlanCalculator } from '@/components/plans/plan_calculator'
@@ -9,7 +10,11 @@ import { formatDate } from '@/lib/format'
 import { requireUser } from '@/lib/session'
 import { authorName, findPlan, toCalculatorState } from '@/models/plan'
 import { calculate } from '@/services/calculator/calculate'
+import { inventoryFreshness } from '@/services/game_sync/stale_sync'
 import { planIdSchema } from '@/validators/plan'
+
+/** The sync on demand runs in this page's actions */
+export const maxDuration = 60
 
 interface PlanPageProps {
   params: Promise<{ id: string }>
@@ -36,7 +41,7 @@ export default async function PlanPage({ params }: PlanPageProps) {
   if (!plan) notFound()
 
   const state = toCalculatorState(plan)
-  const panel = await calculate(state)
+  const [panel, freshness] = await Promise.all([calculate(state), inventoryFreshness()])
   const author = authorName(plan.updatedBy)
 
   return (
@@ -52,7 +57,16 @@ export default async function PlanPage({ params }: PlanPageProps) {
         updated={`Atualizado em ${formatDate(plan.updatedAt)}${author ? ` por ${author}` : ''}`}
         notes={plan.notes}
       />
-      <PlanCalculator planId={plan.id} state={state} panel={panel} />
+      <PlanCalculator
+        planId={plan.id}
+        state={state}
+        panel={panel}
+        inventoryControls={
+          freshness.hasPlayers && (
+            <SyncControls stale={freshness.stale && state.useInventory !== false} />
+          )
+        }
+      />
     </>
   )
 }

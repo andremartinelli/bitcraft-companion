@@ -1,10 +1,11 @@
 'use client'
 
-import { Badge, Button, Heading, HStack, Stack, Text } from '@chakra-ui/react'
+import { Badge, Box, Button, Heading, HStack, Link, Stack, Text, Wrap } from '@chakra-ui/react'
 import NextLink from 'next/link'
 import { PageHeader } from '@/components/layout/page_header'
 import { RecipeTable, type RecipeTableRow } from '@/components/recipes/recipe_table'
-import { rarityLabel } from '@/lib/format'
+import { formatNumber, rarityLabel } from '@/lib/format'
+import type { ItemPlace } from '@/services/inventory/stock'
 
 interface ItemDetailsProps {
   item: {
@@ -20,6 +21,8 @@ interface ItemDetailsProps {
   producers: RecipeTableRow[]
   /** Recipes that take it ("Usado em") */
   consumers: RecipeTableRow[]
+  /** How many the group has and where, once there is a sync */
+  stock: { total: number; places: ItemPlace[] } | null
 }
 
 function Section({ title, empty, rows }: { title: string; empty: string; rows: RecipeTableRow[] }) {
@@ -34,7 +37,7 @@ function Section({ title, empty, rows }: { title: string; empty: string; rows: R
 }
 
 /** The item page: what it is, how to get it and where it is used */
-export function ItemDetails({ item, producers, consumers }: ItemDetailsProps) {
+export function ItemDetails({ item, producers, consumers, stock }: ItemDetailsProps) {
   const rarity = rarityLabel(item.rarity)
   return (
     <>
@@ -55,6 +58,37 @@ export function ItemDetails({ item, producers, consumers }: ItemDetailsProps) {
         </Text>
       </HStack>
       {item.description && <Text maxW="3xl">{item.description}</Text>}
+
+      {stock && (
+        <Box as="section" mt="6" p="4" borderWidth="1px" rounded="l2" bg="bg" maxW="3xl">
+          <Text>
+            Vocês têm: <strong>{formatNumber(stock.total)}</strong>{' '}
+            <Link asChild textStyle="sm" color="fg.muted">
+              <NextLink href="/inventory">ver inventário</NextLink>
+            </Link>
+          </Text>
+          {stock.places.length > 0 && (
+            <Wrap gap="1" mt="2">
+              {stock.places.map((place, index) => (
+                <Text
+                  key={index}
+                  as="span"
+                  textStyle="xs"
+                  px="1.5"
+                  py="0.5"
+                  rounded="l1"
+                  bg="bg.muted"
+                >
+                  <strong>{formatNumber(place.quantity)}</strong> {place.container}{' '}
+                  <Text as="span" color="fg.muted">
+                    · {place.owner}
+                  </Text>
+                </Text>
+              ))}
+            </Wrap>
+          )}
+        </Box>
+      )}
 
       <Section
         title="Como obter"

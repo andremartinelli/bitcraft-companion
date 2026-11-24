@@ -5,6 +5,8 @@ import { ItemDetails } from '@/components/items/item_details'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { requireUser } from '@/lib/session'
 import { consumingRecipes, findActiveItem, producingRecipes } from '@/models/item'
+import { lastSuccessfulSyncRun } from '@/models/sync_run'
+import { itemStock } from '@/services/inventory/stock'
 import { itemIdSchema } from '@/validators/item'
 
 interface ItemPageProps {
@@ -31,10 +33,13 @@ export default async function ItemPage({ params }: ItemPageProps) {
   const item = await loadItem((await params).id)
   if (!item) notFound()
 
-  const [producers, consumers] = await Promise.all([
+  const [producers, consumers, synced] = await Promise.all([
     producingRecipes(item.id),
     consumingRecipes(item.id),
+    lastSuccessfulSyncRun(),
   ])
+  // "Vocês têm" once the inventory was read at least once
+  const stock = synced ? await itemStock(item.id) : null
 
   return (
     <ItemDetails
@@ -55,6 +60,7 @@ export default async function ItemPage({ params }: ItemPageProps) {
             : `Saída aleatória: ${formatPercent(chance)} de chance, ${formatNumber(quantity)} em média por craft`,
       }))}
       consumers={consumers.map((recipe) => ({ recipe }))}
+      stock={stock}
     />
   )
 }
