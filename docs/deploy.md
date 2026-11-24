@@ -6,91 +6,108 @@ As contas, as chaves e as senhas são suas. Os passos marcados com **Você** sã
 
 O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), então não há dados para levar do SQLite. A versão nova começa vazia: os dados do jogo vêm da importação, e as contas são criadas na página de cadastro (`/signup`).
 
+## Como uma versão vai para o ar
+
+**Produção só muda quando uma release é publicada no GitHub** (decidido em 24/11/2026). O workflow [`.github/workflows/release.yml`](../.github/workflows/release.yml) roda sozinho e:
+
+1. roda o typecheck, o lint e todos os testes, com um Postgres só para eles;
+2. se passarem, aplica as migrations no Neon (`prisma migrate deploy`);
+3. publica em produção na Vercel (`vercel deploy --prod`).
+
+Se os testes falharem, nada vai para o ar. Push no `main` não publica (o `vercel.json` desliga o deploy automático dele); push em outros branches gera um preview, que só abre para quem está logado na sua conta da Vercel. O mesmo workflow também roda à mão, em **Actions → Release → Run workflow**.
+
+Para publicar uma versão: no GitHub, **Releases → Draft a new release**, crie uma tag nova (`v0.1.0`, `v0.2.0`…), escolha o branch e clique em **Publish release**. O andamento aparece em **Actions**.
+
 ## 1. Código no GitHub (feito)
 
 O repositório passou do Vitor para a sua conta em 24/11/2026: [andremartinelli/bitcraft-companion](https://github.com/andremartinelli/bitcraft-companion). O branch `claude/fork-vercel-e03995` já está nele. O PR para o `main` fica como rascunho e só é juntado no passo 8.
 
 ## 2. Projeto na Vercel (feito)
 
-O projeto `bitcraft-companion` foi criado na sua conta em 24/11/2026, ligado ao repositório e ainda sem deploy. A região das funções vem do `vercel.json` (`gru1`, São Paulo), e o Node é o 26.
+O projeto `bitcraft-companion` foi criado na sua conta em 24/11/2026, ligado ao repositório. A região das funções vem do `vercel.json` (`gru1`, São Paulo), e o Node é o 26. O primeiro push virou um deploy de produção sem banco (`bitcraft-companion-six.vercel.app`); daqui em diante, produção só muda pelas releases.
 
-- A cada push, a Vercel faz um deploy sozinha. O do branch de produção vai para o ar. Os dos outros branches viram previews, que só abrem para quem está logado na sua conta da Vercel.
-- O branch de produção ainda é o `main`, que é o app antigo. Ele passa para `claude/fork-vercel-e03995` no passo 6, junto com o primeiro deploy, quando o banco e as variáveis já existirem. O cron diário só roda no deploy de produção.
+## 3. Banco no Neon (feito)
 
-## 3. Banco no Neon (Você)
-
-O jeito mais curto é pela própria Vercel: no projeto, **Storage → Create Database → Neon**, plano **Free**, região **São Paulo (aws-sa-east-1)**. Assim a Vercel cadastra sozinha `DATABASE_URL` (com pooler) e `DATABASE_URL_UNPOOLED` (direta). Confira os dois nomes em **Settings → Environment Variables**.
-
-Também dá para criar a conta direto em [neon.tech](https://neon.tech) e copiar as duas URLs para a Vercel à mão: a com `-pooler` no host é a `DATABASE_URL`, e a outra é a `DATABASE_URL_UNPOOLED`.
+Criado pela própria Vercel (**Storage → Neon**, plano Free, São Paulo), conectado só ao ambiente Production, com o prefixo `DATABASE`: a Vercel cadastrou `DATABASE_URL` (com pooler) e `DATABASE_URL_UNPOOLED` (direta), entre outras que o app não usa.
 
 No console do Neon, deixe o compute fixo em **0,25 CU** (mínimo e máximo) e o "scale to zero" ligado (5 minutos). Isso segura o uso dentro das 100 CU-horas por mês do plano grátis.
 
-## 4. Variáveis de ambiente na Vercel (Você)
+## 4. Variáveis de ambiente na Vercel (feito)
 
 | Variável | Valor |
 |---|---|
-| `DATABASE_URL` | A URL do Neon **com pooler** (vem sozinha pelo Storage da Vercel) |
-| `SESSION_SECRET` | Uma chave aleatória nova (comando abaixo). Assina o cookie de login |
+| `DATABASE_URL` | A URL do Neon **com pooler** (veio pelo Storage da Vercel) |
+| `SESSION_SECRET` | Uma chave aleatória. Assina o cookie de login |
 | `CRON_SECRET` | Outra chave aleatória. A Vercel manda essa chave no cron diário |
-| `INVENTORY_STALE_MINUTES` | `1` (o padrão, decidido em 24/11/2026). Veja "Frequência do inventário" abaixo |
+| `INVENTORY_STALE_MINUTES` | Opcional. Sem ela, 1 minuto. Veja "Frequência do inventário" abaixo |
 
-Para gerar cada chave, rode no PowerShell, uma vez para cada:
+Para gerar uma chave nova, rode no PowerShell:
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Não reaproveite as chaves do `.env` local.
+Não reaproveite as chaves do `.env` local. As variáveis só valem para os deploys feitos depois delas.
 
-## 5. Tabelas e dados do jogo (Você, do PC)
+## 5. Segredos do GitHub para o workflow (Você)
 
-Os comandos rodam do seu PC contra o Neon, com a URL **direta** (sem pooler). No PowerShell, na pasta do projeto, com este branch:
+No repositório, **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Segredo | Valor |
+|---|---|
+| `VERCEL_TOKEN` | Um token novo da Vercel, em [vercel.com/account/settings/tokens](https://vercel.com/account/settings/tokens), com o escopo `andremartinellis-projects`. Dê um nome como "GitHub Actions bitcraft" e uma validade |
+| `DATABASE_URL_UNPOOLED` | A URL **direta** do Neon (sem `-pooler` no host), a mesma da aba **.env.local** do banco na Vercel |
+
+O id da conta e o do projeto da Vercel já estão no workflow; não são segredos.
+
+## 6. Dados do jogo (Você, do PC)
+
+A importação continua rodando do seu PC, contra o Neon, com a URL **direta**. No PowerShell, na pasta do projeto:
+
+```powershell
+$env:Path = "C:\Users\Andre\tools\node-v26.13.1-win-x64;$env:Path"
+```
 
 ```powershell
 $env:DATABASE_URL_UNPOOLED = "cole aqui a URL direta do Neon"
 ```
 
 ```powershell
-npx prisma migrate deploy
-```
-
-```powershell
-npm run game-data:import
+npm.cmd run game-data:import
 ```
 
 ```powershell
 Remove-Item Env:DATABASE_URL_UNPOOLED
 ```
 
+- A importação precisa das tabelas: rode depois da primeira release, ou antes dela, rodando também `npx.cmd prisma migrate deploy` nesse terminal.
 - A variável vale só nesse terminal e tem prioridade sobre o `.env`. Por isso o último comando a apaga: os próximos comandos voltam a usar o banco local.
-- As contas são criadas no próprio app, em `/signup` (senha de no mínimo 8 caracteres). O `npm run users:create` continua funcionando, do mesmo jeito.
-- No PowerShell, se o `npm` ou o `npx` não forem encontrados, ponha o Node no PATH do terminal; se o Windows bloquear scripts, use `npm.cmd` e `npx.cmd`.
-- O `migrate deploy` aplica as migrations que faltam: rode de novo sempre que um deploy trouxer uma migration nova.
-- As migrations rodam do PC, e não no build da Vercel, para nenhum deploy de preview mexer no banco de produção.
+- O `npm.cmd` e o `npx.cmd` evitam o bloqueio de scripts do PowerShell.
 - A cada patch do jogo, rode de novo a importação do mesmo jeito.
 
-## 6. Deploy e conferência (Claude, com seu OK, e Você)
+## 7. Primeira release e conferência (Você)
 
-1. Em **Settings → Git → Production Branch**, o branch de produção passa para `claude/fork-vercel-e03995`, e sai o primeiro deploy de produção. As variáveis só valem para os deploys feitos depois delas: se alguma for trocada, é preciso um Redeploy.
-2. Abra o endereço `bitcraft-companion.vercel.app` (ou o que a Vercel mostrar no projeto): ele deve pedir o login do app. Entre e confira Planos, Receitas, Calculadora e Inventário.
-3. Em **Settings → Cron Jobs**, o `/api/cron/inventory-sync` deve aparecer, às 9h UTC (6h em Brasília). O botão **Run** roda na hora.
+1. Publique a release `v0.1.0` com o branch `claude/fork-vercel-e03995` (até o passo 9, as releases saem dele).
+2. Acompanhe em **Actions**: os testes, as migrations e o deploy.
+3. Abra o endereço de produção (`bitcraft-companion-six.vercel.app`, ou o que a Vercel mostrar no projeto): ele deve pedir login. Crie a sua conta em **Criar conta** e confira Planos, Receitas, Calculadora e Inventário.
+4. Em **Settings → Cron Jobs** na Vercel, o `/api/cron/inventory-sync` deve aparecer, às 9h UTC (6h em Brasília). O botão **Run** roda na hora.
 
-## 7. Personagens (Vocês)
+## 8. Personagens (Vocês)
 
-Em **Inventário → Personagens**, adicione o personagem de cada um pelo nick exato. Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha.
+Cada um cria a sua conta e, em **Inventário → Personagens**, adiciona os personagens cujo inventário quer ver (até 5). Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha. Para planos em conjunto, o dono do plano o compartilha pelo e-mail da outra conta.
 
-## 8. Juntar no `main` (Claude, com seu OK)
+## 9. Juntar no `main` (Claude, com seu OK)
 
 Depois que o app estiver no ar e conferido:
 
 - sai o `legacy/` (com o `start-production.ps1` e o que o README antigo diz sobre o Tailscale);
 - o PR é juntado no `main`;
-- em **Settings → Git → Production Branch**, volte para `main`.
+- as releases seguintes saem do `main`.
 
 O app antigo deixa de ser atualizado a partir daí.
 
 ## Frequência do inventário
 
-O app antigo passou a sincronizar a cada minuto (24/11/2026), e a versão nova segue isso: `INVENTORY_STALE_MINUTES` é 1 por padrão. Como na Vercel não existe processo contínuo (e um timer manteria o banco do Neon sempre acordado), a sincronização acontece quando alguém abre uma página que mostra o inventário e o último sync tem mais de um minuto, além do botão e do cron diário.
+O app antigo passou a sincronizar a cada minuto (24/11/2026), e a versão nova segue isso: `INVENTORY_STALE_MINUTES` é 1 por padrão. Como na Vercel não existe processo contínuo (e um timer manteria o banco do Neon sempre acordado), a sincronização acontece quando alguém abre uma página que mostra o inventário e algum personagem da conta não é lido há mais de um minuto, além do botão e do cron diário.
 
-Cada sync são umas 8 chamadas à BitJita e alguns segundos em segundo plano, com a página já aberta e o aviso "Sincronizando com a BitJita…". O banco já está acordado nessa hora, então o custo no Neon é pequeno. Para consultar a BitJita menos vezes, aumente o valor na Vercel (por exemplo, 15): não precisa mudar código.
+Cada personagem são umas 4 chamadas à BitJita e alguns segundos em segundo plano, com a página já aberta e o aviso "Sincronizando com a BitJita…". O banco já está acordado nessa hora, então o custo no Neon é pequeno. Para consultar a BitJita menos vezes, crie a variável na Vercel com um valor maior (por exemplo, 15) e publique uma release.

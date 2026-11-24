@@ -61,6 +61,7 @@ Detalhes que já custaram tempo:
   - o grafo de receitas da calculadora vem comprimido de `recipe_graph_snapshots`, e não das tabelas;
   - consultas que não precisam de colunas grandes usam `select`.
 - **Vercel Hobby:** sem disco persistente, cron no máximo uma vez por dia e funções de até 300 s. A importação dos dados do jogo nunca roda na Vercel: é um script rodado do PC.
+- **Deploy:** produção só muda quando uma release é publicada no GitHub (`.github/workflows/release.yml`: testes, `prisma migrate deploy` no Neon e `vercel deploy --prod`). Push no `main` não publica (`vercel.json`). Passo a passo em `docs/deploy.md`.
 
 ## Regras do jogo (não negociáveis)
 

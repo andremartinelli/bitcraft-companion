@@ -1,0 +1,4 @@
+# O deploy pela CLI (o workflow de release) envia só o que o build precisa
+legacy
+tests
+docs
