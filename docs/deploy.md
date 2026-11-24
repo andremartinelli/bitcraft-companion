@@ -6,32 +6,16 @@ As contas, as chaves e as senhas são suas. Os passos marcados com **Você** sã
 
 O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), então não há dados para levar do SQLite. A versão nova começa vazia: os dados do jogo vêm da importação, e as contas, do `users:create`.
 
-## 1. Código no GitHub (Claude, com seu OK)
+## 1. Código no GitHub (feito)
 
-- Push do branch `claude/fork-vercel-e03995` para o `origin` (`vdarakjian/bitcraft-companion`).
-- Um PR para o `main`, como rascunho. Ele só é juntado no passo 8, depois que o app estiver no ar.
+O repositório passou do Vitor para a sua conta em 24/11/2026: [andremartinelli/bitcraft-companion](https://github.com/andremartinelli/bitcraft-companion). O branch `claude/fork-vercel-e03995` já está nele. O PR para o `main` fica como rascunho e só é juntado no passo 8.
 
-## 1b. Autorizar a Vercel no repositório (Vitor)
+## 2. Projeto na Vercel (feito)
 
-O repositório fica na conta do Vitor (decidido em 24/11/2026). A Vercel lê o repositório pelo app dela no GitHub, e num repositório de conta pessoal só o dono pode instalar um app. Por isso esse passo é dele, uma vez só:
+O projeto `bitcraft-companion` foi criado na sua conta em 24/11/2026, ligado ao repositório e ainda sem deploy. A região das funções vem do `vercel.json` (`gru1`, São Paulo), e o Node é o 26.
 
-1. Ele abre [github.com/apps/vercel](https://github.com/apps/vercel) e clica em **Install** (ou **Configure**, se já tiver instalado antes).
-2. Escolhe a conta `vdarakjian`.
-3. Em **Repository access**, marca **Only select repositories** e escolhe só o `bitcraft-companion`.
-4. Clica em **Install** (ou **Save**).
-
-A instalação acontece no GitHub. Se depois disso a Vercel pedir login, ele pode fechar a página: não precisa de conta na Vercel.
-
-## 2. Projeto na Vercel (Você)
-
-1. Crie a conta em [vercel.com](https://vercel.com) (plano Hobby), entrando com o GitHub.
-2. **Add New → Project**. Em **Import Git Repository**, troque a conta do GitHub para `vdarakjian` e importe o `bitcraft-companion`. O framework (Next.js) é detectado sozinho.
-
-   Se a conta `vdarakjian` ou o repositório não aparecerem, mesmo com o passo 1b feito, o deploy sai pelo CLI da Vercel, do seu PC: `npx vercel deploy --prod` na pasta do projeto, a cada mudança. O resto do passo a passo vale igual.
-3. Clique em Deploy. O build não precisa do banco (conferido), então ele passa; as páginas só funcionam depois dos passos 3 a 6.
-4. Em **Settings → Git → Production Branch**, ponha `claude/fork-vercel-e03995` até o passo 8. O cron diário só roda no deploy de produção.
-
-A região das funções já vem do `vercel.json`: `gru1`, São Paulo.
+- A cada push, a Vercel faz um deploy sozinha. O do branch de produção vai para o ar. Os dos outros branches viram previews, que só abrem para quem está logado na sua conta da Vercel.
+- O branch de produção ainda é o `main`, que é o app antigo. Ele passa para `claude/fork-vercel-e03995` no passo 6, junto com o primeiro deploy, quando o banco e as variáveis já existirem. O cron diário só roda no deploy de produção.
 
 ## 3. Banco no Neon (Você)
 
@@ -87,10 +71,10 @@ Remove-Item Env:DATABASE_URL_UNPOOLED
 - As migrations rodam do PC, e não no build da Vercel, para nenhum deploy de preview mexer no banco de produção.
 - A cada patch do jogo, rode de novo a importação do mesmo jeito.
 
-## 6. Deploy e conferência (Você, ou Claude com seu OK)
+## 6. Deploy e conferência (Claude, com seu OK, e Você)
 
-1. Em **Deployments**, rode o deploy de novo (Redeploy): as variáveis só valem para os deploys feitos depois delas.
-2. Abra o endereço `*.vercel.app`: ele deve pedir login. Entre e confira Planos, Receitas, Calculadora e Inventário.
+1. Em **Settings → Git → Production Branch**, o branch de produção passa para `claude/fork-vercel-e03995`, e sai o primeiro deploy de produção. As variáveis só valem para os deploys feitos depois delas: se alguma for trocada, é preciso um Redeploy.
+2. Abra o endereço `bitcraft-companion.vercel.app` (ou o que a Vercel mostrar no projeto): ele deve pedir o login do app. Entre e confira Planos, Receitas, Calculadora e Inventário.
 3. Em **Settings → Cron Jobs**, o `/api/cron/inventory-sync` deve aparecer, às 9h UTC (6h em Brasília). O botão **Run** roda na hora.
 
 ## 7. Personagens (Vocês)
