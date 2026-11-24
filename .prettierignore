@@ -1,4 +1,7 @@
-.adonisjs
+.next
 node_modules
-build
-database/schema.ts
+src/generated
+prisma/migrations
+legacy
+docs/reference
+package-lock.json

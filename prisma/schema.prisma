@@ -1,0 +1,534 @@
+// Schema do banco. A URL fica em prisma.config.ts (Prisma 7). Desenho: docs/design/2026-11-24-vercel.md
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ItemKind {
+  item
+  cargo
+
+  @@map("item_kind")
+}
+
+enum RecipeKind {
+  crafting
+  construction
+
+  @@map("recipe_kind")
+}
+
+/// resource: árvore, veio, planta. enemy: um animal caçado.
+enum ExtractionSource {
+  resource
+  enemy
+
+  @@map("extraction_source")
+}
+
+enum ContainerKind {
+  personal
+  toolbelt
+  wallet
+  bank
+  stash
+  housing
+  claim
+  deployable
+  other
+
+  @@map("container_kind")
+}
+
+enum EntrySource {
+  sync
+  manual
+
+  @@map("entry_source")
+}
+
+enum SyncTrigger {
+  manual
+  auto
+  cron
+
+  @@map("sync_trigger")
+}
+
+enum SyncStatus {
+  running
+  ok
+  partial
+  failed
+
+  @@map("sync_status")
+}
+
+// ---------------------------------------------------------------- contas
+
+model User {
+  id        Int      @id @default(autoincrement())
+  fullName  String?  @map("full_name")
+  email     String   @unique @db.VarChar(254)
+  /// Hash scrypt (node:crypto), nunca a senha
+  password  String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plansCreated Plan[]       @relation("PlanCreatedBy")
+  plansUpdated Plan[]       @relation("PlanUpdatedBy")
+  gamePlayers  GamePlayer[]
+
+  @@map("users")
+}
+
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  email     String   @db.VarChar(254)
+  ip        String?
+  succeeded Boolean
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([email, createdAt])
+  @@map("login_attempts")
+}
+
+// ---------------------------------------------------------- dados do jogo
+
+model GameDataImport {
+  id         Int       @id @default(autoincrement())
+  /// github, local ou memory (testes)
+  source     String
+  commitSha  String?   @map("commit_sha")
+  sourceDate DateTime? @map("source_date") @db.Timestamptz(3)
+  counts     Json?
+  renamed    Json?
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  graph RecipeGraphSnapshot?
+
+  @@map("game_data_imports")
+}
+
+/// O grafo de receitas da calculadora, em JSON comprimido com gzip. É gravado
+/// pela importação, na mesma transação. Fica numa tabela própria para que as
+/// consultas a game_data_imports nunca tragam esses bytes.
+model RecipeGraphSnapshot {
+  importId  Int            @id @map("import_id")
+  import    GameDataImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  data      Bytes
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("recipe_graph_snapshots")
+}
+
+/// O id é o do jogo
+model Skill {
+  id   Int    @id
+  name String
+
+  recipes           Recipe[]
+  extractionRecipes ExtractionRecipe[]
+
+  @@map("skills")
+}
+
+model ToolType {
+  id   Int    @id
+  name String
+
+  recipes           Recipe[]
+  extractionRecipes ExtractionRecipe[]
+
+  @@map("tool_types")
+}
+
+model BuildingType {
+  id   Int    @id
+  name String
+
+  recipes Recipe[]
+
+  @@map("building_types")
+}
+
+/// Um item ou um cargo do jogo. Nunca é apagado: quando sai do jogo, ganha removed_at.
+model Item {
+  id             Int       @id @default(autoincrement())
+  kind           ItemKind
+  gameId         Int       @map("game_id")
+  name           String
+  description    String?
+  tier           Int
+  tag            String?
+  rarity         String?
+  /// item_list_id do jogo: este item é uma saída aleatória ("... Output")
+  itemListGameId Int?      @map("item_list_game_id")
+  /// A mesma lista pelo nosso id, resolvida pelo importador
+  itemListId     Int?      @map("item_list_id")
+  itemList       ItemList? @relation(fields: [itemListId], references: [id])
+  removedAt      DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId   Int?      @map("last_import_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  recipeInputs      RecipeInput[]
+  recipeOutputs     RecipeOutput[]
+  listEntries       ItemListPossibilityItem[]
+  claimTechInputs   ClaimTechInput[]
+  extractionOutputs ExtractionRecipeOutput[]
+  planItems         PlanItem[]
+  planChoices       PlanChoice[]
+  planOwnedItems    PlanOwnedItem[]
+  inventoryEntries  InventoryEntry[]
+
+  @@unique([kind, gameId])
+  @@index([name])
+  @@index([itemListId])
+  @@map("items")
+}
+
+model ItemList {
+  id           Int       @id @default(autoincrement())
+  gameId       Int       @unique @map("game_id")
+  name         String
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?      @map("last_import_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  possibilities ItemListPossibility[]
+  outputItems   Item[]
+
+  @@map("item_lists")
+}
+
+model ItemListPossibility {
+  id          Int      @id @default(autoincrement())
+  itemListId  Int      @map("item_list_id")
+  itemList    ItemList @relation(fields: [itemListId], references: [id], onDelete: Cascade)
+  /// Ordem dentro da lista, como vem do jogo
+  position    Int
+  probability Float
+
+  items ItemListPossibilityItem[]
+
+  @@unique([itemListId, position])
+  @@map("item_list_possibilities")
+}
+
+model ItemListPossibilityItem {
+  id            Int                 @id @default(autoincrement())
+  possibilityId Int                 @map("possibility_id")
+  possibility   ItemListPossibility @relation(fields: [possibilityId], references: [id], onDelete: Cascade)
+  itemId        Int                 @map("item_id")
+  item          Item                @relation(fields: [itemId], references: [id])
+  quantity      Int
+
+  @@index([possibilityId])
+  @@index([itemId])
+  @@map("item_list_possibility_items")
+}
+
+/// Receita de craft ou de construção. Uma skill, no máximo uma ferramenta e
+/// no máximo uma estação (o importador para com erro se um patch mudar isso).
+model Recipe {
+  id                     Int           @id @default(autoincrement())
+  kind                   RecipeKind
+  gameId                 Int           @map("game_id")
+  /// Com os placeholders resolvidos: {0} é o primeiro produto, {1} o primeiro ingrediente
+  name                   String
+  /// Craft, Scrap, Cook...; "Build" nas construções
+  verb                   String
+  actionsRequired        Int           @map("actions_required")
+  timePerAction          Float         @map("time_per_action")
+  staminaPerAction       Float         @map("stamina_per_action")
+  skillId                Int?          @map("skill_id")
+  skill                  Skill?        @relation(fields: [skillId], references: [id])
+  skillLevel             Int?          @map("skill_level")
+  toolTypeId             Int?          @map("tool_type_id")
+  toolType               ToolType?     @relation(fields: [toolTypeId], references: [id])
+  toolTier               Int?          @map("tool_tier")
+  buildingTypeId         Int?          @map("building_type_id")
+  buildingType           BuildingType? @relation(fields: [buildingTypeId], references: [id])
+  buildingTier           Int?          @map("building_tier")
+  isPassive              Boolean       @default(false) @map("is_passive")
+  hiddenWithoutKnowledge Boolean       @default(false) @map("hidden_without_knowledge")
+  shards                 Int           @default(0)
+  pavingTier             Int?          @map("paving_tier")
+  removedAt              DateTime?     @map("removed_at") @db.Timestamptz(3)
+  lastImportId           Int?          @map("last_import_id")
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inputs        RecipeInput[]
+  outputs       RecipeOutput[]
+  planChoices   PlanChoice[]
+  planBuildings PlanBuilding[]
+
+  @@unique([kind, gameId])
+  @@index([verb])
+  @@index([skillId])
+  @@index([buildingTypeId])
+  @@map("recipes")
+}
+
+model RecipeInput {
+  id       Int    @id @default(autoincrement())
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  itemId   Int    @map("item_id")
+  item     Item   @relation(fields: [itemId], references: [id])
+  quantity Int
+
+  @@index([recipeId])
+  @@index([itemId])
+  @@map("recipe_inputs")
+}
+
+model RecipeOutput {
+  id       Int    @id @default(autoincrement())
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  itemId   Int    @map("item_id")
+  item     Item   @relation(fields: [itemId], references: [id])
+  quantity Int
+
+  @@index([recipeId])
+  @@index([itemId])
+  @@map("recipe_outputs")
+}
+
+/// Pesquisa do assentamento: upgrade de tier, Township, Homestead...
+model ClaimTech {
+  id           Int       @id @default(autoincrement())
+  gameId       Int       @unique @map("game_id")
+  name         String
+  description  String?
+  tier         Int
+  /// TierUpgrade, Settlement, Homestead, Carpentry, MemberCount...
+  techType     String    @map("tech_type")
+  /// Suprimentos do assentamento, que não são item
+  suppliesCost Int       @default(0) @map("supplies_cost")
+  /// Não aparece no jogo, ou não pode ser pesquisada
+  hidden       Boolean   @default(false)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?      @map("last_import_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inputs ClaimTechInput[]
+
+  @@index([techType, tier])
+  @@map("claim_techs")
+}
+
+model ClaimTechInput {
+  id          Int       @id @default(autoincrement())
+  claimTechId Int       @map("claim_tech_id")
+  claimTech   ClaimTech @relation(fields: [claimTechId], references: [id], onDelete: Cascade)
+  itemId      Int       @map("item_id")
+  item        Item      @relation(fields: [itemId], references: [id])
+  quantity    Int
+
+  @@index([claimTechId])
+  @@map("claim_tech_inputs")
+}
+
+/// Coleta no mundo (Chop, Mine, Gather...) ou caça (Hunt, Slay)
+model ExtractionRecipe {
+  id           Int              @id @default(autoincrement())
+  source       ExtractionSource @default(resource)
+  gameId       Int              @map("game_id")
+  verb         String
+  skillId      Int?             @map("skill_id")
+  skill        Skill?           @relation(fields: [skillId], references: [id])
+  skillLevel   Int?             @map("skill_level")
+  toolTypeId   Int?             @map("tool_type_id")
+  toolType     ToolType?        @relation(fields: [toolTypeId], references: [id])
+  toolTier     Int?             @map("tool_tier")
+  removedAt    DateTime?        @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?             @map("last_import_id")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outputs ExtractionRecipeOutput[]
+
+  @@unique([source, gameId])
+  @@index([skillId])
+  @@map("extraction_recipes")
+}
+
+model ExtractionRecipeOutput {
+  id                 Int              @id @default(autoincrement())
+  extractionRecipeId Int              @map("extraction_recipe_id")
+  extractionRecipe   ExtractionRecipe @relation(fields: [extractionRecipeId], references: [id], onDelete: Cascade)
+  itemId             Int              @map("item_id")
+  item               Item             @relation(fields: [itemId], references: [id])
+  quantity           Int
+
+  @@index([extractionRecipeId])
+  @@index([itemId])
+  @@map("extraction_recipe_outputs")
+}
+
+// ------------------------------------------------------------------ planos
+
+/// Um estado da calculadora com nome, compartilhado entre os dois
+model Plan {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(80)
+  notes        String?
+  useInventory Boolean  @default(true) @map("use_inventory")
+  createdById  Int?     @map("created_by_id")
+  createdBy    User?    @relation("PlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById  Int?     @map("updated_by_id")
+  updatedBy    User?    @relation("PlanUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items      PlanItem[]
+  buildings  PlanBuilding[]
+  choices    PlanChoice[]
+  ownedItems PlanOwnedItem[]
+
+  @@map("plans")
+}
+
+model PlanItem {
+  id       Int  @id @default(autoincrement())
+  planId   Int  @map("plan_id")
+  plan     Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId   Int  @map("item_id")
+  item     Item @relation(fields: [itemId], references: [id])
+  quantity Int
+  position Int  @default(0)
+
+  @@unique([planId, itemId])
+  @@map("plan_items")
+}
+
+/// Uma construção do plano (receita de construção)
+model PlanBuilding {
+  id       Int    @id @default(autoincrement())
+  planId   Int    @map("plan_id")
+  plan     Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+  quantity Int
+  position Int    @default(0)
+
+  @@unique([planId, recipeId])
+  @@map("plan_buildings")
+}
+
+model PlanChoice {
+  id       Int     @id @default(autoincrement())
+  planId   Int     @map("plan_id")
+  plan     Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId   Int     @map("item_id")
+  item     Item    @relation(fields: [itemId], references: [id])
+  /// null: tratar o item como matéria-prima
+  recipeId Int?    @map("recipe_id")
+  recipe   Recipe? @relation(fields: [recipeId], references: [id])
+
+  @@unique([planId, itemId])
+  @@map("plan_choices")
+}
+
+model PlanOwnedItem {
+  id       Int  @id @default(autoincrement())
+  planId   Int  @map("plan_id")
+  plan     Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId   Int  @map("item_id")
+  item     Item @relation(fields: [itemId], references: [id])
+  quantity Int
+
+  @@unique([planId, itemId])
+  @@map("plan_owned_items")
+}
+
+// -------------------------------------------------------------- inventário
+
+/// Um personagem acompanhado, pelo entityId público da BitJita. Nenhum token.
+model GamePlayer {
+  id           Int       @id @default(autoincrement())
+  username     String
+  /// 18 dígitos: não cabe num number do JavaScript
+  entityId     String    @unique @map("entity_id")
+  regionId     Int?      @map("region_id")
+  /// As claims do personagem na última leitura: [{ entityId, name }]
+  claims       Json?
+  userId       Int?      @map("user_id")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  lastSyncedAt DateTime? @map("last_synced_at") @db.Timestamptz(3)
+  lastError    String?   @map("last_error")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  containers InventoryContainer[]
+
+  @@map("game_players")
+}
+
+model InventoryContainer {
+  id            Int           @id @default(autoincrement())
+  kind          ContainerKind
+  /// entityId do inventário ou do prédio, como a BitJita manda
+  gameEntityId  String        @map("game_entity_id")
+  /// Nulo nos baús da claim, que são do grupo
+  gamePlayerId  Int?          @map("game_player_id")
+  gamePlayer    GamePlayer?   @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  claimEntityId String?       @map("claim_entity_id")
+  claimName     String?       @map("claim_name")
+  name          String
+  lastSeenAt    DateTime?     @map("last_seen_at") @db.Timestamptz(3)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entries InventoryEntry[]
+
+  @@unique([kind, gameEntityId])
+  @@index([claimEntityId])
+  @@map("inventory_containers")
+}
+
+model InventoryEntry {
+  id          Int                @id @default(autoincrement())
+  containerId Int                @map("container_id")
+  container   InventoryContainer @relation(fields: [containerId], references: [id], onDelete: Cascade)
+  itemId      Int                @map("item_id")
+  item        Item               @relation(fields: [itemId], references: [id])
+  quantity    Int
+  source      EntrySource        @default(sync)
+  syncedAt    DateTime?          @map("synced_at") @db.Timestamptz(3)
+
+  @@unique([containerId, itemId, source])
+  @@index([itemId])
+  @@map("inventory_entries")
+}
+
+/// Um sync do inventário. O índice parcial único (SQL na migration) garante um
+/// só "running" por vez:
+///   CREATE UNIQUE INDEX sync_runs_one_running ON sync_runs (status) WHERE status = 'running';
+model SyncRun {
+  id         Int         @id @default(autoincrement())
+  trigger    SyncTrigger
+  /// bitjita
+  source     String
+  status     SyncStatus
+  message    String?
+  counts     Json?
+  startedAt  DateTime    @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime?   @map("finished_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("sync_runs")
+}

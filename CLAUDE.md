@@ -1,31 +1,47 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0, usado por duas pessoas. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário do grupo, lido da API pública da BitJita. Roda numa máquina Windows, e a outra pessoa acessa pelo Tailscale.
+Companion app para o BitCraft Online 1.0, usado por duas pessoas. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário do grupo, lido da API pública da BitJita. Roda de graça na Vercel, com o banco no Neon (Postgres).
 
-- Design aprovado: `docs/design/2026-11-21-estrutura-base.md`
-- Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`
+- Design aprovado: `docs/design/2026-11-24-vercel.md`. Os anteriores (`2026-11-21-*`) descrevem o app Adonis.
+- Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`.
+- **Transição:** o app Adonis antigo está em `legacy/`, só para consulta durante o port, e é o que ainda roda no PC a partir do `main`. Ele não entra no build, no lint nem no typecheck. Ao portar uma área, leia o código dela em `legacy/` e mantenha as regras e os testes. `legacy/` sai no merge para o `main`.
 
 ## Stack
 
-AdonisJS 7 (kit `hypermedia`) com TypeScript, Lucid sobre SQLite (`better-sqlite3`), templates Edge com htmx e Alpine, VineJS para validação e Japa para testes.
+Next.js 16 (App Router, Turbopack) com TypeScript, Prisma 7 sobre Postgres (`@prisma/adapter-pg`), Chakra UI 3, Zod para validação e Vitest para testes.
 
-## Convenções (Rails → Adonis)
+## Convenções (Rails → Next)
 
 O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 
 | Rails | Aqui |
 |---|---|
-| `resources` RESTful | `router.resource()` com as sete ações padrão. Rota fora do padrão só quando houver motivo. |
-| Controllers magros | Controllers só recebem, validam, chamam e renderizam. Regras ficam nos models ou em `app/services/`. |
-| Service objects / POROs | `app/services/<area>/<nome>.ts`, uma classe por caso de uso. |
-| Strong params + validations | Validators VineJS em `app/validators/`, um por recurso e ação. |
-| Migrations | Lucid. Nunca editar uma migration já aplicada; criar uma nova. `database/schema.ts` é gerado: não editar à mão. |
-| Models | `class X extends XSchema` (schema gerado). Escopos com `scope()`; os dados do jogo usam o escopo `active` (`removed_at` nulo). |
-| `db/seeds.rb` | Seeders só para dev e teste. Os dados do jogo vêm de `node ace bitcraft:import`. |
-| Rake tasks | Comandos `ace` em `commands/`. |
-| Partials e layouts | Componentes e layouts Edge. Respostas htmx (header `HX-Request`) renderizam só o partial. |
-| Model e request specs | Japa: `tests/unit/` para services e models, `tests/functional/` para rotas, com fixtures em `tests/fixtures/`. |
-| Nomes | Tabelas no plural em snake_case, models no singular em PascalCase, arquivos em snake_case. Código em inglês, interface em português (pt-BR). Os nomes dos itens ficam como vêm do jogo, em inglês. |
+| `resources` RESTful | Pastas em `src/app/(app)/` com URLs de recurso (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_players`). Mutações em server actions, num `actions.ts` por recurso, com os nomes das ações do Rails (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) só para o que não é ação de formulário: busca enquanto se digita e o cron. |
+| Controllers magros | Páginas (server components) e actions só leem a entrada, validam, chamam e renderizam ou redirecionam. Regras ficam em `src/models/` ou `src/services/`. |
+| Service objects / POROs | `src/services/<area>/<nome>.ts`, uma classe ou um módulo por caso de uso. |
+| Models | O Prisma não tem classes: as consultas e regras de cada tabela ficam em `src/models/<model>.ts`. Os dados do jogo sempre filtram os removidos com `active` (`removedAt: null`). |
+| Strong params + validations | Zod em `src/validators/<recurso>.ts`, um schema por recurso e ação. Entrada inválida vira mensagem em português, nunca erro 500. |
+| Migrations | `prisma migrate`. Nunca editar uma migration já aplicada; criar uma nova. O SQL que o Prisma não expressa (como índice parcial) vai na própria migration, com um comentário. |
+| `db/seeds.rb` | Seeders só para dev e teste. Os dados do jogo vêm de `npm run game-data:import`. |
+| Rake tasks | Scripts em `scripts/`, rodados com `tsx` pelos `npm run`. |
+| Partials e layouts | Layouts do App Router e componentes React com Chakra em `src/components/<area>/`. Componente de cliente (`'use client'`) só onde há interação ou Chakra; a página busca os dados e passa dados simples. |
+| Model e request specs | Vitest: `tests/unit/` sem banco e `tests/integration/` com o Postgres de teste (zerado a cada teste), com fixtures em `tests/fixtures/`. Teste os services e models que as actions chamam. |
+| Nomes | Tabelas no plural em snake_case (`@@map`), models no singular em PascalCase, campos em camelCase (`@map` para snake_case), arquivos em snake_case. Código em inglês, interface em português (pt-BR). Os nomes dos itens ficam como vêm do jogo, em inglês. |
+
+Detalhes que já custaram tempo:
+
+- **Chakra no App Router:** os estilos do Emotion vão para o `<head>` pelo `EmotionRegistry` (`src/components/ui/emotion_registry.tsx`); sem ele, a hidratação falha. O tema claro e escuro é uma classe no `<html>` posta por um script `beforeInteractive` (`src/components/ui/color_mode.ts`), sem `next-themes`.
+- **O cliente do Prisma é gerado** em `src/generated/prisma` (fora do git) e importado de `@/generated/prisma/client.ts`. Use `db` de `src/lib/db.ts`, que só conecta no primeiro uso.
+- **Datas:** a Vercel roda em UTC. Formate com `src/lib/format.ts`, que usa o fuso `America/Sao_Paulo`.
+- **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_`.
+
+## Limites do plano grátis (não negociáveis)
+
+- **Neon:** 100 CU-horas de compute, 1 GB e 5 GB de transferência por mês. Ao estourar um limite, o banco fica suspenso até o próximo ciclo e o app sai do ar. Por isso:
+  - nada de timer, polling ou cron frequente que acorde o banco (ele dorme depois de 5 minutos parado);
+  - o grafo de receitas da calculadora vem comprimido de `recipe_graph_snapshots`, e não das tabelas;
+  - consultas que não precisam de colunas grandes usam `select`.
+- **Vercel Hobby:** sem disco persistente, cron no máximo uma vez por dia e funções de até 300 s. A importação dos dados do jogo nunca roda na Vercel: é um script rodado do PC.
 
 ## Regras do jogo (não negociáveis)
 
@@ -36,18 +52,18 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 
 ## Comandos
 
+O Node não está no PATH desta máquina: use `C:\Users\Andre\tools\node-v26.13.1-win-x64` (no Git Bash, `export PATH="/c/Users/Andre/tools/node-v26.13.1-win-x64:$PATH"`). As portas 3333 e 3000 são do app antigo.
+
 ```bash
-npm run dev                  # servidor de desenvolvimento (HMR)
-npm test                     # todos os testes
-node ace test unit           # só uma suíte
+npm run db:dev               # Postgres local de dev (prisma dev), num terminal; deixe aberto
+npm run db:test              # Postgres local dos testes, noutro terminal
+npm run dev                  # servidor de desenvolvimento em http://localhost:3100
+npm test                     # todos os testes (unit e integration)
+npm run test:unit            # só os sem banco
 npm run typecheck
 npm run lint
-node ace migration:run
-node ace bitcraft:import     # importa os dados do jogo (último commit do BitCraft_GameData)
-node ace users:create        # cria um usuário (não existe cadastro aberto)
-node ace inventory:sync      # lê os inventários na BitJita (o servidor web repete a cada INVENTORY_SYNC_MINUTES)
+npx prisma migrate dev       # cria e aplica migrations no banco de dev
+npm run game-data:import     # importa os dados do jogo (último commit do BitCraft_GameData)
 ```
 
-Os tipos de rotas e controllers em `.adonisjs/server/` são gerados pelo `npm run dev` (ou `node ace serve`). Depois de mexer em `start/routes.ts`, suba o dev uma vez antes do `typecheck`.
-
-Para rodar em produção (o app que vocês usam de verdade, acessível pelo Tailscale), use `scripts/start-production.ps1`. Detalhes no README.
+O `prisma dev` só respeita as portas do `.env` rodando em primeiro plano (`--detach` escolhe outras).
