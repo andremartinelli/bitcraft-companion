@@ -2,7 +2,6 @@
 node_modules
 src/generated
 prisma/migrations
-legacy
 docs/reference
 package-lock.json
 tests/fixtures

@@ -4,7 +4,7 @@ Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consul
 
 - Design aprovado: `docs/design/2026-11-24-vercel.md`. Os anteriores (`2026-11-21-*`) descrevem o app Adonis.
 - Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`.
-- **Transição:** o app Adonis antigo está em `legacy/`, só para consulta durante o port, e é o que ainda roda no PC a partir do `main`. Ele não entra no build, no lint nem no typecheck. Ao portar uma área, leia o código dela em `legacy/` e mantenha as regras e os testes. `legacy/` sai no merge para o `main`.
+- **Histórico:** o app Adonis antigo foi portado e saiu do repositório no merge para o `main` (24/11/2026). Para consultá-lo, veja o histórico do git antes desse merge (pasta `legacy/` no branch `claude/fork-vercel-e03995`, ou o `main` até o commit `c4a56b3`).
 
 ## Stack
 

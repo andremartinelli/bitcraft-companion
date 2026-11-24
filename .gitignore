@@ -29,6 +29,3 @@ npm-debug.log*
 .remember
 storage/
 .claude/
-legacy/node_modules
-legacy/tmp/*
-!legacy/tmp/.gitkeep

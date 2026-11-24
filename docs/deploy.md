@@ -96,15 +96,9 @@ Remove-Item Env:DATABASE_URL_UNPOOLED
 
 Cada um cria a sua conta e, em **Inventário → Personagens**, adiciona os personagens cujo inventário quer ver (até 5). Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha. Para planos em conjunto, o dono do plano o compartilha pelo e-mail da outra conta.
 
-## 9. Juntar no `main` (Claude, com seu OK)
+## 9. Juntar no `main` (feito)
 
-Depois que o app estiver no ar e conferido:
-
-- sai o `legacy/` (com o `start-production.ps1` e o que o README antigo diz sobre o Tailscale);
-- o PR é juntado no `main`;
-- as releases seguintes saem do `main`.
-
-O app antigo deixa de ser atualizado a partir daí.
+Em 24/11/2026, com o app no ar e os dados do jogo importados, o `legacy/` saiu (com o `start-production.ps1` e o que o README antigo dizia sobre o Tailscale) e o branch foi levado para o `main`. As releases seguintes saem do `main`, e o "Run workflow" manual aparece em **Actions**. O app antigo deixou de ser atualizado: o que roda no PC pode ser desligado.
 
 ## Frequência do inventário
 
