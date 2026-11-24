@@ -38,17 +38,50 @@ ci_postgres_image() {
   echo "${image:-postgres:17}"
 }
 
-# Puts CI's Node first on PATH. The image ships several versions under
-# /opt/nodeNN; links in ~/.local/bin pick one for this and every later session
-# (hooks may start without ~/.local/bin on PATH, so it is added here too).
+# Installs the latest release of Node <major> from nodejs.org into
+# /opt/node<major>, next to the image's own versions, after checking it
+# against the release's SHASUMS256.txt. Returns non-zero when it can't
+# (no network to nodejs.org, unknown architecture).
+install_node() {
+  local major="$1" arch base file tmp
+  case "$(uname -m)" in
+    x86_64) arch=x64 ;;
+    aarch64 | arm64) arch=arm64 ;;
+    *) return 1 ;;
+  esac
+  base="https://nodejs.org/dist/latest-v${major}.x"
+  tmp="$(mktemp -d)"
+  if curl -fsSL --retry 2 "$base/SHASUMS256.txt" -o "$tmp/SHASUMS256.txt" &&
+    file="$(grep -o "node-v${major}\.[0-9.]*-linux-${arch}\.tar\.gz" "$tmp/SHASUMS256.txt" | head -1)" &&
+    [ -n "$file" ] &&
+    curl -fsSL --retry 2 "$base/$file" -o "$tmp/$file" &&
+    (cd "$tmp" && grep " ${file}\$" SHASUMS256.txt | sha256sum -c --quiet -) &&
+    mkdir -p "/opt/node${major}" &&
+    tar -xzf "$tmp/$file" -C "/opt/node${major}" --strip-components=1; then
+    rm -rf "$tmp"
+    return 0
+  fi
+  rm -rf "$tmp" "/opt/node${major}"
+  return 1
+}
+
+# Puts CI's Node first on PATH. The image ships some versions under
+# /opt/nodeNN; when CI's isn't one of them, it comes from nodejs.org (once:
+# the environment's cache keeps it). Links in ~/.local/bin pick it for this
+# and every later session (hooks may start without ~/.local/bin on PATH, so
+# it is added here too).
 use_ci_node() {
   local major dir tool
   export PATH="$HOME/.local/bin:$PATH"
   major="$(ci_node_major)"
   dir="/opt/node${major}"
+  if [ -n "$major" ] && [ ! -x "$dir/bin/node" ]; then
+    echo "Instalando o Node ${major} da CI (nodejs.org)."
+    install_node "$major" || true
+  fi
   if [ -z "$major" ] || [ ! -x "$dir/bin/node" ]; then
     dir="$(ls -d /opt/node[0-9]* 2>/dev/null | sort -V | tail -1 || true)"
-    warn "a CI usa o Node ${major:-?}, que esta imagem não tem; usando ${dir:-o do PATH}."
+    warn "a CI usa o Node ${major:-?}, que não veio do nodejs.org; usando ${dir:-o do PATH}."
   fi
   [ -n "$dir" ] && [ -x "$dir/bin/node" ] || return 0
   mkdir -p "$HOME/.local/bin"
@@ -210,18 +243,46 @@ migrate_databases() {
   DATABASE_URL_UNPOOLED="$(env_value TEST_DATABASE_URL)" node_modules/.bin/prisma migrate deploy
 }
 
-# The commit of the last finished game data import on bitcraft_dev; empty if
-# there is none.
+# The commit of the last finished game data import on bitcraft_dev ("local"
+# for an import from a folder); empty if there is none.
 game_data_commit() {
   pg_psql -d bitcraft_dev -tAc "SELECT coalesce(commit_sha, source) FROM game_data_imports
     WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1" 2>/dev/null || true
 }
 
-# Imports the game data into bitcraft_dev when it has none (GitHub, ~15 s).
-# Never fails the caller: without it the app runs, only empty.
+GAME_DATA_RAW="https://raw.githubusercontent.com/BitCraftToolBox/BitCraft_GameData/refs/heads/cereal/cs/static"
+
+# The tables the importer reads (GAME_TABLES in src/services/game_data/source.ts).
+game_tables() {
+  sed -n "/GAME_TABLES = \[/,/\]/s/^ *'\([a-z_]*\)',*$/\1/p" src/services/game_data/source.ts
+}
+
+# Downloads the tables at the branch's tip from raw.githubusercontent.com into
+# .workspace/game-data and prints that folder.
+download_game_data() {
+  local dir=.workspace/game-data table
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  for table in $(game_tables); do
+    curl -fsSL --retry 2 "$GAME_DATA_RAW/$table.json" -o "$dir/$table.json" || return 1
+  done
+  echo "$dir"
+}
+
+# Imports the game data into bitcraft_dev when it has none (~15 s). The normal
+# import asks api.github.com for the branch's commit, and a cloud session's
+# GitHub proxy answers 403 for a repository that isn't attached to it; then
+# the same tables come from raw.githubusercontent.com, imported from a folder.
+# Never fails the caller: without them the app runs, only empty.
 ensure_game_data() {
+  local dir
   [ -n "$(game_data_commit)" ] && return 0
-  npm run game-data:import || warn "a importação dos dados do jogo falhou; o app sobe sem eles."
+  npm run game-data:import && return 0
+  echo "Sem a API do GitHub: importando as tabelas do branch pelo raw.githubusercontent.com."
+  if dir="$(download_game_data)" && npm run game-data:import -- --path="$dir"; then
+    return 0
+  fi
+  warn "a importação dos dados do jogo falhou; o app sobe sem eles."
 }
 
 postgres_version() {

@@ -16,10 +16,14 @@ O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num
 
   A última linha do log (`.workspace/cloud-start.log`) é o resumo. Se o hook avisar que falhou, leia o log antes de rodar o app ou os testes.
 - **O cache do ambiente** é montado por `scripts/workspace/cloud-setup.sh`: Node e Postgres nas versões da CI, `.env` só com valores locais, dependências, migrations, dados do jogo no `bitcraft_dev` e o usuário do `db:seed`. O cache guarda arquivos, não processos; por isso o hook liga tudo de novo em cada sessão.
+- **Node:** a imagem da nuvem só traz alguns Node em `/opt/nodeNN`. Quando o da CI não está entre eles, a receita o baixa do `nodejs.org` (conferido pelo `SHASUMS256.txt`) para `/opt/nodeNN`. Se o download falhar, ela usa o mais novo da imagem e avisa no resumo.
 - **Sessão com vários repositórios não roda hooks.** Rode `bash scripts/workspace/cloud-start.sh` à mão antes do app ou dos testes de integração.
 - **Login no app de dev:** `dev@example.com` / `dev-password-local` (`prisma/seed.ts`).
 - **Nada da nuvem chega à produção.** O `.env` aponta só para o Postgres local, e os scripts recusam outra URL. Não há segredo de produção na nuvem: as releases (deploy e migrations no Neon) e a importação dos dados do jogo no Neon rodam pelos workflows do GitHub Actions, disparados pelo dono do repositório.
-- **Rede:** a importação dos dados do jogo usa `api.github.com` e `raw.githubusercontent.com`, e o inventário usa `bitjita.com`. Se um deles estiver bloqueado, o app sobe sem esse dado. Os testes usam fixtures e não precisam de rede.
+- **Rede:** os testes usam fixtures e não precisam de rede.
+  - O proxy do GitHub da sessão só deixa a `api.github.com` ler os repositórios anexados à sessão. A importação normal pede o commit do BitCraft_GameData a essa API e recebe 403. Por isso a receita baixa as mesmas tabelas da ponta do branch pelo `raw.githubusercontent.com` e importa da pasta (`--path`).
+  - O inventário do app de dev lê o `bitjita.com`, que precisa estar liberado na rede do ambiente. Sem ele, as páginas abrem, mas o sync falha.
+- **Docs do Next:** a versão instalada traz a documentação em `node_modules/next/dist/docs/`. Consulte lá em vez de confiar na memória. O `agentRules: false` do `next.config.ts` impede o `next dev` de gerar um `AGENTS.md` com esse mesmo aviso a cada execução.
 - **Pull requests:** trabalhe num branch e abra o PR; o merge e as releases são do dono do repositório. A CI (`.github/workflows/ci.yml`) roda typecheck, lint e testes em cada PR.
 
 ## Stack

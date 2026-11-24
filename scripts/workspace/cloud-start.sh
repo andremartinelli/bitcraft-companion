@@ -44,9 +44,9 @@ case "$(node -v)" in
   *) node_note=" (a CI usa o Node $(ci_node_major))" ;;
 esac
 game_data="$(game_data_commit)"
-if [ -n "$game_data" ]; then
-  game_note="dados do jogo do commit ${game_data:0:12}"
-else
-  game_note="SEM os dados do jogo (npm run game-data:import)"
-fi
+case "$game_data" in
+  "") game_note="SEM os dados do jogo (veja ensure_game_data em scripts/workspace/lib.sh)" ;;
+  local) game_note="dados do jogo da ponta do branch cereal/cs (pelo raw.githubusercontent.com)" ;;
+  *) game_note="dados do jogo do commit ${game_data:0:12}" ;;
+esac
 echo "Postgres $(postgres_version) em 127.0.0.1:${PG_PORT} (bitcraft_dev e bitcraft_test, migrations em dia), node $(node -v)${node_note}, ${game_note}."
