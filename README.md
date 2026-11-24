@@ -11,14 +11,18 @@ Produção muda a cada release publicada no GitHub: o workflow roda os testes, a
 - Node.js 24 ou mais novo
 - Git
 
-## Instalação (desenvolvimento)
+## Desenvolvimento nas sessões do Claude Code na nuvem
+
+O projeto é desenvolvido em sessões do Claude Code na nuvem (claude.ai/code). O ambiente roda `scripts/workspace/cloud-setup.sh` uma vez (Node e Postgres nas versões da CI, `.env` só com valores locais, dependências, migrations, dados do jogo e um usuário de desenvolvimento), e cada sessão liga o Postgres sozinha pelo hook de início (`scripts/workspace/cloud-start.sh`). Depois é só `npm test` ou `npm run dev`. Os detalhes estão no [CLAUDE.md](CLAUDE.md).
+
+## Instalação local (sem a nuvem)
 
 ```bash
 npm install
 cp .env.example .env          # e preencha SESSION_SECRET e CRON_SECRET
 ```
 
-O Postgres local roda com o `prisma dev`, sem instalar serviço no Windows. Abra dois terminais e deixe-os abertos:
+O Postgres local roda com o `prisma dev`, sem instalar serviço nem Docker. Abra dois terminais e deixe-os abertos:
 
 ```bash
 npm run db:dev                # banco de dev, porta 51214
@@ -34,7 +38,7 @@ npm run game-data:import      # dados do jogo (uns 15 s); rode de novo a cada pa
 npm run dev                   # http://localhost:3100
 ```
 
-O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e grava no banco de `DATABASE_URL_UNPOOLED` (no Neon, a URL direta). Ele roda do PC, nunca na Vercel:
+O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e grava no banco de `DATABASE_URL_UNPOOLED`. Em produção, ele roda pelo workflow manual "Importar dados do jogo" do GitHub Actions, contra o Neon, e nunca na Vercel ([docs/deploy.md](docs/deploy.md), passo 6):
 - o que é novo entra;
 - o que saiu do jogo é marcado como removido (nada é apagado);
 - itens renomeados aparecem no resumo.

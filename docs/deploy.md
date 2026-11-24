@@ -41,9 +41,9 @@ No console do Neon, deixe o compute fixo em **0,25 CU** (mínimo e máximo) e o 
 | `CRON_SECRET` | Outra chave aleatória. A Vercel manda essa chave no cron diário |
 | `INVENTORY_STALE_MINUTES` | Opcional. Sem ela, 1 minuto. Veja "Frequência do inventário" abaixo |
 
-Para gerar uma chave nova, rode no PowerShell:
+Para gerar uma chave nova, rode num terminal com Node:
 
-```powershell
+```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
@@ -60,30 +60,17 @@ No repositório, **Settings → Secrets and variables → Actions → New reposi
 
 O id da conta e o do projeto da Vercel já estão no workflow; não são segredos.
 
-## 6. Dados do jogo (Você, do PC)
+## 6. Dados do jogo (Você, pelo GitHub Actions)
 
-A importação continua rodando do seu PC, contra o Neon, com a URL **direta**. No PowerShell, na pasta do projeto:
+A importação no Neon roda pelo workflow [`.github/workflows/game-data-import.yml`](../.github/workflows/game-data-import.yml), com o segredo `DATABASE_URL_UNPOOLED` do passo 5. Nenhuma sessão do Claude e nenhum PC precisa da URL do Neon.
 
-```powershell
-$env:Path = "C:\Users\Andre\tools\node-v26.13.1-win-x64;$env:Path"
-```
+1. No GitHub, **Actions → Importar dados do jogo → Run workflow**.
+2. Deixe o branch `main`. O campo do commit é opcional: vazio, importa o último commit do BitCraft_GameData.
+3. O resumo (itens novos, removidos e renomeados) aparece no log do job.
 
-```powershell
-$env:DATABASE_URL_UNPOOLED = "cole aqui a URL direta do Neon"
-```
-
-```powershell
-npm.cmd run game-data:import
-```
-
-```powershell
-Remove-Item Env:DATABASE_URL_UNPOOLED
-```
-
-- A importação precisa das tabelas: rode depois da primeira release, ou antes dela, rodando também `npx.cmd prisma migrate deploy` nesse terminal.
-- A variável vale só nesse terminal e tem prioridade sobre o `.env`. Por isso o último comando a apaga: os próximos comandos voltam a usar o banco local.
-- O `npm.cmd` e o `npx.cmd` evitam o bloqueio de scripts do PowerShell.
-- A cada patch do jogo, rode de novo a importação do mesmo jeito.
+- O workflow para antes de importar se o Neon tiver migrations pendentes: publique uma release antes (passo 7).
+- Ele espera uma release em andamento terminar, e vice-versa.
+- A cada patch do jogo, rode de novo.
 
 ## 7. Primeira release e conferência (Você)
 
