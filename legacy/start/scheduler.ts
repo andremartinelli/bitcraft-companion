@@ -3,7 +3,7 @@
 | Inventory schedule
 |--------------------------------------------------------------------------
 |
-| Syncs the inventories with BitJita every INVENTORY_SYNC_MINUTES (15 by
+| Syncs the inventories with BitJita every INVENTORY_SYNC_MINUTES (1 by
 | default, 0 turns it off). Preloaded only by the web server (adonisrc.ts):
 | never by ace commands or tests.
 |

@@ -14,6 +14,9 @@ export const SYNC_STATUSES: Record<SyncStatus, string> = {
 /** A run still "running" after this long died with its process */
 const STALE_AFTER_MINUTES = 10
 
+/** Syncing every minute writes ~1440 runs a day: older ones go (see prune) */
+const KEEP_DAYS = 7
+
 /** The format Lucid writes dateTime columns in on SQLite */
 const sqlTime = (time: DateTime) => time.toFormat('yyyy-MM-dd HH:mm:ss')
 
@@ -39,6 +42,17 @@ export default class SyncRun extends SyncRunSchema {
       .orderBy('started_at', 'desc')
       .orderBy('id', 'desc')
       .first()
+  }
+
+  /**
+   * Forgets runs older than KEEP_DAYS. The last one that wrote data stays,
+   * however old: the inventory page says when the data is from.
+   */
+  static async prune(now: DateTime = DateTime.now()) {
+    const keep = await this.lastSuccessful()
+    const query = this.query().where('started_at', '<', sqlTime(now.minus({ days: KEEP_DAYS })))
+    if (keep) query.whereNot('id', keep.id)
+    await query.delete()
   }
 
   /** A run in progress, in this process or another one (the ace command) */
