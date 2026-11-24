@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1010,
+    "name": "Rough Wood Log",
+    "description": "A log of rough wood.",
+    "tier": 1,
+    "tag": "Wood Log",
+    "rarity": "Common",
+    "item_list_id": 0
+  },
+  {
+    "id": 1020,
+    "name": "Rough Stripped Wood",
+    "description": "",
+    "tier": 1,
+    "tag": "Stripped Wood",
+    "rarity": "Common",
+    "item_list_id": 0
+  },
+  {
+    "id": 1030,
+    "name": "Rough Plank",
+    "description": "A rough plank.",
+    "tier": 1,
+    "tag": "Plank",
+    "rarity": "Common",
+    "item_list_id": 0
+  },
+  {
+    "id": 1040,
+    "name": "Rough Wood Log Output",
+    "description": "",
+    "tier": 1,
+    "tag": "",
+    "rarity": "Common",
+    "item_list_id": 7
+  },
+  {
+    "id": 1050,
+    "name": "Rough Tree Bark",
+    "description": "",
+    "tier": 1,
+    "tag": "Bark",
+    "rarity": "Common",
+    "item_list_id": 0
+  },
+  {
+    "id": 1060,
+    "name": "Rough Wood Scraps",
+    "description": "",
+    "tier": 1,
+    "tag": "Scrap",
+    "rarity": "Common",
+    "item_list_id": 0
+  },
+  {
+    "id": 5000,
+    "name": "Simple Plank",
+    "description": "",
+    "tier": 2,
+    "tag": "Plank",
+    "rarity": "Uncommon",
+    "item_list_id": 0
+  }
+]

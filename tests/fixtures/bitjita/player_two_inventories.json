@@ -1,47 +1,9 @@
 {
   "inventories": [
     {
-      "entityId": "300000000000000001",
-      "playerOwnerEntityId": "100000000000000001",
-      "ownerEntityId": "400000000000000002",
-      "pockets": [
-        {
-          "locked": false,
-          "volume": 60000000,
-          "contents": {
-            "itemId": 1030,
-            "itemType": 0,
-            "quantity": 40
-          }
-        },
-        {
-          "locked": false,
-          "volume": 60000000,
-          "contents": {
-            "itemId": 1010,
-            "itemType": 1,
-            "quantity": 3
-          }
-        }
-      ],
-      "inventoryIndex": 0,
-      "cargoIndex": 64,
-      "buildingName": "Settlement Stash",
-      "claimEntityId": "200000000000000001",
-      "claimName": "Vila Teste",
-      "claimLocationX": 1000,
-      "claimLocationZ": 2000,
-      "claimLocationDimension": 1,
-      "regionId": 14,
-      "inventoryName": "Settlement Stash",
-      "appearanceOverrideId": null,
-      "overrideIconAssetName": null,
-      "overrideModelAddress": null
-    },
-    {
-      "entityId": "300000000000000002",
-      "playerOwnerEntityId": "100000000000000001",
-      "ownerEntityId": "100000000000000001",
+      "entityId": "300000000000000011",
+      "playerOwnerEntityId": "100000000000000002",
+      "ownerEntityId": "100000000000000002",
       "pockets": [
         {
           "locked": false,
@@ -49,7 +11,7 @@
           "contents": {
             "itemId": 1060,
             "itemType": 0,
-            "quantity": 7
+            "quantity": 3
           }
         }
       ],
@@ -68,9 +30,67 @@
       "overrideModelAddress": null
     },
     {
-      "entityId": "300000000000000003",
-      "playerOwnerEntityId": "100000000000000001",
-      "ownerEntityId": "100000000000000001",
+      "entityId": "300000000000000012",
+      "playerOwnerEntityId": "100000000000000002",
+      "ownerEntityId": "400000000000000013",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "itemId": 1030,
+            "itemType": 0,
+            "quantity": 6
+          }
+        }
+      ],
+      "inventoryIndex": 0,
+      "cargoIndex": 64,
+      "buildingName": "Settlement Stash",
+      "claimEntityId": "200000000000000001",
+      "claimName": "Vila Teste",
+      "claimLocationX": 1000,
+      "claimLocationZ": 2000,
+      "claimLocationDimension": 1,
+      "regionId": 14,
+      "inventoryName": "Settlement Stash",
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000013",
+      "playerOwnerEntityId": "100000000000000002",
+      "ownerEntityId": "100000000000000002",
+      "pockets": [
+        {
+          "locked": false,
+          "volume": 6000,
+          "contents": {
+            "itemId": 1010,
+            "itemType": 0,
+            "quantity": 2
+          }
+        }
+      ],
+      "inventoryIndex": 0,
+      "cargoIndex": 25,
+      "buildingName": null,
+      "claimEntityId": null,
+      "claimName": null,
+      "claimLocationX": null,
+      "claimLocationZ": null,
+      "claimLocationDimension": null,
+      "regionId": 14,
+      "inventoryName": "Inventory",
+      "appearanceOverrideId": null,
+      "overrideIconAssetName": null,
+      "overrideModelAddress": null
+    },
+    {
+      "entityId": "300000000000000014",
+      "playerOwnerEntityId": "100000000000000002",
+      "ownerEntityId": "100000000000000002",
       "pockets": [
         {
           "locked": false,
@@ -97,94 +117,41 @@
       "overrideModelAddress": null
     },
     {
-      "entityId": "300000000000000004",
-      "playerOwnerEntityId": "100000000000000001",
-      "ownerEntityId": "0",
+      "entityId": "300000000000000015",
+      "ownerEntityId": "300000000000000015",
+      "inventoryName": "Quartz's Personal Cache (I)",
+      "playerOwnerEntityId": "100000000000000002",
       "pockets": [
         {
           "locked": false,
           "volume": 60000000,
           "contents": {
-            "itemId": 1030,
-            "itemType": 0,
-            "quantity": 10
-          }
-        }
-      ],
-      "inventoryIndex": 0,
-      "cargoIndex": 64,
-      "buildingName": null,
-      "claimEntityId": null,
-      "claimName": null,
-      "claimLocationX": null,
-      "claimLocationZ": null,
-      "claimLocationDimension": null,
-      "regionId": 14,
-      "inventoryName": null,
-      "appearanceOverrideId": null,
-      "overrideIconAssetName": null,
-      "overrideModelAddress": null
-    },
-    {
-      "entityId": "300000000000000005",
-      "playerOwnerEntityId": "100000000000000001",
-      "ownerEntityId": "100000000000000001",
-      "pockets": [
-        {
-          "locked": false,
-          "volume": 6000,
-          "contents": {
-            "itemId": 1020,
-            "itemType": 0,
-            "quantity": 5
-          }
-        },
-        {
-          "locked": false,
-          "volume": 6000,
-          "contents": {
             "itemId": 1050,
             "itemType": 0,
-            "quantity": 2
-          }
-        },
-        {
-          "locked": false,
-          "volume": 6000,
-          "contents": {
-            "itemId": 1020,
-            "itemType": 0,
-            "quantity": 4
+            "quantity": 8
           }
         }
       ],
       "inventoryIndex": 0,
-      "cargoIndex": 25,
-      "buildingName": null,
-      "claimEntityId": null,
-      "claimName": null,
-      "claimLocationX": null,
-      "claimLocationZ": null,
-      "claimLocationDimension": null,
+      "cargoIndex": 30,
       "regionId": 14,
-      "inventoryName": "Inventory",
       "appearanceOverrideId": null,
       "overrideIconAssetName": null,
       "overrideModelAddress": null
     },
     {
-      "entityId": "300000000000000006",
-      "ownerEntityId": "300000000000000006",
-      "inventoryName": "Nimbus's Cart (II)",
-      "playerOwnerEntityId": "100000000000000001",
+      "entityId": "300000000000000016",
+      "ownerEntityId": "300000000000000016",
+      "inventoryName": "Quartz's Cart (II)",
+      "playerOwnerEntityId": "100000000000000002",
       "pockets": [
         {
           "locked": false,
           "volume": 600000,
           "contents": {
-            "itemId": 1010,
+            "itemId": 1020,
             "itemType": 0,
-            "quantity": 20
+            "quantity": 1
           }
         }
       ],
@@ -240,16 +207,6 @@
       "tag": "Plank"
     }
   },
-  "cargos": {
-    "1010": {
-      "name": "Rough Wood Trunk",
-      "iconAssetName": "",
-      "tier": 1,
-      "rarityStr": "Common",
-      "tag": "Trunk"
-    }
-  },
-  "availableRegions": [
-    14
-  ]
+  "cargos": {},
+  "availableRegions": [14]
 }
