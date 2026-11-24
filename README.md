@@ -45,7 +45,7 @@ Para desenvolvimento, `node ace db:seed` cria o usuário `dev@example.com` com s
 O app lê os inventários dos personagens na API pública da [BitJita](https://bitjita.com), sem senha nem token do jogo.
 
 1. Em **Inventário → Personagens**, adicione cada personagem pelo nick exato do jogo. O nick é conferido na BitJita antes de salvar.
-2. Clique em **Sincronizar agora**. Enquanto o servidor estiver rodando, ele também sincroniza sozinho a cada 15 minutos. A variável `INVENTORY_SYNC_MINUTES` muda o intervalo, e `0` desliga.
+2. Clique em **Sincronizar agora**. Enquanto o servidor estiver rodando, ele também sincroniza sozinho a cada minuto (umas 8 chamadas à BitJita, bem abaixo do limite de 250 por minuto). A variável `INVENTORY_SYNC_MINUTES` muda o intervalo, e `0` desliga. O histórico de sincronizações guarda só os últimos 7 dias.
 3. Pela linha de comando: `node ace inventory:sync`.
 
 A BitJita é mantida pela comunidade e não diz quão atuais são os dados. Se ela estiver fora do ar, o app mantém os dados da última sincronização que funcionou. Se aparecer o aviso de itens desconhecidos, rode `node ace bitcraft:import`.

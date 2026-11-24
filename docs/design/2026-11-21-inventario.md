@@ -132,7 +132,8 @@ As fixtures dos testes (`tests/fixtures/bitjita/`) foram geradas dessas resposta
   - Só roda **uma sincronização por vez**: uma trava em memória, mais o `sync_run` com status `running`. Uma segunda chamada responde "já sincronizando".
 - **Agendamento:**
   - `start/scheduler.ts` só é carregado no servidor web, não nos comandos `ace` nem nos testes.
-  - A variável `INVENTORY_SYNC_MINUTES` define o intervalo. O padrão é 15, e 0 desliga.
+  - A variável `INVENTORY_SYNC_MINUTES` define o intervalo. O padrão era 15; desde 24/11/2026 é 1 (umas 8 chamadas por minuto, bem abaixo das 250 da BitJita). 0 desliga.
+  - Depois de cada sincronização agendada, o histórico (`sync_runs`) com mais de 7 dias é apagado, menos a última que gravou dados.
   - Ela entra em `start/env.ts` e nos `.env*.example`.
 - **Comando:** `node ace inventory:sync`, para rodar à mão ou para diagnóstico.
 
