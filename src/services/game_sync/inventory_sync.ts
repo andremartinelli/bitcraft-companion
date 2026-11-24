@@ -65,9 +65,17 @@ export interface SyncOptions {
   readClaims?: boolean
 }
 
+/** Whose characters a run reads */
+export interface SyncScope {
+  /** The account that asked (the button, a page); none for the cron */
+  userId?: number | null
+  /** These characters; without it, every character someone follows */
+  playerIds?: number[]
+}
+
 /**
- * Reads every tracked player's inventories (and, when asked, their claims'
- * chests) from the source and replaces the stored snapshot. Each player and
+ * Reads the inventories of the characters in the scope (and, when asked,
+ * their claims' chests) from the source and replaces the stored snapshot. Each player and
  * each claim is written in its own transaction: when a read fails, the
  * previous data of that player or claim stays.
  *
@@ -81,12 +89,18 @@ export default class InventorySync {
   ) {}
 
   /** @throws SyncAlreadyRunningError when another sync is in progress */
-  async run(trigger: SyncTrigger): Promise<SyncRun> {
+  async run(trigger: SyncTrigger, scope: SyncScope = {}): Promise<SyncRun> {
     await closeAbandonedRuns()
     let run: SyncRun
     try {
       run = await db.syncRun.create({
-        data: { trigger, source: this.source.name, status: 'running', startedAt: new Date() },
+        data: {
+          trigger,
+          source: this.source.name,
+          status: 'running',
+          userId: scope.userId ?? null,
+          startedAt: new Date(),
+        },
       })
     } catch (error) {
       // sync_runs_one_running: another run holds the lock
@@ -98,7 +112,7 @@ export default class InventorySync {
 
     let outcome: Outcome
     try {
-      outcome = await this.#sync()
+      outcome = await this.#sync(scope)
     } catch (error) {
       await db.syncRun.update({
         where: { id: run.id },
@@ -116,7 +130,7 @@ export default class InventorySync {
     })
   }
 
-  async #sync(): Promise<Outcome> {
+  async #sync(scope: SyncScope): Promise<Outcome> {
     const counts: SyncCounts = {
       players: 0,
       playersTotal: 0,
@@ -127,6 +141,7 @@ export default class InventorySync {
       unknownItems: 0,
     }
     const players = await db.gamePlayer.findMany({
+      where: scope.playerIds ? { id: { in: scope.playerIds } } : { followers: { some: {} } },
       orderBy: { id: 'asc' },
       select: { id: true, username: true, entityId: true },
     })
@@ -134,7 +149,7 @@ export default class InventorySync {
     if (!players.length) {
       return {
         status: 'failed',
-        message: 'Nenhum personagem cadastrado: adicione os personagens antes de sincronizar.',
+        message: 'Nenhum personagem na lista: adicione os seus personagens antes de sincronizar.',
         counts,
       }
     }
@@ -147,6 +162,8 @@ export default class InventorySync {
     const claims = new Map<string, string>()
 
     for (const player of players) {
+      // Read or not, it was tried now: the pages don't ask again for a while
+      await db.gamePlayer.update({ where: { id: player.id }, data: { lastAttemptAt: new Date() } })
       if (stoppedBy) {
         everyPlayerRead = false
         problems.push(`${player.username}: não lido (${stoppedBy}).`)
@@ -191,8 +208,9 @@ export default class InventorySync {
       }
 
       // Chests of claims nobody belongs to anymore. Only when every player was
-      // read: a player that failed may still belong to the claim.
-      if (everyPlayerRead) await dropOtherClaims(db, [...claims.keys()])
+      // read (all of them, not one account's): a player that failed or was not
+      // read may still belong to the claim.
+      if (everyPlayerRead && !scope.playerIds) await dropOtherClaims(db, [...claims.keys()])
     } else {
       // Claim chests are not read: none may stay from an earlier sync
       await dropOtherClaims(db, [])

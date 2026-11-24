@@ -6,7 +6,7 @@ import { Provider } from '@/components/ui/provider'
 
 export const metadata: Metadata = {
   title: { default: 'BitCraft Companion', template: '%s - BitCraft Companion' },
-  description: 'Receitas, custos, planos e o inventário do grupo no BitCraft Online.',
+  description: 'Receitas, custos, planos e inventário no BitCraft Online.',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

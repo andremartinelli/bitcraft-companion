@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
-import { lastSuccessfulSyncRun } from '@/models/sync_run'
 import type { InventorySource, PlayerSnapshot } from '@/services/game_sync/inventory_source'
 import InventorySync, {
   SyncAlreadyRunningError,
@@ -110,7 +109,11 @@ describe('inventory sync', () => {
 
     const one = await db.gamePlayer.findUniqueOrThrow({ where: { entityId: PLAYER_ONE.entityId } })
     expect(one.lastError).toContain('BitJita')
-    expect((await lastSuccessfulSyncRun())!.trigger).toBe('manual')
+    const lastGood = await db.syncRun.findFirstOrThrow({
+      where: { status: { in: ['ok', 'partial'] } },
+      orderBy: { id: 'desc' },
+    })
+    expect(lastGood.trigger).toBe('manual')
   })
 
   test('429: stops calling BitJita, keeps the data it could not read', async () => {
@@ -265,6 +268,33 @@ describe('inventory sync', () => {
     const run = await new InventorySync(bitjitaSource()).run('manual')
 
     expect(run.status).toBe('failed')
-    expect(run.message).toContain('Nenhum personagem cadastrado')
+    expect(run.message).toContain('Nenhum personagem na lista')
+  })
+
+  test("one account's characters: only them, the run is theirs, each one marked as tried", async () => {
+    const one = await db.gamePlayer.findUniqueOrThrow({ where: { entityId: PLAYER_ONE.entityId } })
+    const user = await db.user.findFirstOrThrow()
+    const fake = fakeBitJita()
+
+    const run = await new InventorySync(bitjitaSource(fake)).run('manual', {
+      userId: user.id,
+      playerIds: [one.id],
+    })
+
+    expect([run.status, run.userId]).toEqual(['ok', user.id])
+    expect(fake.calls.some((call) => call.path.includes(PLAYER_TWO.entityId))).toBe(false)
+    const players = await db.gamePlayer.findMany({ orderBy: { id: 'asc' } })
+    expect(players.map((p) => p.lastAttemptAt !== null)).toEqual([true, false])
+    expect(players.map((p) => p.lastSyncedAt !== null)).toEqual([true, false])
+  })
+
+  test('without a scope it reads the characters someone follows, not the others', async () => {
+    await db.userGamePlayer.deleteMany({ where: { gamePlayer: { entityId: PLAYER_TWO.entityId } } })
+    const fake = fakeBitJita()
+
+    const run = await new InventorySync(bitjitaSource(fake)).run('cron')
+
+    expect((run.counts as { playersTotal: number }).playersTotal).toBe(1)
+    expect(fake.calls.some((call) => call.path.includes(PLAYER_TWO.entityId))).toBe(false)
   })
 })

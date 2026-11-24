@@ -46,12 +46,15 @@ const form = (fields: Record<string, string>) => {
 const EMPTY = { error: null, notice: null, username: '' }
 
 describe('inventory actions', () => {
+  let userId: number
+
   beforeEach(async () => {
     await importTables()
     const user = await createUser({
       email: 'vitor@example.com',
       password: 'a-long-enough-password',
     })
+    userId = user.id
     request.token = await createSessionToken(user.id)
     request.bitjita = fakeBitJita()
     vi.mocked(refresh).mockClear()
@@ -68,24 +71,33 @@ describe('inventory actions', () => {
     expect(request.bitjita!.calls).toHaveLength(0)
   })
 
-  test('"Sincronizar agora" reads BitJita, without the claim chests, and refreshes', async () => {
-    await addBothPlayers()
+  test('"Sincronizar agora" reads my characters, without the claim chests, and refreshes', async () => {
+    await addBothPlayers(userId)
 
     expect(await syncNow()).toEqual({ notice: 'Sincronização concluída.', ok: true })
     expect(request.bitjita!.calls.some((call) => call.path.startsWith('/api/claims/'))).toBe(false)
     expect(refresh).toHaveBeenCalledOnce()
-    expect((await db.syncRun.findFirstOrThrow()).trigger).toBe('manual')
+    const run = await db.syncRun.findFirstOrThrow()
+    expect([run.trigger, run.userId]).toEqual(['manual', userId])
+  })
+
+  test("another account's characters are not mine to read", async () => {
+    await addBothPlayers()
+
+    const result = await syncNow()
+    expect(result.ok).toBe(false)
+    expect(request.bitjita!.calls).toHaveLength(0)
   })
 
   test('also when the last sync is recent', async () => {
-    await syncBothPlayers()
+    await syncBothPlayers(userId)
 
     expect((await syncNow()).ok).toBe(true)
     expect(await db.syncRun.count()).toBe(2)
   })
 
   test('a failed sync keeps the data and says so', async () => {
-    await syncBothPlayers()
+    await syncBothPlayers(userId)
     request.bitjita = fakeBitJita(everyPathAnswers({ status: 503, body: {} }))
 
     expect(await syncNow()).toEqual({
@@ -96,7 +108,7 @@ describe('inventory actions', () => {
   })
 
   test('a sync while another one runs does not run', async () => {
-    await addBothPlayers()
+    await addBothPlayers(userId)
     await db.syncRun.create({
       data: { trigger: 'auto', source: 'bitjita', status: 'running', startedAt: new Date() },
     })
@@ -110,7 +122,7 @@ describe('inventory actions', () => {
   })
 
   test('the page found the inventory old: it syncs once, then it is fresh', async () => {
-    await addBothPlayers()
+    await addBothPlayers(userId)
 
     expect(await syncIfStale()).toEqual({ synced: true })
     expect(refresh).toHaveBeenCalledOnce()
@@ -133,12 +145,44 @@ describe('inventory actions', () => {
     })
     const player = await db.gamePlayer.findUniqueOrThrow({
       where: { entityId: PLAYER_ONE.entityId },
+      include: { followers: true },
     })
     expect([player.username, player.regionId, player.claims]).toEqual([
       'Nimbus',
       14,
       [{ entityId: CLAIM.entityId, name: CLAIM.name }],
     ])
+    expect(player.followers.map((f) => f.userId)).toEqual([userId])
+  })
+
+  test('a character another account follows is followed too, not duplicated', async () => {
+    const { userId: otherId } = await addBothPlayers()
+
+    expect((await addGamePlayer(EMPTY, form({ username: 'Nimbus' }))).error).toBeNull()
+    expect(await db.gamePlayer.count({ where: { entityId: PLAYER_ONE.entityId } })).toBe(1)
+    const followers = await db.userGamePlayer.findMany({
+      where: { gamePlayer: { entityId: PLAYER_ONE.entityId } },
+    })
+    expect(followers.map((f) => f.userId).sort((a, b) => a - b)).toEqual(
+      [otherId, userId].sort((a, b) => a - b)
+    )
+  })
+
+  test('at most 5 characters per account, checked before asking BitJita', async () => {
+    for (let i = 0; i < 5; i++) {
+      await db.gamePlayer.create({
+        data: {
+          username: `P${i}`,
+          entityId: `90000000000000000${i}`,
+          followers: { create: { userId } },
+        },
+      })
+    }
+
+    expect((await addGamePlayer(EMPTY, form({ username: 'Nimbus' }))).error).toBe(
+      'Cada conta acompanha no máximo 5 personagens.'
+    )
+    expect(request.bitjita!.calls).toHaveLength(0)
   })
 
   test('refuses a nick BitJita does not know, a blank one and one already there', async () => {
@@ -152,9 +196,9 @@ describe('inventory actions', () => {
     expect((await addGamePlayer(EMPTY, form({ username: '  ' }))).error).toBe(
       'Informe o nick do personagem.'
     )
-    await db.gamePlayer.create({ data: PLAYER_ONE })
+    await db.gamePlayer.create({ data: { ...PLAYER_ONE, followers: { create: { userId } } } })
     expect(await addGamePlayer(EMPTY, form({ username: 'Nimbus' }))).toEqual({
-      error: 'Nimbus já está na lista.',
+      error: 'Nimbus já está na sua lista.',
       notice: null,
       username: 'Nimbus',
     })
@@ -169,18 +213,33 @@ describe('inventory actions', () => {
     expect(await db.gamePlayer.count()).toBe(0)
   })
 
-  test('removing a character takes its inventory away, not the others', async () => {
-    await syncBothPlayers()
+  test('removing a character nobody else follows takes its inventory away, not the others', async () => {
+    await syncBothPlayers(userId)
     const one = await db.gamePlayer.findUniqueOrThrow({ where: { entityId: PLAYER_ONE.entityId } })
     const two = await db.gamePlayer.findUniqueOrThrow({ where: { entityId: PLAYER_TWO.entityId } })
 
-    expect(await removeGamePlayer(one.id)).toEqual({ notice: 'Nimbus removido do inventário.' })
+    expect(await removeGamePlayer(one.id)).toEqual({ notice: 'Nimbus removido do seu inventário.' })
+    expect(await db.gamePlayer.count({ where: { id: one.id } })).toBe(0)
     expect(await db.inventoryContainer.count({ where: { gamePlayerId: one.id } })).toBe(0)
     expect(await db.inventoryContainer.count({ where: { gamePlayerId: two.id } })).toBeGreaterThan(
       0
     )
     expect(await removeGamePlayer(one.id)).toEqual({
-      notice: 'Esse personagem já tinha sido removido.',
+      notice: 'Esse personagem já não estava na sua lista.',
     })
+  })
+
+  test('a character another account still follows stays, for that account', async () => {
+    const { playerIds } = await syncBothPlayers(userId)
+    const other = await db.user.create({ data: { email: 'b@example.com', password: '-' } })
+    await db.userGamePlayer.create({ data: { userId: other.id, gamePlayerId: playerIds[0] } })
+
+    await removeGamePlayer(playerIds[0])
+
+    expect(await db.gamePlayer.count({ where: { id: playerIds[0] } })).toBe(1)
+    expect(
+      await db.inventoryContainer.count({ where: { gamePlayerId: playerIds[0] } })
+    ).toBeGreaterThan(0)
+    expect(await db.userGamePlayer.count({ where: { userId } })).toBe(1)
   })
 })

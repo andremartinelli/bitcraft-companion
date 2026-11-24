@@ -46,15 +46,16 @@ describe('the daily cron', () => {
     expect(bitjita.fake!.calls).toHaveLength(0)
   })
 
-  test('with the key, syncs when the inventory is old', async () => {
+  test('with the key, reads the followed characters nobody looked at', async () => {
     const response = await cron(`Bearer ${SECRET}`)
 
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ status: 'ok', message: null })
-    expect((await db.syncRun.findFirstOrThrow()).trigger).toBe('cron')
+    const run = await db.syncRun.findFirstOrThrow()
+    expect([run.trigger, run.userId]).toEqual(['cron', null])
   })
 
-  test('and does nothing when a sync ran recently', async () => {
+  test('and does nothing when they were read recently', async () => {
     await cron(`Bearer ${SECRET}`)
     const calls = bitjita.fake!.calls.length
 
@@ -63,26 +64,16 @@ describe('the daily cron', () => {
     expect(bitjita.fake!.calls).toHaveLength(calls)
   })
 
-  const runningSince = (secondsAgo: number) =>
-    db.syncRun.create({
+  test('a sync still running holds the lock: it says so', async () => {
+    // Younger than the 5 minutes that make it abandoned
+    await db.syncRun.create({
       data: {
         trigger: 'manual',
         source: 'bitjita',
         status: 'running',
-        startedAt: new Date(Date.now() - secondsAgo * 1000),
+        startedAt: new Date(Date.now() - 120_000),
       },
     })
-
-  test('a sync started a moment ago, even one still running: nothing to do', async () => {
-    await runningSince(10)
-
-    const response = await cron(`Bearer ${SECRET}`)
-    expect(await response.json()).toEqual({ status: 'skipped' })
-  })
-
-  test('an old one still running holds the lock: it says so', async () => {
-    // Older than the 1 minute, younger than the 5 minutes that make it abandoned
-    await runningSince(120)
 
     const response = await cron(`Bearer ${SECRET}`)
     expect(await response.json()).toEqual({ status: 'running' })

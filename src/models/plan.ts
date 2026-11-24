@@ -5,8 +5,10 @@ import type { CalculatorState } from '@/services/calculator/production_planner'
 type Tx = Prisma.TransactionClient
 
 /**
- * A saved calculator state with a name, shared by everyone who uses the app.
- * Its targets, buildings, choices and "já tenho" live in plan_items,
+ * A saved calculator state with a name. It belongs to the account that
+ * created it (created_by_id), which can share it with other accounts
+ * (plan_shares): they see and change it, only the owner deletes it. Its
+ * targets, buildings, choices and "já tenho" live in plan_items,
  * plan_buildings, plan_choices and plan_owned_items.
  */
 
@@ -16,15 +18,23 @@ const author = { select: { fullName: true, email: true } } as const
 export const authorName = (user: { fullName: string | null; email: string } | null) =>
   user ? (user.fullName ?? user.email) : null
 
+/** Plans an account can open: its own and the ones shared with it */
+const visibleTo = (userId: number) => ({
+  OR: [{ createdById: userId }, { shares: { some: { userId } } }],
+})
+
 /** The Planos page: the latest change first, with who made it and how many things it has */
-export function listPlans() {
+export function listPlans(userId: number) {
   return db.plan.findMany({
+    where: visibleTo(userId),
     select: {
       id: true,
       name: true,
       updatedAt: true,
+      createdById: true,
+      createdBy: author,
       updatedBy: author,
-      _count: { select: { items: true, buildings: true } },
+      _count: { select: { items: true, buildings: true, shares: true } },
     },
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
   })
@@ -42,6 +52,72 @@ export function findPlan(id: number) {
       updatedBy: author,
     },
   })
+}
+
+/**
+ * A plan an account can open, with who owns it and who it is shared with;
+ * null when there is none or it is someone else's
+ */
+export function findPlanFor(id: number, userId: number) {
+  return db.plan.findFirst({
+    where: { id, ...visibleTo(userId) },
+    include: {
+      items: { orderBy: { position: 'asc' } },
+      buildings: { orderBy: { position: 'asc' } },
+      choices: true,
+      ownedItems: true,
+      updatedBy: author,
+      createdBy: author,
+      shares: {
+        orderBy: { createdAt: 'asc' },
+        select: { userId: true, user: author },
+      },
+    },
+  })
+}
+
+/** The account can change the plan: it owns it, or it was shared with it */
+export async function canEditPlan(id: number, userId: number) {
+  return (await db.plan.count({ where: { id, ...visibleTo(userId) } })) > 0
+}
+
+export type ShareResult = { ok: true; name: string } | { ok: false; error: string }
+
+/** The owner shares the plan with the account of an e-mail */
+export async function sharePlan(
+  planId: number,
+  ownerId: number,
+  email: string
+): Promise<ShareResult> {
+  const plan = await db.plan.findFirst({
+    where: { id: planId, createdById: ownerId },
+    select: { id: true },
+  })
+  if (!plan) return { ok: false, error: 'Só quem criou o plano pode compartilhá-lo.' }
+  const user = await db.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { id: true, fullName: true, email: true },
+  })
+  if (!user) return { ok: false, error: 'Nenhuma conta com esse e-mail.' }
+  if (user.id === ownerId) return { ok: false, error: 'O plano já é seu.' }
+  await db.planShare.upsert({
+    where: { planId_userId: { planId, userId: user.id } },
+    create: { planId, userId: user.id },
+    update: {},
+  })
+  return { ok: true, name: authorName(user)! }
+}
+
+/**
+ * Takes an account out of a shared plan: the owner removes anyone, and an
+ * account can leave a plan shared with it. False when there was nothing to do.
+ */
+export async function removePlanShare(planId: number, actorId: number, userId: number) {
+  const allowed =
+    actorId === userId || (await db.plan.count({ where: { id: planId, createdById: actorId } })) > 0
+  if (!allowed) return false
+  const { count } = await db.planShare.deleteMany({ where: { planId, userId } })
+  return count > 0
 }
 
 export type PlanWithState = NonNullable<Awaited<ReturnType<typeof findPlan>>>
@@ -119,9 +195,12 @@ export function updatePlanName(id: number, name: string, userId: number | null) 
   return db.plan.update({ where: { id }, data: { name, updatedById: userId } })
 }
 
-/** Its rows go with it (cascade). A plan already deleted is not an error */
-export function deletePlan(id: number) {
-  return db.plan.deleteMany({ where: { id } })
+/**
+ * Only the owner deletes a plan; its rows and shares go with it (cascade).
+ * A plan already deleted is not an error.
+ */
+export function deletePlan(id: number, ownerId: number) {
+  return db.plan.deleteMany({ where: { id, createdById: ownerId } })
 }
 
 /**

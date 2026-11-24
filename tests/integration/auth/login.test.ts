@@ -19,7 +19,7 @@ describe('accounts', () => {
 
   test('refuses a short password, a bad e-mail and an e-mail already used', async () => {
     await expect(createUser({ email: 'a@example.com', password: 'short' })).rejects.toThrow(
-      /pelo menos 12/
+      /pelo menos 8/
     )
     await expect(createUser({ email: 'nope', password })).rejects.toThrow(/e-mail válido/)
 

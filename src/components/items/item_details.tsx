@@ -62,7 +62,7 @@ export function ItemDetails({ item, producers, consumers, stock }: ItemDetailsPr
       {stock && (
         <Box as="section" mt="6" p="4" borderWidth="1px" rounded="l2" bg="bg" maxW="3xl">
           <Text>
-            Vocês têm: <strong>{formatNumber(stock.total)}</strong>{' '}
+            Você tem: <strong>{formatNumber(stock.total)}</strong>{' '}
             <Link asChild textStyle="sm" color="fg.muted">
               <NextLink href="/inventory">ver inventário</NextLink>
             </Link>

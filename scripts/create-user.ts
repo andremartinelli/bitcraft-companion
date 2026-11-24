@@ -60,7 +60,7 @@ try {
   if (!values.email) throw new CreateUserError('Informe o e-mail: --email=voce@exemplo.com')
   let password = values.password
   if (password === undefined) {
-    password = await askHidden('Senha (mínimo 12 caracteres): ')
+    password = await askHidden('Senha (mínimo 8 caracteres): ')
     if ((await askHidden('Repita a senha: ')) !== password) {
       throw new CreateUserError('As senhas não conferem.')
     }

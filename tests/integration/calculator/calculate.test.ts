@@ -12,14 +12,17 @@ describe('calculation as the page shows it', () => {
   beforeEach(() => importTables())
 
   test('starts empty', async () => {
-    const panel = await calculate(emptyState())
+    const panel = await calculate(emptyState(), 0)
     expect(panel.empty).toBe(true)
     expect(panel.inventory).toEqual({ available: false, enabled: false, syncedAt: null })
   })
 
   test('what to gather, then the steps in rounds, by profession', async () => {
     const plank = await itemId('item', 1030)
-    const panel = await calculate({ ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] })
+    const panel = await calculate(
+      { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
+      0
+    )
 
     // Round 1 gathers; nothing in stock, so the crafts (log, stripped wood,
     // plank) take rounds 2 to 4, each waiting
@@ -43,12 +46,15 @@ describe('calculation as the page shows it', () => {
   test('raw choices and owned quantities change the result', async () => {
     const plank = await itemId('item', 1030)
     const stripped = await itemId('item', 1020)
-    const panel = await calculate({
-      ...emptyState(),
-      targets: [{ itemId: plank, quantity: 10 }],
-      choices: { [stripped]: 'raw' },
-      owned: { [stripped]: 5 },
-    })
+    const panel = await calculate(
+      {
+        ...emptyState(),
+        targets: [{ itemId: plank, quantity: 10 }],
+        choices: { [stripped]: 'raw' },
+        owned: { [stripped]: 5 },
+      },
+      0
+    )
 
     const node = panel.trees[0].children[0]
     expect([node.fromOwned, node.ownedSource, node.reasonLabel]).toEqual([
@@ -70,9 +76,12 @@ describe('calculation as the page shows it', () => {
    */
 
   test('once synced, the inventory fills "já tenho" by default', async () => {
-    await syncBothPlayers()
+    const { userId } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
-    const panel = await calculate({ ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] })
+    const panel = await calculate(
+      { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
+      userId
+    )
 
     expect(panel.inventory).toMatchObject({ available: true, enabled: true })
     expect([panel.trees[0].fromOwned, panel.trees[0].ownedSource]).toEqual([10, 'inventory'])
@@ -81,14 +90,17 @@ describe('calculation as the page shows it', () => {
   })
 
   test('a value typed by hand wins, even 0; the rest comes from the inventory', async () => {
-    await syncBothPlayers()
+    const { userId } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
     const stripped = await itemId('item', 1020)
-    const panel = await calculate({
-      ...emptyState(),
-      targets: [{ itemId: plank, quantity: 10 }],
-      owned: { [plank]: 0, [stripped]: 3 },
-    })
+    const panel = await calculate(
+      {
+        ...emptyState(),
+        targets: [{ itemId: plank, quantity: 10 }],
+        owned: { [plank]: 0, [stripped]: 3 },
+      },
+      userId
+    )
 
     const node = panel.trees[0]
     expect([node.fromOwned, node.ownedSource]).toEqual([0, 'manual'])
@@ -102,29 +114,35 @@ describe('calculation as the page shows it', () => {
   })
 
   test('"Usar inventário do grupo" off: only what was typed', async () => {
-    await syncBothPlayers()
+    const { userId } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
-    const panel = await calculate({
-      ...emptyState(),
-      targets: [{ itemId: plank, quantity: 10 }],
-      useInventory: false,
-    })
+    const panel = await calculate(
+      {
+        ...emptyState(),
+        targets: [{ itemId: plank, quantity: 10 }],
+        useInventory: false,
+      },
+      userId
+    )
 
     expect(panel.inventory).toMatchObject({ available: true, enabled: false })
     expect([panel.trees[0].fromOwned, panel.trees[0].ownedSource]).toEqual([0, null])
   })
 
   test('"Coletar" says who has each raw material', async () => {
-    await syncBothPlayers()
+    const { userId } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
     const log = await itemId('item', 1010)
     // 30 planks, ignoring the ones in stock: 60 stripped wood, 10 in stock; logs as raw material
-    const panel = await calculate({
-      ...emptyState(),
-      targets: [{ itemId: plank, quantity: 30 }],
-      owned: { [plank]: 0 },
-      choices: { [log]: 'raw' },
-    })
+    const panel = await calculate(
+      {
+        ...emptyState(),
+        targets: [{ itemId: plank, quantity: 30 }],
+        owned: { [plank]: 0 },
+        choices: { [log]: 'raw' },
+      },
+      userId
+    )
 
     const logs = panel.materials.find((m) => m.item.id === log)!
     expect(logs.holdersLabel).toMatch(/^Nimbus \d+ · Quartz \d+$/)
@@ -134,10 +152,13 @@ describe('calculation as the page shows it', () => {
     const house = await db.recipe.findUniqueOrThrow({
       where: { kind_gameId: { kind: 'construction', gameId: 50 } },
     })
-    const panel = await calculate({
-      ...emptyState(),
-      buildings: [{ recipeId: house.id, quantity: 1 }],
-    })
+    const panel = await calculate(
+      {
+        ...emptyState(),
+        buildings: [{ recipeId: house.id, quantity: 1 }],
+      },
+      0
+    )
 
     expect(panel.buildings.map((b) => [b.recipe.name, b.quantity, b.removed])).toEqual([
       ['Starter House', 1, false],

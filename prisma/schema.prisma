@@ -76,13 +76,18 @@ model User {
   email     String   @unique @db.VarChar(254)
   /// Hash scrypt (node:crypto), nunca a senha
   password  String
+  /// De onde veio o cadastro pela página: limita as contas novas por IP
+  signupIp  String?  @map("signup_ip")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  plansCreated Plan[]       @relation("PlanCreatedBy")
-  plansUpdated Plan[]       @relation("PlanUpdatedBy")
-  gamePlayers  GamePlayer[]
+  plansCreated    Plan[]           @relation("PlanCreatedBy")
+  plansUpdated    Plan[]           @relation("PlanUpdatedBy")
+  planShares      PlanShare[]
+  followedPlayers UserGamePlayer[]
+  syncRuns        SyncRun[]
 
+  @@index([signupIp, createdAt])
   @@map("users")
 }
 
@@ -380,7 +385,8 @@ model ExtractionRecipeOutput {
 
 // ------------------------------------------------------------------ planos
 
-/// Um estado da calculadora com nome, compartilhado entre os dois
+/// Um estado da calculadora com nome. É de quem o criou (created_by_id), que
+/// pode compartilhá-lo com outras contas (plan_shares).
 model Plan {
   id           Int      @id @default(autoincrement())
   name         String   @db.VarChar(80)
@@ -397,8 +403,23 @@ model Plan {
   buildings  PlanBuilding[]
   choices    PlanChoice[]
   ownedItems PlanOwnedItem[]
+  shares     PlanShare[]
 
+  @@index([createdById])
   @@map("plans")
+}
+
+/// Uma conta com quem o dono compartilhou o plano: ela vê e edita, não apaga
+model PlanShare {
+  planId    Int      @map("plan_id")
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([planId, userId])
+  @@index([userId])
+  @@map("plan_shares")
 }
 
 model PlanItem {
@@ -457,24 +478,40 @@ model PlanOwnedItem {
 // -------------------------------------------------------------- inventário
 
 /// Um personagem acompanhado, pelo entityId público da BitJita. Nenhum token.
+/// Existe uma vez só, mesmo seguido por várias contas (user_game_players).
 model GamePlayer {
-  id           Int       @id @default(autoincrement())
-  username     String
+  id            Int       @id @default(autoincrement())
+  username      String
   /// 18 dígitos: não cabe num number do JavaScript
-  entityId     String    @unique @map("entity_id")
-  regionId     Int?      @map("region_id")
+  entityId      String    @unique @map("entity_id")
+  regionId      Int?      @map("region_id")
   /// As claims do personagem na última leitura: [{ entityId, name }]
-  claims       Json?
-  userId       Int?      @map("user_id")
-  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  lastSyncedAt DateTime? @map("last_synced_at") @db.Timestamptz(3)
-  lastError    String?   @map("last_error")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  claims        Json?
+  /// A última leitura que deu certo
+  lastSyncedAt  DateTime? @map("last_synced_at") @db.Timestamptz(3)
+  /// A última tentativa, desse certo ou não: decide se está na hora de ler de novo
+  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   containers InventoryContainer[]
+  followers  UserGamePlayer[]
 
   @@map("game_players")
+}
+
+/// Os personagens que cada conta acompanha (no máximo 5 por conta)
+model UserGamePlayer {
+  userId       Int        @map("user_id")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gamePlayerId Int        @map("game_player_id")
+  gamePlayer   GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([userId, gamePlayerId])
+  @@index([gamePlayerId])
+  @@map("user_game_players")
 }
 
 model InventoryContainer {
@@ -525,10 +562,14 @@ model SyncRun {
   status     SyncStatus
   message    String?
   counts     Json?
+  /// A conta cujos personagens foram lidos; nulo no cron, que lê os de todas
+  userId     Int?        @map("user_id")
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   startedAt  DateTime    @map("started_at") @db.Timestamptz(3)
   finishedAt DateTime?   @map("finished_at") @db.Timestamptz(3)
 
   @@index([status])
   @@index([startedAt])
+  @@index([userId, startedAt])
   @@map("sync_runs")
 }

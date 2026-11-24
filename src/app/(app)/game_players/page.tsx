@@ -6,7 +6,7 @@ import { LinkButton } from '@/components/layout/link_button'
 import { PageHeader } from '@/components/layout/page_header'
 import { formatAgo } from '@/lib/format'
 import { requireUser } from '@/lib/session'
-import { claimNames, listGamePlayers } from '@/models/game_player'
+import { claimNames, listGamePlayers, MAX_PLAYERS_PER_USER } from '@/models/game_player'
 
 export const metadata: Metadata = { title: 'Personagens' }
 
@@ -14,18 +14,18 @@ export const metadata: Metadata = { title: 'Personagens' }
 export const maxDuration = 60
 
 /**
- * GET /game_players: the characters whose inventories the app reads, by
- * nick, from BitJita's public API. No password or game token.
+ * GET /game_players: the characters whose inventories this account follows,
+ * by nick, read from BitJita's public API. No password or game token.
  */
 export default async function GamePlayersPage() {
-  await requireUser()
-  const players = await listGamePlayers()
+  const user = await requireUser()
+  const players = await listGamePlayers(user.id)
 
   return (
     <>
       <PageHeader
         title="Personagens"
-        description="Os personagens cujo inventário o app lê na API pública da BitJita. Só dados públicos: nada de senha nem token do jogo."
+        description={`Os personagens cujo inventário você quer ver, lidos na API pública da BitJita (até ${MAX_PLAYERS_PER_USER}). Só dados públicos: nada de senha nem token do jogo.`}
         actions={<LinkButton href="/inventory">Inventário</LinkButton>}
       />
       <AddGamePlayerForm />
@@ -42,7 +42,7 @@ export default async function GamePlayersPage() {
         />
       ) : (
         <EmptyNotice>
-          Nenhum personagem ainda. Adicione o de cada um de vocês pelo nick.
+          Nenhum personagem ainda. Adicione pelo nick os personagens cujo inventário você quer ver.
         </EmptyNotice>
       )}
     </>

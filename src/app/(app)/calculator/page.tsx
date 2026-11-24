@@ -22,9 +22,12 @@ export default async function CalculatorPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireUser()
+  const user = await requireUser()
   const { state, errors } = readStateFromQuery(await searchParams)
-  const [panel, freshness] = await Promise.all([calculate(state), inventoryFreshness()])
+  const [panel, freshness] = await Promise.all([
+    calculate(state, user.id),
+    inventoryFreshness(user.id),
+  ])
   return (
     <>
       <PageHeader

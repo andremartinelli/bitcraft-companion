@@ -38,7 +38,10 @@ function RemoveButton({
               <Dialog.Title>Remover {player.username}?</Dialog.Title>
             </Dialog.Header>
             <Dialog.Body>
-              <Text>Os itens dele saem do inventário do app. Nada muda no jogo.</Text>
+              <Text>
+                Os itens dele saem do seu inventário. Nada muda no jogo, nem para outras contas que
+                o acompanham.
+              </Text>
             </Dialog.Body>
             <Dialog.Footer>
               <Dialog.ActionTrigger asChild>

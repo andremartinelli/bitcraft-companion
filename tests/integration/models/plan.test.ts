@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
 import {
   authorName,
+  canEditPlan,
   deletePlan,
+  findPlanFor,
+  removePlanShare,
+  sharePlan,
   findPlan,
   insertPlan,
   listPlans,
@@ -50,7 +54,7 @@ describe('plans', () => {
       ...emptyState(),
       targets: [{ itemId: plank, quantity: 10 }],
     })
-    const [listed] = await listPlans()
+    const [listed] = await listPlans(userId)
     expect([listed.name, listed._count.items, authorName(listed.updatedBy)]).toEqual([
       'Ferramentas T2',
       1,
@@ -110,10 +114,10 @@ describe('plans', () => {
   test('the latest change comes first in the list', async () => {
     const first = await planWithPlanks()
     const second = await insertPlan({ name: 'Outro', userId, state: emptyState() })
-    expect((await listPlans()).map((p) => p.id)).toEqual([second.id, first.id])
+    expect((await listPlans(userId)).map((p) => p.id)).toEqual([second.id, first.id])
 
     await savePlanState(first.id, { ...emptyState(), targets: [] }, userId)
-    expect((await listPlans()).map((p) => p.id)).toEqual([first.id, second.id])
+    expect((await listPlans(userId)).map((p) => p.id)).toEqual([first.id, second.id])
   })
 
   test('renaming keeps the calculation', async () => {
@@ -127,8 +131,8 @@ describe('plans', () => {
 
   test('deleting takes its rows along; deleting again is not an error', async () => {
     const plan = await planWithPlanks()
-    await deletePlan(plan.id)
-    await deletePlan(plan.id)
+    await deletePlan(plan.id, userId)
+    await deletePlan(plan.id, userId)
 
     expect(await findPlan(plan.id)).toBeNull()
     expect(await db.planItem.count()).toBe(0)
@@ -136,7 +140,7 @@ describe('plans', () => {
 
   test('a plan deleted meanwhile, or an id that does not exist, says so', async () => {
     const plan = await planWithPlanks()
-    await deletePlan(plan.id)
+    await deletePlan(plan.id, userId)
 
     const gone = await savePlanState(plan.id, emptyState(), userId).catch((e: unknown) => e)
     expect(saveErrorMessage(gone)).toBe('Este plano não existe mais. Ele pode ter sido apagado.')
@@ -173,7 +177,7 @@ describe('plans', () => {
     )
     await importTables(tables)
 
-    const panel = await calculate(await loaded(plan.id))
+    const panel = await calculate(await loaded(plan.id), userId)
     expect(panel.warnings.join(' ')).toContain('não existe mais ou não produz esse item')
   })
 
@@ -183,7 +187,93 @@ describe('plans', () => {
     tables.item_desc = tables.item_desc.filter((row: { id: number }) => row.id !== 1030)
     await importTables(tables)
 
-    const panel = await calculate(await loaded(plan.id))
+    const panel = await calculate(await loaded(plan.id), userId)
     expect(panel.targets.map((t) => [t.item.name, t.item.removed])).toEqual([['Rough Plank', true]])
+  })
+
+  describe('each account has its own, and the owner shares', () => {
+    let otherId: number
+
+    beforeEach(async () => {
+      otherId = (
+        await createUser({
+          email: 'andre@example.com',
+          fullName: 'André',
+          password: 'a-long-enough-password',
+        })
+      ).id
+    })
+
+    test("another account doesn't see, open, change or delete someone else's plan", async () => {
+      const plan = await planWithPlanks()
+
+      expect(await listPlans(otherId)).toEqual([])
+      expect(await findPlanFor(plan.id, otherId)).toBeNull()
+      expect(await canEditPlan(plan.id, otherId)).toBe(false)
+      expect((await deletePlan(plan.id, otherId)).count).toBe(0)
+      expect(await findPlan(plan.id)).not.toBeNull()
+    })
+
+    test('shared by e-mail: the other account sees and changes it, but does not delete it', async () => {
+      const plan = await planWithPlanks()
+
+      expect(await sharePlan(plan.id, userId, ' ANDRE@example.com ')).toEqual({
+        ok: true,
+        name: 'André',
+      })
+      // Sharing twice changes nothing
+      expect((await sharePlan(plan.id, userId, 'andre@example.com')).ok).toBe(true)
+
+      const [listed] = await listPlans(otherId)
+      expect([listed.id, listed.createdById, authorName(listed.createdBy)]).toEqual([
+        plan.id,
+        userId,
+        'Vitor',
+      ])
+      expect(await canEditPlan(plan.id, otherId)).toBe(true)
+      const opened = await findPlanFor(plan.id, otherId)
+      expect(opened!.shares.map((share) => share.userId)).toEqual([otherId])
+      expect((await deletePlan(plan.id, otherId)).count).toBe(0)
+    })
+
+    test('only the owner shares; not with itself, nor with an e-mail without an account', async () => {
+      const plan = await planWithPlanks()
+
+      expect(await sharePlan(plan.id, otherId, 'vitor@example.com')).toEqual({
+        ok: false,
+        error: 'Só quem criou o plano pode compartilhá-lo.',
+      })
+      expect(await sharePlan(plan.id, userId, 'vitor@example.com')).toEqual({
+        ok: false,
+        error: 'O plano já é seu.',
+      })
+      expect(await sharePlan(plan.id, userId, 'ninguem@example.com')).toEqual({
+        ok: false,
+        error: 'Nenhuma conta com esse e-mail.',
+      })
+    })
+
+    test('the owner takes an account out; an account can leave; nobody else can', async () => {
+      const plan = await planWithPlanks()
+      const third = await createUser({ email: 'c@example.com', password: 'a-long-enough-password' })
+      await sharePlan(plan.id, userId, 'andre@example.com')
+      await sharePlan(plan.id, userId, 'c@example.com')
+
+      // The third account cannot take André out
+      expect(await removePlanShare(plan.id, third.id, otherId)).toBe(false)
+      // André leaves; the owner takes the third one out
+      expect(await removePlanShare(plan.id, otherId, otherId)).toBe(true)
+      expect(await removePlanShare(plan.id, userId, third.id)).toBe(true)
+      expect(await listPlans(otherId)).toEqual([])
+      expect(await db.planShare.count()).toBe(0)
+    })
+
+    test('deleting the plan takes its shares along', async () => {
+      const plan = await planWithPlanks()
+      await sharePlan(plan.id, userId, 'andre@example.com')
+
+      await deletePlan(plan.id, userId)
+      expect(await db.planShare.count()).toBe(0)
+    })
   })
 })

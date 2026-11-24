@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 
 /**
  * Inventory syncs with BitJita: when, how they started and how they went.
+ * Each run belongs to the account whose characters it read (none for the cron).
  * Only one runs at a time: a partial unique index (sync_runs_one_running,
  * in the first migration) refuses a second row with status "running".
  */
@@ -19,14 +20,15 @@ export const ABANDONED_AFTER_MINUTES = 5
 
 const newestFirst = [{ startedAt: 'desc' as const }, { id: 'desc' as const }]
 
-export function latestSyncRun() {
-  return db.syncRun.findFirst({ orderBy: newestFirst })
+/** An account's latest sync, in any status */
+export function latestSyncRun(userId: number) {
+  return db.syncRun.findFirst({ where: { userId }, orderBy: newestFirst })
 }
 
-/** The last sync that wrote data (ok or partial) */
-export function lastSuccessfulSyncRun() {
+/** An account's last sync that wrote data (ok or partial) */
+export function lastSuccessfulSyncRun(userId: number) {
   return db.syncRun.findFirst({
-    where: { status: { in: ['ok', 'partial'] } },
+    where: { userId, status: { in: ['ok', 'partial'] } },
     orderBy: newestFirst,
   })
 }
@@ -46,16 +48,21 @@ export function closeAbandonedRuns(now: Date = new Date()) {
 export const KEEP_DAYS = 7
 
 /**
- * Forgets runs older than KEEP_DAYS, after each automatic sync. The last one
- * that wrote data stays, however old: the inventory page says when the data
- * is from.
+ * Forgets runs older than KEEP_DAYS, after each automatic sync. Each
+ * account's last run that wrote data stays, however old: the inventory page
+ * says when the data is from.
  */
 export async function pruneSyncRuns(now: Date = new Date()) {
-  const keep = await lastSuccessfulSyncRun()
+  const lastGood = await db.syncRun.groupBy({
+    by: ['userId'],
+    where: { status: { in: ['ok', 'partial'] } },
+    _max: { id: true },
+  })
+  const keep = lastGood.flatMap((row) => (row._max.id === null ? [] : [row._max.id]))
   return db.syncRun.deleteMany({
     where: {
       startedAt: { lt: new Date(now.getTime() - KEEP_DAYS * 24 * 3_600_000) },
-      ...(keep && { id: { not: keep.id } }),
+      id: { notIn: keep },
     },
   })
 }

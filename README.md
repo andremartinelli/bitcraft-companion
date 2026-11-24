@@ -1,6 +1,6 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculadora de custo, planos e o inventário do grupo. Roda de graça na Vercel, com o banco no Neon.
+Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculadora de custo, planos e o inventário dos seus personagens. Roda de graça na Vercel, com o banco no Neon.
 
 Stack: Next.js, Prisma, Postgres e Chakra UI. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md), e o desenho em [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md).
 
@@ -43,27 +43,27 @@ Opções: `-- --commit=<sha>` importa um commit específico, e `-- --path=<pasta
 
 ## Contas
 
-O app vai ficar público na internet, então **sempre pede login**. Não existe cadastro pelo site: crie as duas contas pela linha de comando. Se `--password` não for passado, a senha (de no mínimo 12 caracteres) é pedida duas vezes, de forma oculta.
+O app fica público na internet e **sempre pede login**. Qualquer pessoa cria uma conta em `/signup`, com senha de no mínimo 8 caracteres. Para segurar os planos grátis, cada IP cria no máximo 5 contas por dia. Também dá para criar uma conta pela linha de comando:
 
 ```bash
 npm run users:create -- --email=voce@exemplo.com --name="Seu nome"
 ```
 
-A conta é criada no banco de `DATABASE_URL_UNPOOLED`: o local, ou o do Neon quando o `.env` apontar para ele.
-
 Para desenvolver, `npm run db:seed` cria um usuário de teste. O e-mail e a senha estão em `prisma/seed.ts`, e o seed se recusa a rodar fora de um banco local.
 
 Depois de 10 senhas erradas seguidas para o mesmo e-mail, ele fica bloqueado por 15 minutos, mesmo com a senha certa. A sessão vale 30 dias, e "Sair" a encerra neste navegador.
 
+Cada conta tem os seus planos. O dono de um plano pode compartilhá-lo com outra conta pelo e-mail: ela vê e edita, e só o dono apaga. Quem recebeu pode sair do plano.
+
 ## Inventário
 
-Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem token de jogador. Adicione os personagens de vocês pelo nick em **Personagens** (`/game_players`); o nick é conferido na BitJita antes de ser salvo.
+Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem token de jogador. Cada conta adiciona, em **Personagens** (`/game_players`), até 5 personagens cujo inventário quer ver; o nick é conferido na BitJita antes de ser salvo. Um personagem seguido por duas contas é lido uma vez só. O inventário, o "já tenho" da calculadora e o "Você tem" de cada item são os dos personagens da conta.
 
 O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme quando ninguém usa o app):
 
-- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): se o último sync começou há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo), a página abre com o que está salvo e sincroniza em seguida.
-- **"Sincronizar agora"**, nas mesmas páginas. Do PC, o mesmo pode ser feito com `npm run inventory:sync`.
-- **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET`.
+- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da conta que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta.
+- **"Sincronizar agora"**, nas mesmas páginas, para os personagens da conta. Do PC, `npm run inventory:sync` lê todos.
+- **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET` e lê até 20 personagens que ninguém olhou na última hora.
 
 Só um sync roda por vez. Se a BitJita falhar, os dados anteriores ficam, e a página diz quem não foi lido.
 

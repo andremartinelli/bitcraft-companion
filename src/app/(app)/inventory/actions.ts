@@ -2,6 +2,7 @@
 
 import { refresh } from 'next/cache'
 import { requireUser } from '@/lib/session'
+import { followedPlayerIds } from '@/models/game_player'
 import { inventorySource } from '@/services/game_sync/inventory_source'
 import InventorySync, {
   SYNC_RESULTS,
@@ -17,14 +18,17 @@ export interface SyncResult {
 
 /**
  * POST /inventory/sync, "Sincronizar agora" (in the inventory, the calculator
- * and the plans): reads BitJita now, even when the last sync is recent. Then
- * the page shows the new data.
+ * and the plans): reads the account's characters on BitJita now, even when
+ * the last read is recent. Then the page shows the new data.
  */
 export async function syncNow(): Promise<SyncResult> {
-  await requireUser()
+  const user = await requireUser()
   let result: SyncResult
   try {
-    const run = await new InventorySync(inventorySource()).run('manual')
+    const run = await new InventorySync(inventorySource()).run('manual', {
+      userId: user.id,
+      playerIds: await followedPlayerIds(user.id),
+    })
     const status = run.status === 'running' ? 'failed' : run.status
     result = { notice: SYNC_RESULTS[status], ok: run.status === 'ok' }
   } catch (error) {
@@ -42,14 +46,15 @@ export async function syncNow(): Promise<SyncResult> {
 
 /**
  * A page that shows the inventory found it old (INVENTORY_STALE_MINUTES):
- * reads it again, unless it is no longer old (another tab did it) or a sync
- * is running. Never fails the page: a problem stays in the sync's notes.
+ * reads the account's old characters again, unless they are no longer old
+ * (another tab or account did it) or a sync is running. Never fails the
+ * page: a problem stays in the sync's notes.
  */
 export async function syncIfStale(): Promise<{ synced: boolean }> {
-  await requireUser()
+  const user = await requireUser()
   let synced = false
   try {
-    synced = (await staleSync.syncIfStale(inventorySource(), 'auto')) !== null
+    synced = (await staleSync.syncIfStale(inventorySource(), user.id)) !== null
   } catch (error) {
     if (!(error instanceof SyncAlreadyRunningError)) {
       console.error('inventory sync (auto) failed', error)

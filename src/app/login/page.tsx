@@ -6,7 +6,7 @@ import type { SearchParams } from '@/validators/search_params'
 
 export const metadata: Metadata = { title: 'Entrar' }
 
-/** GET /login. There is no sign-up: accounts come from `npm run users:create` */
+/** GET /login. New accounts come from /signup */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   if (await getCurrentUser()) redirect('/plans')
   const { next } = await searchParams

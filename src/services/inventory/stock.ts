@@ -6,8 +6,9 @@ import { getRecipeGraph, type RecipeGraph } from '@/services/calculator/recipe_g
 import { ANY_PROFESSION, NO_PROFESSION, type ItemHolder } from '@/services/inventory/professions'
 
 /**
- * The group's stock, as of the last sync: the inventory page by tab, the
- * item page's "Vocês têm", and what the calculator uses as "já tenho".
+ * An account's stock, as of the last sync: what the characters it follows
+ * have. The inventory page by tab, the item page's "Você tem", and what the
+ * calculator uses as "já tenho".
  */
 
 export const INVENTORY_TABS = ['professions', 'group', 'players', 'places'] as const
@@ -74,8 +75,11 @@ const ownerOf = (row: { username: string | null; claim_name: string | null }) =>
 const byLargest = (a: ItemPlace, b: ItemPlace) =>
   b.quantity - a.quantity || a.owner.localeCompare(b.owner)
 
-/** Every entry with its place, owner and item; only items whose name has every word of `q` */
-function entries(q?: string) {
+/**
+ * Every entry of the characters an account follows, with its place, owner and
+ * item; only items whose name has every word of `q`
+ */
+function entries(userId: number, q?: string) {
   const words = searchWords(q)
   return db.$queryRaw<EntryRow[]>`
     SELECT e.item_id, e.quantity, c.id AS container_id, c.name AS container_name,
@@ -84,7 +88,8 @@ function entries(q?: string) {
     FROM inventory_entries e
     JOIN inventory_containers c ON c.id = e.container_id
     JOIN items i ON i.id = e.item_id
-    LEFT JOIN game_players p ON p.id = c.game_player_id
+    JOIN game_players p ON p.id = c.game_player_id
+    JOIN user_game_players f ON f.game_player_id = p.id AND f.user_id = ${userId}
     WHERE ${words.length ? namesMatch('i.name', words) : Prisma.sql`TRUE`}`
 }
 
@@ -134,10 +139,11 @@ function professionOf(graph: RecipeGraph, itemId: number) {
  * everyone, so they stay out), or each place.
  */
 export async function inventoryListing(
+  userId: number,
   tab: InventoryTab,
   q?: string
 ): Promise<{ sections: StockSection[] }> {
-  const rows = await entries(q)
+  const rows = await entries(userId, q)
 
   if (tab === 'professions') {
     const graph = await getRecipeGraph()
@@ -201,21 +207,26 @@ export async function inventoryListing(
   return { sections }
 }
 
-/** The group's total of each item: what the calculator can use as "já tenho" */
-export async function groupTotals(): Promise<Map<number, number>> {
-  const rows = await db.inventoryEntry.groupBy({ by: ['itemId'], _sum: { quantity: true } })
+/** An account's total of each item: what the calculator can use as "já tenho" */
+export async function stockTotals(userId: number): Promise<Map<number, number>> {
+  const rows = await db.inventoryEntry.groupBy({
+    by: ['itemId'],
+    where: { container: { gamePlayer: { followers: { some: { userId } } } } },
+    _sum: { quantity: true },
+  })
   return new Map(rows.map((row) => [row.itemId, Number(row._sum.quantity ?? 0)]))
 }
 
-/** Each item's holders, the one with most first (the plan's "Coletar") */
-export async function holdersByItem(): Promise<Map<number, ItemHolder[]>> {
+/** Each item's holders among an account's characters, the one with most first (the plan's "Coletar") */
+export async function holdersByItem(userId: number): Promise<Map<number, ItemHolder[]>> {
   const rows = await db.$queryRaw<
     { item_id: number; quantity: number; username: string | null; claim_name: string | null }[]
   >`
     SELECT e.item_id, e.quantity, p.username, c.claim_name
     FROM inventory_entries e
     JOIN inventory_containers c ON c.id = e.container_id
-    LEFT JOIN game_players p ON p.id = c.game_player_id`
+    JOIN game_players p ON p.id = c.game_player_id
+    JOIN user_game_players f ON f.game_player_id = p.id AND f.user_id = ${userId}`
 
   const byItem = new Map<number, Map<string, number>>()
   for (const row of rows) {
@@ -234,10 +245,10 @@ export async function holdersByItem(): Promise<Map<number, ItemHolder[]>> {
   )
 }
 
-/** Where the group keeps an item, and how many in all (the item page) */
-export async function itemStock(itemId: number) {
+/** Where an account's characters keep an item, and how many in all (the item page) */
+export async function itemStock(itemId: number, userId: number) {
   const rows = await db.inventoryEntry.findMany({
-    where: { itemId },
+    where: { itemId, container: { gamePlayer: { followers: { some: { userId } } } } },
     select: {
       quantity: true,
       container: {

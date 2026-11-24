@@ -44,23 +44,23 @@ export default async function InventoryPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requireUser()
+  const user = await requireUser()
   const filters = parseSearchParams(inventorySearchSchema, await searchParams)
   const tab = filters.tab ?? TABS[0].value
   const q = filters.q ?? ''
 
   const [latest, lastGood, freshness, listing] = await Promise.all([
-    latestSyncRun(),
-    lastSuccessfulSyncRun(),
-    inventoryFreshness(),
-    inventoryListing(tab, q),
+    latestSyncRun(user.id),
+    lastSuccessfulSyncRun(user.id),
+    inventoryFreshness(user.id),
+    inventoryListing(user.id, tab, q),
   ])
 
   return (
     <>
       <PageHeader
         title="Inventário"
-        description="O que vocês têm no jogo, lido da API pública da BitJita. Busque um item ou veja por jogador e por local."
+        description="O que os seus personagens têm no jogo, lido da API pública da BitJita. Busque um item ou veja por personagem e por local."
         actions={<LinkButton href="/game_players">Personagens</LinkButton>}
       />
       <InventoryStatus
@@ -88,8 +88,8 @@ export default async function InventoryPage({
         </>
       ) : (
         <EmptyNotice>
-          Nenhum personagem cadastrado. Adicione os personagens de vocês em &quot;Personagens&quot;
-          para ler o inventário.
+          Nenhum personagem na sua lista. Adicione os seus em &quot;Personagens&quot; para ler o
+          inventário.
         </EmptyNotice>
       )}
     </>

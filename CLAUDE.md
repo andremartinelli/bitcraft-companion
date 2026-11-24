@@ -1,6 +1,6 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0, usado por duas pessoas. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário do grupo, lido da API pública da BitJita. Roda de graça na Vercel, com o banco no Neon (Postgres).
+Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário dos personagens que cada conta segue, lido da API pública da BitJita. Roda de graça na Vercel, com o banco no Neon (Postgres).
 
 - Design aprovado: `docs/design/2026-11-24-vercel.md`. Os anteriores (`2026-11-21-*`) descrevem o app Adonis.
 - Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`.
@@ -35,9 +35,15 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
   - páginas e actions usam `requireUser()`;
   - route handlers usam `userFromRequest(request)`;
   - os dois estão em `src/lib/session.ts`.
-- Só `/login` e `/api/cron/*` são abertos. O cron tem a própria chave, `CRON_SECRET`.
-- Não existe cadastro pelo site: as contas vêm de `npm run users:create`.
+- Só `/login`, `/signup` e `/api/cron/*` são abertos. O cron tem a própria chave, `CRON_SECRET`.
+- O cadastro em `/signup` é aberto, com senha de no mínimo 8 caracteres e no máximo 5 contas novas por IP por dia (`src/services/auth/signup.ts`). `npm run users:create` continua existindo.
 - Senhas usam scrypt (`src/services/auth/password.ts`). Depois de 10 erros seguidos, o e-mail fica bloqueado por 15 minutos.
+
+**Contas (decidido em 24/11/2026):**
+
+- **Planos:** cada plano é de quem o criou (`created_by_id`). O dono compartilha por e-mail (`plan_shares`): quem recebe vê e edita, só o dono apaga. Toda consulta de plano passa por `findPlanFor`, `canEditPlan` ou `listPlans(userId)`.
+- **Personagens:** cada conta segue até 5 (`user_game_players`). Um personagem existe uma vez só, e é lido uma vez, mesmo seguido por várias contas. Ninguém mais seguindo, ele é apagado.
+- **Inventário:** o estoque, o "já tenho" da calculadora e o "Você tem" do item são sempre os dos personagens da conta que está vendo, inclusive num plano compartilhado.
 
 Detalhes que já custaram tempo:
 
@@ -45,7 +51,7 @@ Detalhes que já custaram tempo:
 - **O cliente do Prisma é gerado** em `src/generated/prisma` (fora do git) e importado de `@/generated/prisma/client.ts`. Use `db` de `src/lib/db.ts`, que só conecta no primeiro uso.
 - **Datas:** a Vercel roda em UTC. Formate com `src/lib/format.ts`, que usa o fuso `America/Sao_Paulo`.
 - **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_` (`namesMatch` e `containsWord` em `src/lib/search.ts`).
-- **Sync do inventário:** sob demanda (uma página que mostra o inventário e o acha velho chama a action `syncIfStale`), pelo botão (`syncNow`) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
+- **Sync do inventário:** por personagem, pelo `last_attempt_at`. Sob demanda (uma página que mostra o inventário chama a action `syncIfStale`, que lê os personagens da conta não tentados no último minuto), pelo botão (`syncNow`, os da conta) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`: até 20 personagens não lidos na última hora). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
 - **`prisma dev`:** se o banco local passar a fechar as conexões ("Server has closed the connection"), pare e suba de novo (`npx prisma dev stop bitcraft-dev`, depois `npm run db:dev`). Os dados ficam no disco.
 
 ## Limites do plano grátis (não negociáveis)

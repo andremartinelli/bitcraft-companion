@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { readSessionToken, SESSION_COOKIE } from '@/services/auth/session_token'
 
-/** Open without a session: the login page and the cron (it has its own key) */
-const PUBLIC_PATHS = [/^\/login$/, /^\/api\/cron\//]
+/** Open without a session: the login, the sign-up and the cron (it has its own key) */
+const PUBLIC_PATHS = [/^\/login$/, /^\/signup$/, /^\/api\/cron\//]
 
 /**
  * The app is public on the internet: every request needs a valid session

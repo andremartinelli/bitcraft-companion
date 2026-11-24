@@ -191,7 +191,7 @@ export function CalculatorView({
             >
               <Checkbox.HiddenInput />
               <Checkbox.Control />
-              <Checkbox.Label>Usar inventário do grupo</Checkbox.Label>
+              <Checkbox.Label>Usar meu inventário</Checkbox.Label>
             </Checkbox.Root>
             <Text textStyle="sm" color="fg.muted">
               sincronizado{' '}

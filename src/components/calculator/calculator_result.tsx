@@ -320,7 +320,7 @@ function TreeNode({
               title={
                 node.inventoryQuantity === null
                   ? undefined
-                  : `${formatNumber(node.inventoryQuantity)} no inventário do grupo; digite um valor para usar outro`
+                  : `${formatNumber(node.inventoryQuantity)} no seu inventário; digite um valor para usar outro`
               }
               aria-label={`Quantos ${node.item.name} vocês já têm`}
               onCommit={(value) => onOwned(node.item.id, value)}

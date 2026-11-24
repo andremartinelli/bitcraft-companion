@@ -5,7 +5,7 @@ import { ItemDetails } from '@/components/items/item_details'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { requireUser } from '@/lib/session'
 import { consumingRecipes, findActiveItem, producingRecipes } from '@/models/item'
-import { lastSuccessfulSyncRun } from '@/models/sync_run'
+import { db } from '@/lib/db'
 import { itemStock } from '@/services/inventory/stock'
 import { itemIdSchema } from '@/validators/item'
 
@@ -29,17 +29,19 @@ export async function generateMetadata({ params }: ItemPageProps): Promise<Metad
  * left the game, or an id that is not a number, is a 404.
  */
 export default async function ItemPage({ params }: ItemPageProps) {
-  await requireUser()
+  const user = await requireUser()
   const item = await loadItem((await params).id)
   if (!item) notFound()
 
   const [producers, consumers, synced] = await Promise.all([
     producingRecipes(item.id),
     consumingRecipes(item.id),
-    lastSuccessfulSyncRun(),
+    db.gamePlayer.count({
+      where: { followers: { some: { userId: user.id } }, lastSyncedAt: { not: null } },
+    }),
   ])
-  // "Vocês têm" once the inventory was read at least once
-  const stock = synced ? await itemStock(item.id) : null
+  // "Você tem" once one of the account's characters was read
+  const stock = synced ? await itemStock(item.id, user.id) : null
 
   return (
     <ItemDetails

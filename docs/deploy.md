@@ -4,7 +4,7 @@ O passo a passo para pôr a versão nova no ar, de graça: o app na Vercel (plan
 
 As contas, as chaves e as senhas são suas. Os passos marcados com **Você** são feitos por você. Os marcados com **Claude** só acontecem com o seu OK, passo a passo.
 
-O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), então não há dados para levar do SQLite. A versão nova começa vazia: os dados do jogo vêm da importação, e as contas, do `users:create`.
+O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), então não há dados para levar do SQLite. A versão nova começa vazia: os dados do jogo vêm da importação, e as contas são criadas na página de cadastro (`/signup`).
 
 ## 1. Código no GitHub (feito)
 
@@ -42,7 +42,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 Não reaproveite as chaves do `.env` local.
 
-## 5. Tabelas, dados do jogo e contas (Você, do PC)
+## 5. Tabelas e dados do jogo (Você, do PC)
 
 Os comandos rodam do seu PC contra o Neon, com a URL **direta** (sem pooler). No PowerShell, na pasta do projeto, com este branch:
 
@@ -59,15 +59,13 @@ npm run game-data:import
 ```
 
 ```powershell
-npm run users:create -- --email=seu@email --name="André"
-```
-
-```powershell
 Remove-Item Env:DATABASE_URL_UNPOOLED
 ```
 
 - A variável vale só nesse terminal e tem prioridade sobre o `.env`. Por isso o último comando a apaga: os próximos comandos voltam a usar o banco local.
-- O `users:create` pede a senha duas vezes, escondida (no mínimo 12 caracteres). Rode de novo para a conta do Vitor: ou ele mesmo digita a senha no seu PC, ou você escolhe uma e passa para ele. O app ainda não tem tela para trocar a senha.
+- As contas são criadas no próprio app, em `/signup` (senha de no mínimo 8 caracteres). O `npm run users:create` continua funcionando, do mesmo jeito.
+- No PowerShell, se o `npm` ou o `npx` não forem encontrados, ponha o Node no PATH do terminal; se o Windows bloquear scripts, use `npm.cmd` e `npx.cmd`.
+- O `migrate deploy` aplica as migrations que faltam: rode de novo sempre que um deploy trouxer uma migration nova.
 - As migrations rodam do PC, e não no build da Vercel, para nenhum deploy de preview mexer no banco de produção.
 - A cada patch do jogo, rode de novo a importação do mesmo jeito.
 

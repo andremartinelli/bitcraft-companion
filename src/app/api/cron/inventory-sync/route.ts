@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { inventorySource } from '@/services/game_sync/inventory_source'
 import { SyncAlreadyRunningError } from '@/services/game_sync/inventory_sync'
-import { syncIfStale } from '@/services/game_sync/stale_sync'
+import { cronSync } from '@/services/game_sync/stale_sync'
 
 /** BitJita answers in a few seconds; the default limit is enough, this is a ceiling */
 export const maxDuration = 60
@@ -18,15 +18,16 @@ function authorized(header: string | null) {
 
 /**
  * GET /api/cron/inventory-sync: the daily sync (vercel.json). Open without a
- * session (src/proxy.ts), so it has its own key. Does nothing without
- * characters or when a sync ran recently.
+ * session (src/proxy.ts), so it has its own key. Reads the followed
+ * characters nobody looked at in the last hour, up to 20; does nothing
+ * without any.
  */
 export async function GET(request: Request) {
   if (!authorized(request.headers.get('authorization'))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   try {
-    const run = await syncIfStale(inventorySource(), 'cron')
+    const run = await cronSync(inventorySource())
     if (!run) return NextResponse.json({ status: 'skipped' })
     return NextResponse.json({ status: run.status, counts: run.counts, message: run.message })
   } catch (error) {

@@ -11,7 +11,14 @@ vi.mock('next/headers', () => ({
 vi.mock('next/cache', () => ({ refresh: vi.fn() }))
 
 import { refresh } from 'next/cache'
-import { createPlan, createQuickPlan, destroyPlan, updatePlan } from '@/app/(app)/plans/actions'
+import {
+  createPlan,
+  createPlanShare,
+  createQuickPlan,
+  destroyPlan,
+  destroyPlanShare,
+  updatePlan,
+} from '@/app/(app)/plans/actions'
 import { db } from '@/lib/db'
 import { findPlan, insertPlan, toCalculatorState } from '@/models/plan'
 import { createUser } from '@/services/auth/create_user'
@@ -193,5 +200,75 @@ describe('plan actions', () => {
       error: 'Esse plano rápido não existe.',
     })
     expect(await db.plan.count()).toBe(0)
+  })
+
+  describe('with another account', () => {
+    let otherId: number
+
+    beforeEach(async () => {
+      otherId = (
+        await createUser({
+          email: 'andre@example.com',
+          fullName: 'André',
+          password: 'a-long-enough-password',
+        })
+      ).id
+    })
+
+    const as = async (id: number) => {
+      request.token = await createSessionToken(id)
+    }
+    const NO_SHARE = { error: null, notice: null, email: '' }
+
+    test("someone else's plan answers as deleted, and is not deleted", async () => {
+      const plan = await planWithPlanks()
+      await as(otherId)
+
+      expect(await updatePlan(plan.id, { name: 'Meu agora' })).toEqual({
+        errors: ['Este plano não existe mais. Ele pode ter sido apagado.'],
+      })
+      expect(await redirectedTo(destroyPlan(plan.id))).toBe('/plans')
+      expect((await findPlan(plan.id))!.name).toBe('Ferramentas T2')
+    })
+
+    test('the owner shares by e-mail; the other account edits it but cannot delete it', async () => {
+      const plan = await planWithPlanks()
+
+      expect(
+        await createPlanShare(plan.id, NO_SHARE, form({ email: 'andre@example.com' }))
+      ).toEqual({
+        error: null,
+        notice: 'Compartilhado com André.',
+        email: '',
+      })
+      expect((await createPlanShare(plan.id, NO_SHARE, form({ email: 'nope' }))).error).toBe(
+        'Informe um e-mail válido.'
+      )
+
+      await as(otherId)
+      expect(await updatePlan(plan.id, { name: 'Ferramentas T3' })).toEqual({ errors: [] })
+      const saved = await findPlan(plan.id)
+      expect([saved!.name, saved!.updatedById]).toEqual(['Ferramentas T3', otherId])
+      // The other account can't share it further, nor delete it
+      expect(
+        (await createPlanShare(plan.id, NO_SHARE, form({ email: 'vitor@example.com' }))).error
+      ).toBe('Só quem criou o plano pode compartilhá-lo.')
+      await redirectedTo(destroyPlan(plan.id))
+      expect(await findPlan(plan.id)).not.toBeNull()
+    })
+
+    test('leaving a shared plan goes back to the list; the owner can take an account out', async () => {
+      const plan = await planWithPlanks()
+      await createPlanShare(plan.id, NO_SHARE, form({ email: 'andre@example.com' }))
+
+      await as(otherId)
+      expect(await redirectedTo(destroyPlanShare(plan.id, otherId))).toBe('/plans')
+      expect(await db.planShare.count()).toBe(0)
+
+      await as(userId)
+      await createPlanShare(plan.id, NO_SHARE, form({ email: 'andre@example.com' }))
+      await destroyPlanShare(plan.id, otherId)
+      expect(await db.planShare.count()).toBe(0)
+    })
   })
 })

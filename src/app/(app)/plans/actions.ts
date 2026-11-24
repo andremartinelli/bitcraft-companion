@@ -4,15 +4,24 @@ import { refresh } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/session'
 import {
+  canEditPlan,
   deletePlan,
   insertPlan,
+  removePlanShare,
   saveErrorMessage,
   savePlanState,
+  sharePlan,
   updatePlanName,
 } from '@/models/plan'
 import { readStateFromQuery, validateState } from '@/services/calculator/state_params'
 import QuickPlans, { METAL_STYLES } from '@/services/plans/quick_plans'
-import { planIdSchema, planNameSchema, planUpdateSchema, quickPlanSchema } from '@/validators/plan'
+import {
+  planIdSchema,
+  planNameSchema,
+  planShareSchema,
+  planUpdateSchema,
+  quickPlanSchema,
+} from '@/validators/plan'
 
 export interface PlanFormState {
   error: string | null
@@ -59,8 +68,9 @@ export interface PlanUpdateResult {
 
 /**
  * PATCH /plans/[id]: the calculator saves its state on every change; the
- * name field sends only the name. An invalid state saves nothing and comes
- * back as messages. Then the page shows what was saved.
+ * name field sends only the name. The owner and the accounts it was shared
+ * with can change it. An invalid state saves nothing and comes back as
+ * messages. Then the page shows what was saved.
  */
 export async function updatePlan(id: number, input: unknown): Promise<PlanUpdateResult> {
   const user = await requireUser()
@@ -77,6 +87,10 @@ export async function updatePlan(id: number, input: unknown): Promise<PlanUpdate
   }
   const state = fields.data.state === undefined ? undefined : validateState(fields.data.state)
   if (state?.errors.length) return { errors: state.errors }
+  // Someone else's plan answers as a deleted one: it doesn't say it exists
+  if (!(await canEditPlan(planId.data, user.id))) {
+    return { errors: ['Este plano não existe mais. Ele pode ter sido apagado.'] }
+  }
 
   const saved = await saving(async () => {
     if (name !== undefined) await updatePlanName(planId.data, name, user.id)
@@ -87,12 +101,56 @@ export async function updatePlan(id: number, input: unknown): Promise<PlanUpdate
   return { errors: [] }
 }
 
-/** DELETE /plans/[id], after the confirmation: back to the list */
+/** DELETE /plans/[id], after the confirmation: only the owner's; back to the list */
 export async function destroyPlan(id: number) {
-  await requireUser()
+  const user = await requireUser()
   const planId = planIdSchema.safeParse(id)
-  if (planId.success) await deletePlan(planId.data)
+  if (planId.success) await deletePlan(planId.data, user.id)
   redirect('/plans')
+}
+
+export interface ShareFormState {
+  error: string | null
+  notice: string | null
+  /** Typed back into the field after an error */
+  email: string
+}
+
+/**
+ * POST /plans/[id]/shares: the owner shares the plan with the account of an
+ * e-mail, which then sees and changes it.
+ */
+export async function createPlanShare(
+  id: number,
+  _previous: ShareFormState,
+  formData: FormData
+): Promise<ShareFormState> {
+  const user = await requireUser()
+  const email = String(formData.get('email') ?? '')
+  const planId = planIdSchema.safeParse(id)
+  const parsed = planShareSchema.safeParse({ email })
+  if (!planId.success) return { error: 'Esse plano não existe.', notice: null, email }
+  if (!parsed.success) return { error: parsed.error.issues[0].message, notice: null, email }
+
+  const result = await sharePlan(planId.data, user.id, parsed.data.email)
+  if (!result.ok) return { error: result.error, notice: null, email }
+  refresh()
+  return { error: null, notice: `Compartilhado com ${result.name}.`, email: '' }
+}
+
+/**
+ * DELETE /plans/[id]/shares/[userId]: the owner takes an account out of the
+ * plan, or an account leaves a plan shared with it (and goes back to the list).
+ */
+export async function destroyPlanShare(id: number, userId: number) {
+  const user = await requireUser()
+  const planId = planIdSchema.safeParse(id)
+  const memberId = planIdSchema.safeParse(userId)
+  if (planId.success && memberId.success) {
+    await removePlanShare(planId.data, user.id, memberId.data)
+  }
+  if (memberId.success && memberId.data === user.id) redirect('/plans')
+  refresh()
 }
 
 /**

@@ -11,18 +11,28 @@ import QuickPlans from '@/services/plans/quick_plans'
 
 export const metadata: Metadata = { title: 'Planos' }
 
-/** GET /plans: the saved plans, "Novo plano" and the "Planos rápidos" menu */
+/**
+ * GET /plans: the account's plans and the ones shared with it, "Novo plano"
+ * and the "Planos rápidos" menu
+ */
 export default async function PlansPage() {
-  await requireUser()
-  const [plans, quickPlans] = await Promise.all([listPlans(), new QuickPlans().catalog()])
+  const user = await requireUser()
+  const [plans, quickPlans] = await Promise.all([listPlans(user.id), new QuickPlans().catalog()])
 
   const rows = plans.map((plan) => {
     const author = authorName(plan.updatedBy)
+    const shares = plan._count.shares
     return {
       id: plan.id,
       name: plan.name,
       count: plan._count.items + plan._count.buildings,
       updated: `${formatDate(plan.updatedAt)}${author ? ` por ${author}` : ''}`,
+      sharing:
+        plan.createdById !== user.id
+          ? `de ${authorName(plan.createdBy) ?? 'outra conta'}`
+          : shares
+            ? `compartilhado com ${shares} ${shares === 1 ? 'conta' : 'contas'}`
+            : null,
     }
   })
 
@@ -30,7 +40,7 @@ export default async function PlansPage() {
     <>
       <PageHeader
         title="Planos"
-        description='Planos salvos, compartilhados entre vocês. "Novo plano" cria um vazio: adicione itens ou construções, e cada mudança é salva sozinha.'
+        description='Os seus planos e os que compartilharam com você. "Novo plano" cria um vazio: adicione itens ou construções, e cada mudança é salva sozinha.'
         actions={<NewPlanButton />}
       />
       {quickPlans.length > 0 && <QuickPlanMenu catalog={quickPlans} />}

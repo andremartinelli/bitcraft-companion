@@ -6,9 +6,10 @@ import { PageHeader } from '@/components/layout/page_header'
 import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
 import { PlanCalculator } from '@/components/plans/plan_calculator'
 import { PlanDetails } from '@/components/plans/plan_details'
+import { PlanSharing, SharedPlanNotice } from '@/components/plans/plan_sharing'
 import { formatDate } from '@/lib/format'
-import { requireUser } from '@/lib/session'
-import { authorName, findPlan, toCalculatorState } from '@/models/plan'
+import { getCurrentUser, requireUser } from '@/lib/session'
+import { authorName, findPlanFor, toCalculatorState } from '@/models/plan'
 import { calculate } from '@/services/calculator/calculate'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
 import { planIdSchema } from '@/validators/plan'
@@ -20,37 +21,59 @@ interface PlanPageProps {
   params: Promise<{ id: string }>
 }
 
-/** Once per request: the title and the page read the same plan */
-const loadPlan = cache(async (rawId: string) => {
+/** Once per request: the title and the page read the same plan, if the account can open it */
+const loadPlan = cache(async (rawId: string, userId: number) => {
   const id = planIdSchema.safeParse(rawId)
-  return id.success ? findPlan(id.data) : null
+  return id.success ? findPlanFor(id.data, userId) : null
 })
 
 export async function generateMetadata({ params }: PlanPageProps): Promise<Metadata> {
-  const plan = await loadPlan((await params).id)
+  const user = await getCurrentUser()
+  const plan = user ? await loadPlan((await params).id, user.id) : null
   return { title: plan?.name ?? 'Plano' }
 }
 
 /**
  * GET /plans/[id]: the calculator with the saved state, saving on every
- * change, with the editable name and the notes. A plan that doesn't exist is a 404.
+ * change, with the editable name and the notes. The owner shares and deletes
+ * it; an account it was shared with edits it and can leave it. A plan that
+ * doesn't exist, or is someone else's, is a 404.
  */
 export default async function PlanPage({ params }: PlanPageProps) {
-  await requireUser()
-  const plan = await loadPlan((await params).id)
+  const user = await requireUser()
+  const plan = await loadPlan((await params).id, user.id)
   if (!plan) notFound()
 
   const state = toCalculatorState(plan)
-  const [panel, freshness] = await Promise.all([calculate(state), inventoryFreshness()])
+  const [panel, freshness] = await Promise.all([
+    calculate(state, user.id),
+    inventoryFreshness(user.id),
+  ])
   const author = authorName(plan.updatedBy)
+  const owner = plan.createdById === user.id
 
   return (
     <>
       <PageHeader
         title={plan.name}
         description="Cada mudança é salva no plano automaticamente."
-        actions={<DestroyPlanButton planId={plan.id} name={plan.name} />}
+        actions={owner && <DestroyPlanButton planId={plan.id} name={plan.name} />}
       />
+      {owner ? (
+        <PlanSharing
+          planId={plan.id}
+          members={plan.shares.map((share) => ({
+            userId: share.userId,
+            name: authorName(share.user)!,
+          }))}
+        />
+      ) : (
+        <SharedPlanNotice
+          planId={plan.id}
+          userId={user.id}
+          ownerName={authorName(plan.createdBy) ?? 'outra conta'}
+        />
+      )}
       <PlanDetails
         planId={plan.id}
         name={plan.name}

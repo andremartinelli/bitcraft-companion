@@ -41,8 +41,8 @@ describe('proxy', () => {
     expect(forged.status).toBe(307)
   })
 
-  test('the login page and the cron are open', async () => {
-    for (const path of ['/login', '/login?next=/plans', '/api/cron/inventory-sync']) {
+  test('the login, the sign-up and the cron are open', async () => {
+    for (const path of ['/login', '/login?next=/plans', '/signup', '/api/cron/inventory-sync']) {
       const response = await proxy(request(path))
       expect(response.headers.get('x-middleware-next')).toBe('1')
     }

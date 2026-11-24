@@ -5,13 +5,14 @@ import {
   Button,
   Card,
   Center,
-  Code,
   Field,
   Heading,
   Input,
+  Link,
   Stack,
   Text,
 } from '@chakra-ui/react'
+import NextLink from 'next/link'
 import { useActionState } from 'react'
 import { createSession, type LoginState } from '@/app/login/actions'
 
@@ -26,7 +27,7 @@ export function LoginForm({ next }: { next: string }) {
       <Card.Root width="full" maxW="sm">
         <Card.Header>
           <Heading size="xl">BitCraft Companion</Heading>
-          <Text color="fg.muted">Entre com a conta de vocês.</Text>
+          <Text color="fg.muted">Entre com a sua conta.</Text>
         </Card.Header>
         <Card.Body>
           <form action={action}>
@@ -59,9 +60,11 @@ export function LoginForm({ next }: { next: string }) {
           </form>
         </Card.Body>
         <Card.Footer>
-          <Text textStyle="xs" color="fg.muted">
-            Não há cadastro pelo site: as contas são criadas com{' '}
-            <Code size="sm">npm run users:create</Code>.
+          <Text textStyle="sm" color="fg.muted">
+            Ainda não tem conta?{' '}
+            <Link asChild color="colorPalette.fg" fontWeight="medium">
+              <NextLink href="/signup">Criar conta</NextLink>
+            </Link>
           </Text>
         </Card.Footer>
       </Card.Root>
