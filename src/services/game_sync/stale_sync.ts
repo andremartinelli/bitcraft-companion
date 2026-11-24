@@ -1,6 +1,6 @@
 import type { SyncRun } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
-import { latestSyncRun } from '@/models/sync_run'
+import { latestSyncRun, pruneSyncRuns } from '@/models/sync_run'
 import type { InventorySource } from '@/services/game_sync/inventory_source'
 import InventorySync from '@/services/game_sync/inventory_sync'
 
@@ -34,7 +34,8 @@ export async function inventoryFreshness(
 /**
  * The sync on demand (a page that shows the inventory, `auto`) and the daily
  * cron (`cron`): only when there is someone to read and the last sync is old.
- * There is no timer: the database sleeps while nobody uses the app.
+ * There is no timer: the database sleeps while nobody uses the app. Then
+ * the history forgets runs older than 7 days.
  *
  * @throws SyncAlreadyRunningError when a sync is in progress
  */
@@ -46,5 +47,7 @@ export async function syncIfStale(
 ): Promise<SyncRun | null> {
   const { stale } = await inventoryFreshness(minutes, now)
   if (!stale) return null
-  return new InventorySync(source).run(trigger)
+  const run = await new InventorySync(source).run(trigger)
+  await pruneSyncRuns(now)
+  return run
 }

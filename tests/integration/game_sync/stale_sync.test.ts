@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import type { SyncStatus } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
 import { inventoryFreshness, staleMinutes, syncIfStale } from '@/services/game_sync/stale_sync'
-import { bitjitaSource, fakeBitJita } from '../../helpers/bitjita'
+import { bitjitaSource, everyPathAnswers, fakeBitJita } from '../../helpers/bitjita'
 import { importTables } from '../../helpers/game_data'
 import { addBothPlayers } from '../../helpers/inventory'
 
@@ -60,6 +60,23 @@ describe('sync on demand and the daily cron', () => {
     const run = await syncIfStale(bitjitaSource(), 'cron', 15)
 
     expect([run?.trigger, run?.status]).toEqual(['cron', 'ok'])
+  })
+
+  test('then the history forgets runs older than 7 days, but not the last good one', async () => {
+    await addBothPlayers()
+    const lastGood = await pastRun(9 * 24 * 60)
+    const failed = await pastRun(8 * 24 * 60, 'failed')
+    const recent = await pastRun(6 * 24 * 60, 'failed')
+
+    const run = await syncIfStale(
+      bitjitaSource(fakeBitJita(everyPathAnswers({ status: 503 }))),
+      'auto',
+      15
+    )
+
+    const ids = (await db.syncRun.findMany({ orderBy: { id: 'asc' } })).map((r) => r.id)
+    expect(ids).toEqual([lastGood.id, recent.id, run!.id])
+    expect(ids).not.toContain(failed.id)
   })
 
   test('15 minutes unless INVENTORY_STALE_MINUTES says otherwise', () => {

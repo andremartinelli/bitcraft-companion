@@ -41,3 +41,21 @@ export function closeAbandonedRuns(now: Date = new Date()) {
     data: { status: 'failed', message: 'Interrompida antes de terminar.', finishedAt: now },
   })
 }
+
+/** The history keeps this many days of runs (see pruneSyncRuns) */
+export const KEEP_DAYS = 7
+
+/**
+ * Forgets runs older than KEEP_DAYS, after each automatic sync. The last one
+ * that wrote data stays, however old: the inventory page says when the data
+ * is from.
+ */
+export async function pruneSyncRuns(now: Date = new Date()) {
+  const keep = await lastSuccessfulSyncRun()
+  return db.syncRun.deleteMany({
+    where: {
+      startedAt: { lt: new Date(now.getTime() - KEEP_DAYS * 24 * 3_600_000) },
+      ...(keep && { id: { not: keep.id } }),
+    },
+  })
+}
