@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import { ItemDetails } from '@/components/items/item_details'
 import { formatNumber, formatPercent } from '@/lib/format'
+import { requireUser } from '@/lib/session'
 import { consumingRecipes, findActiveItem, producingRecipes } from '@/models/item'
 import { itemIdSchema } from '@/validators/item'
 
@@ -26,6 +27,7 @@ export async function generateMetadata({ params }: ItemPageProps): Promise<Metad
  * left the game, or an id that is not a number, is a 404.
  */
 export default async function ItemPage({ params }: ItemPageProps) {
+  await requireUser()
   const item = await loadItem((await params).id)
   if (!item) notFound()
 

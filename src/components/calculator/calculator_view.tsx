@@ -42,6 +42,8 @@ export interface CalculatorViewProps {
   onChange: (state: CalculatorState) => void
   /** The new calculation is on its way */
   pending: boolean
+  /** What the spinner says meanwhile: "Calculando…" or, in a plan, "Salvando…" */
+  pendingLabel?: string
   /** Under the item list: "Salvar como plano" in the quick calculator */
   actions?: ReactNode
 }
@@ -61,6 +63,7 @@ export function CalculatorView({
   storageKey,
   onChange,
   pending,
+  pendingLabel = 'Calculando…',
   actions,
 }: CalculatorViewProps) {
   const change = (next: CalculatorState) => {
@@ -198,7 +201,7 @@ export function CalculatorView({
         {pending && (
           <HStack gap="1.5" color="fg.muted" ml="auto">
             <Spinner size="xs" />
-            <Text textStyle="sm">Calculando…</Text>
+            <Text textStyle="sm">{pendingLabel}</Text>
           </HStack>
         )}
       </Flex>

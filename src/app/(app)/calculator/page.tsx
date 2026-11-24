@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { UrlCalculator } from '@/components/calculator/url_calculator'
 import { PageHeader } from '@/components/layout/page_header'
+import { requireUser } from '@/lib/session'
 import { calculate } from '@/services/calculator/calculate'
 import { readStateFromQuery } from '@/services/calculator/state_params'
 import type { SearchParams } from '@/validators/search_params'
@@ -16,6 +17,7 @@ export default async function CalculatorPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  await requireUser()
   const { state, errors } = readStateFromQuery(await searchParams)
   const panel = await calculate(state)
   return (

@@ -4,7 +4,7 @@ Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculad
 
 Stack: Next.js, Prisma, Postgres e Chakra UI. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md), e o desenho em [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md).
 
-> **Em transição.** Esta versão está sendo portada do app AdonisJS, que fica em [`legacy/`](legacy/README.md) até o fim do port e continua sendo o que roda no PC a partir do `main`. Já portados: a importação dos dados do jogo, as receitas (`/recipes`), os itens (`/items`, `/items/[id]`), o login e a calculadora (`/calculator`). Faltam os planos (e o "Salvar como plano" da calculadora) e o inventário (e o "Sincronizar agora").
+> **Em transição.** Esta versão está sendo portada do app AdonisJS, que fica em [`legacy/`](legacy/README.md) até o fim do port e continua sendo o que roda no PC a partir do `main`. Já portados: a importação dos dados do jogo, as receitas (`/recipes`), os itens (`/items`, `/items/[id]`), o login, a calculadora (`/calculator`) e os planos (`/plans`, `/plans/[id]`, os planos rápidos e o "Salvar como plano"). Falta o inventário (e o "Sincronizar agora").
 
 ## Requisitos
 

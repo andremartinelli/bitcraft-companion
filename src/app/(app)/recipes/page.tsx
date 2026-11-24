@@ -6,6 +6,7 @@ import { Pager } from '@/components/layout/pager'
 import { ListCount } from '@/components/recipes/list_count'
 import { RecipeFilters } from '@/components/recipes/recipe_filters'
 import { RecipeTable } from '@/components/recipes/recipe_table'
+import { requireUser } from '@/lib/session'
 import { pageHref, plainQuery } from '@/lib/urls'
 import { filterOptions, searchRecipes } from '@/models/recipe'
 import { recipeSearchSchema } from '@/validators/recipe'
@@ -22,6 +23,7 @@ export default async function RecipesPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  await requireUser()
   const params = await searchParams
   const filters = parseSearchParams(recipeSearchSchema, params)
   const kind = filters.kind ?? 'crafting'
