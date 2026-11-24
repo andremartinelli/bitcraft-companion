@@ -11,18 +11,23 @@ O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), e
 - Push do branch `claude/fork-vercel-e03995` para o `origin` (`vdarakjian/bitcraft-companion`).
 - Um PR para o `main`, como rascunho. Ele só é juntado no passo 8, depois que o app estiver no ar.
 
-A Vercel importa o repositório pelo app dela no GitHub, e um app do GitHub só pode ser instalado pelo dono da conta. Hoje o repositório é do Vitor, que vai passá-lo para a sua conta (24/11/2026): o passo 2 espera essa transferência. Depois dela, o GitHub redireciona o endereço antigo, mas vale atualizar o remote:
+## 1b. Autorizar a Vercel no repositório (Vitor)
 
-```powershell
-git remote set-url origin https://github.com/<sua-conta>/bitcraft-companion.git
-```
+O repositório fica na conta do Vitor (decidido em 24/11/2026). A Vercel lê o repositório pelo app dela no GitHub, e num repositório de conta pessoal só o dono pode instalar um app. Por isso esse passo é dele, uma vez só:
 
-Se a transferência demorar, há duas saídas: o Vitor autoriza a Vercel no repositório dele, ou o deploy é feito pelo CLI da Vercel a partir do seu PC (`npx vercel deploy --prod`), sem deploy automático a cada push.
+1. Ele abre [github.com/apps/vercel](https://github.com/apps/vercel) e clica em **Install** (ou **Configure**, se já tiver instalado antes).
+2. Escolhe a conta `vdarakjian`.
+3. Em **Repository access**, marca **Only select repositories** e escolhe só o `bitcraft-companion`.
+4. Clica em **Install** (ou **Save**).
+
+A instalação acontece no GitHub. Se depois disso a Vercel pedir login, ele pode fechar a página: não precisa de conta na Vercel.
 
 ## 2. Projeto na Vercel (Você)
 
 1. Crie a conta em [vercel.com](https://vercel.com) (plano Hobby), entrando com o GitHub.
-2. **Add New → Project**, importe o `bitcraft-companion`. O framework (Next.js) é detectado sozinho.
+2. **Add New → Project**. Em **Import Git Repository**, troque a conta do GitHub para `vdarakjian` e importe o `bitcraft-companion`. O framework (Next.js) é detectado sozinho.
+
+   Se a conta `vdarakjian` ou o repositório não aparecerem, mesmo com o passo 1b feito, o deploy sai pelo CLI da Vercel, do seu PC: `npx vercel deploy --prod` na pasta do projeto, a cada mudança. O resto do passo a passo vale igual.
 3. Clique em Deploy. O build não precisa do banco (conferido), então ele passa; as páginas só funcionam depois dos passos 3 a 6.
 4. Em **Settings → Git → Production Branch**, ponha `claude/fork-vercel-e03995` até o passo 8. O cron diário só roda no deploy de produção.
 
