@@ -61,7 +61,7 @@ Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem toke
 
 O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme quando ninguém usa o app):
 
-- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): se o último sync começou há mais de `INVENTORY_STALE_MINUTES` (15), a página abre com o que está salvo e sincroniza em seguida.
+- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): se o último sync começou há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo), a página abre com o que está salvo e sincroniza em seguida.
 - **"Sincronizar agora"**, nas mesmas páginas. Do PC, o mesmo pode ser feito com `npm run inventory:sync`.
 - **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET`.
 

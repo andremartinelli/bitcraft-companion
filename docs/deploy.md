@@ -11,7 +11,13 @@ O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), e
 - Push do branch `claude/fork-vercel-e03995` para o `origin` (`vdarakjian/bitcraft-companion`).
 - Um PR para o `main`, como rascunho. Ele só é juntado no passo 8, depois que o app estiver no ar.
 
-A Vercel importa o repositório pelo app dela no GitHub, e um app do GitHub só pode ser instalado pelo dono da conta. Se o repositório não é do seu login do GitHub, o dono precisa autorizar a Vercel nele. Sem isso, o deploy também funciona pelo CLI da Vercel, a partir do seu PC (`npx vercel deploy --prod`), mas sem deploy automático a cada push.
+A Vercel importa o repositório pelo app dela no GitHub, e um app do GitHub só pode ser instalado pelo dono da conta. Hoje o repositório é do Vitor, que vai passá-lo para a sua conta (24/11/2026): o passo 2 espera essa transferência. Depois dela, o GitHub redireciona o endereço antigo, mas vale atualizar o remote:
+
+```powershell
+git remote set-url origin https://github.com/<sua-conta>/bitcraft-companion.git
+```
+
+Se a transferência demorar, há duas saídas: o Vitor autoriza a Vercel no repositório dele, ou o deploy é feito pelo CLI da Vercel a partir do seu PC (`npx vercel deploy --prod`), sem deploy automático a cada push.
 
 ## 2. Projeto na Vercel (Você)
 
@@ -37,7 +43,7 @@ No console do Neon, deixe o compute fixo em **0,25 CU** (mínimo e máximo) e o 
 | `DATABASE_URL` | A URL do Neon **com pooler** (vem sozinha pelo Storage da Vercel) |
 | `SESSION_SECRET` | Uma chave aleatória nova (comando abaixo). Assina o cookie de login |
 | `CRON_SECRET` | Outra chave aleatória. A Vercel manda essa chave no cron diário |
-| `INVENTORY_STALE_MINUTES` | `15` (o padrão). Veja "Frequência do inventário" abaixo |
+| `INVENTORY_STALE_MINUTES` | `1` (o padrão, decidido em 24/11/2026). Veja "Frequência do inventário" abaixo |
 
 Para gerar cada chave, rode no PowerShell, uma vez para cada:
 
@@ -98,6 +104,6 @@ O app antigo deixa de ser atualizado a partir daí.
 
 ## Frequência do inventário
 
-O app antigo passou a sincronizar a cada minuto (24/11/2026). Na Vercel não existe processo contínuo, e um timer manteria o banco do Neon sempre acordado. Por isso, a sincronização acontece quando alguém abre uma página que mostra o inventário e o último sync tem mais de `INVENTORY_STALE_MINUTES` minutos, além do botão e do cron diário.
+O app antigo passou a sincronizar a cada minuto (24/11/2026), e a versão nova segue isso: `INVENTORY_STALE_MINUTES` é 1 por padrão. Como na Vercel não existe processo contínuo (e um timer manteria o banco do Neon sempre acordado), a sincronização acontece quando alguém abre uma página que mostra o inventário e o último sync tem mais de um minuto, além do botão e do cron diário.
 
-Com `1`, quem está usando o app vê dados de no máximo um minuto atrás, a cada página que abre. Cada sync são umas 8 chamadas à BitJita e alguns segundos em segundo plano, com a página já aberta. O banco já está acordado nessa hora, então o custo no Neon é pequeno. Com `15`, a BitJita é consultada bem menos. O valor pode ser trocado a qualquer hora na Vercel, sem mudar código.
+Cada sync são umas 8 chamadas à BitJita e alguns segundos em segundo plano, com a página já aberta e o aviso "Sincronizando com a BitJita…". O banco já está acordado nessa hora, então o custo no Neon é pequeno. Para consultar a BitJita menos vezes, aumente o valor na Vercel (por exemplo, 15): não precisa mudar código.

@@ -63,18 +63,29 @@ describe('the daily cron', () => {
     expect(bitjita.fake!.calls).toHaveLength(calls)
   })
 
-  test('a sync started a moment ago, even one still running: nothing to do', async () => {
-    await db.syncRun.create({
+  const runningSince = (secondsAgo: number) =>
+    db.syncRun.create({
       data: {
         trigger: 'manual',
         source: 'bitjita',
         status: 'running',
-        // Not abandoned: it still holds the lock
-        startedAt: new Date(Date.now() - 60_000),
+        startedAt: new Date(Date.now() - secondsAgo * 1000),
       },
     })
 
+  test('a sync started a moment ago, even one still running: nothing to do', async () => {
+    await runningSince(10)
+
     const response = await cron(`Bearer ${SECRET}`)
     expect(await response.json()).toEqual({ status: 'skipped' })
+  })
+
+  test('an old one still running holds the lock: it says so', async () => {
+    // Older than the 1 minute, younger than the 5 minutes that make it abandoned
+    await runningSince(120)
+
+    const response = await cron(`Bearer ${SECRET}`)
+    expect(await response.json()).toEqual({ status: 'running' })
+    expect(bitjita.fake!.calls).toHaveLength(0)
   })
 })

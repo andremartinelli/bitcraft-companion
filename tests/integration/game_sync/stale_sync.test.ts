@@ -79,13 +79,13 @@ describe('sync on demand and the daily cron', () => {
     expect(ids).not.toContain(failed.id)
   })
 
-  test('15 minutes unless INVENTORY_STALE_MINUTES says otherwise', () => {
+  test('1 minute unless INVENTORY_STALE_MINUTES says otherwise', () => {
     const saved = process.env.INVENTORY_STALE_MINUTES
     try {
       process.env.INVENTORY_STALE_MINUTES = '30'
       expect(staleMinutes()).toBe(30)
       process.env.INVENTORY_STALE_MINUTES = 'nope'
-      expect(staleMinutes()).toBe(15)
+      expect(staleMinutes()).toBe(1)
     } finally {
       process.env.INVENTORY_STALE_MINUTES = saved
     }

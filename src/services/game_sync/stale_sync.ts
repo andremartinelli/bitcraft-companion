@@ -4,10 +4,14 @@ import { latestSyncRun, pruneSyncRuns } from '@/models/sync_run'
 import type { InventorySource } from '@/services/game_sync/inventory_source'
 import InventorySync from '@/services/game_sync/inventory_sync'
 
-/** Minutes until the inventory is old enough to read again (INVENTORY_STALE_MINUTES) */
+/**
+ * Minutes until the inventory is old enough to read again
+ * (INVENTORY_STALE_MINUTES). 1 by default, as the old app's timer since
+ * 24/11/2026: about 8 calls to BitJita per sync, far below its 250 a minute.
+ */
 export function staleMinutes() {
   const minutes = Number(process.env.INVENTORY_STALE_MINUTES)
-  return minutes > 0 ? minutes : 15
+  return minutes > 0 ? minutes : 1
 }
 
 export interface InventoryFreshness {
