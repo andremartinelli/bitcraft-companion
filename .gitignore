@@ -31,7 +31,8 @@ storage/
 .workspace/
 graphify-out/
 
-# Claude Code: only the shared settings (the cloud sessions' SessionStart hook)
+# Claude Code: only the shared settings (the cloud sessions' SessionStart hook) and the project skills
 .claude/*
 !.claude/settings.json
+!.claude/skills/
 .claude/settings.local.json
