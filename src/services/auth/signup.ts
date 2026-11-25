@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { claimGamePlayer } from '@/models/game_player'
+import { claimGamePlayerIn } from '@/models/game_player'
 import { createUser, CreateUserError } from '@/services/auth/create_user'
 import { findPlayerByNick } from '@/services/game_sync/find_player'
 
@@ -43,17 +43,27 @@ export async function signUp({
       }
     }
   }
+  // A used e-mail says so before BitJita is asked (createUser checks it again)
+  if (
+    gamePlayerUsername &&
+    (await db.user.findUnique({ where: { email }, select: { id: true } }))
+  ) {
+    return { ok: false, error: `Já existe uma conta com o e-mail ${email}.` }
+  }
   // Asked before the account exists: an unknown nick or BitJita down creates nothing
   const found = gamePlayerUsername ? await findPlayerByNick(gamePlayerUsername) : null
   if (found && !found.ok) return found
 
-  let user
   try {
-    user = await createUser({ email, fullName, password, signupIp: ip })
+    // One transaction: the account never exists without the character it asked for
+    const user = await db.$transaction(async (tx) => {
+      const created = await createUser({ email, fullName, password, signupIp: ip }, tx)
+      if (found) await claimGamePlayerIn(tx, created.id, found.player)
+      return created
+    })
+    return { ok: true, user }
   } catch (error) {
     if (error instanceof CreateUserError) return { ok: false, error: error.message }
     throw error
   }
-  if (found) await claimGamePlayer(user.id, found.player)
-  return { ok: true, user }
 }

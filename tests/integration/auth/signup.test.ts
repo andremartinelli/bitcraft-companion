@@ -126,6 +126,15 @@ describe('sign-up', () => {
       expect(await db.user.count()).toBe(0)
     })
 
+    test('a used e-mail says so before BitJita is asked', async () => {
+      await redirectedTo(createAccount(EMPTY, form(valid)))
+
+      expect(
+        (await createAccount(EMPTY, form({ ...valid, gamePlayerUsername: 'Nimbus' }))).error
+      ).toBe('Já existe uma conta com o e-mail vitor@example.com.')
+      expect(request.bitjita!.calls).toHaveLength(0)
+    })
+
     test('the IP limit comes first: BitJita is not asked', async () => {
       for (let i = 0; i < MAX_SIGNUPS_PER_IP; i++) {
         await signUp({

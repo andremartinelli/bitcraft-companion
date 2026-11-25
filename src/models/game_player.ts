@@ -63,20 +63,23 @@ async function setAccountPlayer(tx: Tx, userId: number, playerId: number | null)
  * first time any account has it.
  */
 export function claimGamePlayer(userId: number, found: PlayerInfo) {
-  return db.$transaction(async (tx) => {
-    const player = await tx.gamePlayer.upsert({
-      where: { entityId: found.entityId },
-      create: {
-        username: found.username,
-        entityId: found.entityId,
-        regionId: found.regionId,
-        claims: found.claims,
-      },
-      update: {},
-    })
-    await setAccountPlayer(tx, userId, player.id)
-    return player
+  return db.$transaction((tx) => claimGamePlayerIn(tx, userId, found))
+}
+
+/** claimGamePlayer inside a transaction that also does something else (the sign-up) */
+export async function claimGamePlayerIn(tx: Tx, userId: number, found: PlayerInfo) {
+  const player = await tx.gamePlayer.upsert({
+    where: { entityId: found.entityId },
+    create: {
+      username: found.username,
+      entityId: found.entityId,
+      regionId: found.regionId,
+      claims: found.claims,
+    },
+    update: {},
   })
+  await setAccountPlayer(tx, userId, player.id)
+  return player
 }
 
 /**

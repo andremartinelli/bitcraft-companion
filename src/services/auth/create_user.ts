@@ -1,3 +1,4 @@
+import type { Prisma } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/services/auth/password'
 import { createUserSchema } from '@/validators/user'
@@ -7,25 +8,29 @@ export class CreateUserError extends Error {}
 /**
  * Creates an account: the sign-up page (see signUp) and `npm run users:create`.
  *
+ * @param client a transaction, when the sign-up also gives it a character
  * @throws CreateUserError with the messages to show, in Portuguese
  */
-export async function createUser(input: {
-  email: string
-  fullName?: string | null
-  password: string
-  /** Where a sign-up came from (the limit per IP) */
-  signupIp?: string | null
-}) {
+export async function createUser(
+  input: {
+    email: string
+    fullName?: string | null
+    password: string
+    /** Where a sign-up came from (the limit per IP) */
+    signupIp?: string | null
+  },
+  client: Prisma.TransactionClient = db
+) {
   const parsed = createUserSchema.safeParse(input)
   if (!parsed.success) {
     throw new CreateUserError(parsed.error.issues.map((issue) => issue.message).join(' '))
   }
   const { email, fullName, password } = parsed.data
 
-  if (await db.user.findUnique({ where: { email } })) {
+  if (await client.user.findUnique({ where: { email } })) {
     throw new CreateUserError(`Já existe uma conta com o e-mail ${email}.`)
   }
-  return db.user.create({
+  return client.user.create({
     data: {
       email,
       fullName: fullName || null,
