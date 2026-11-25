@@ -29,6 +29,7 @@ npm-debug.log*
 .remember
 storage/
 .workspace/
+graphify-out/
 
 # Claude Code: only the shared settings (the cloud sessions' SessionStart hook)
 .claude/*

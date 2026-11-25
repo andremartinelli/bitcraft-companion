@@ -59,6 +59,9 @@ ensure_game_data
 say "Usuário de desenvolvimento (prisma/seed.ts)"
 npm run db:seed || warn "o seed falhou; crie um usuário com npm run users:create."
 
+say "graphify ${GRAPHIFY_VERSION} e o grafo do código"
+{ ensure_graphify && update_graph; } || warn "o graphify falhou; o ambiente segue sem o grafo do código."
+
 mkdir -p .workspace
 touch .workspace/ready
 

@@ -26,6 +26,21 @@ O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num
 - **Docs do Next:** a versão instalada traz a documentação em `node_modules/next/dist/docs/`. Consulte lá em vez de confiar na memória. O `agentRules: false` do `next.config.ts` impede o `next dev` de gerar um `AGENTS.md` com esse mesmo aviso a cada execução.
 - **Pull requests:** trabalhe num branch e abra o PR; o merge e as releases são do dono do repositório. A CI (`.github/workflows/ci.yml`) roda typecheck, lint e testes em cada PR.
 
+## Grafo do código (graphify)
+
+O [graphify](https://github.com/safishamsi/graphify) monta em `graphify-out/` (fora do git) um grafo do código: quem chama quem e quais arquivos andam juntos.
+
+- **Na nuvem,** o `cloud-start.sh` instala a versão fixada em `scripts/workspace/lib.sh` (`GRAPHIFY_VERSION`) e refaz o grafo do branch a cada sessão, só com a árvore sintática: sem IA e em uns 4 s. Fora da nuvem: `uv tool install graphifyy==<versão>` e `graphify update .`.
+- **Antes do primeiro grep ou leitura de arquivo** numa pergunta sobre o código:
+  - rode `graphify query "<pergunta>"`;
+  - para a ligação entre duas coisas, `graphify path "<A>" "<B>"`;
+  - para um conceito, `graphify explain "<X>"`.
+  Leia só as linhas que o grafo apontou, e repita esta regra no pedido de todo subagente que explore o código. Os hooks `PreToolUse` do `.claude/settings.json` lembram disso (`scripts/workspace/graphify-hook.sh`, que não faz nada onde o graphify não está instalado).
+- `graphify-out/GRAPH_REPORT.md` só para uma visão geral da arquitetura.
+- **Depois de mudar código,** rode `graphify update .`.
+- O grafo de cada sessão não lê os `.md` com IA. `/graphify .` faz a leitura completa com subagentes e gasta o plano: só quando o dono pedir.
+- **Trocar de versão:** leia o changelog e os hooks da nova, mude o `GRAPHIFY_VERSION` e prove numa sessão nova.
+
 ## Stack
 
 Next.js 16 (App Router, Turbopack) com TypeScript, Prisma 7 sobre Postgres (`@prisma/adapter-pg`), Chakra UI 3, Zod para validação e Vitest para testes.
