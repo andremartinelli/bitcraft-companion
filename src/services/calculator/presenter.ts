@@ -300,7 +300,7 @@ export function present(
     round: number
     steps: PresentedStep[]
     countLabel: string
-    /** Everything in it is done ("Colapsar todos os concluídos") */
+    /** Everything in it is done: "Esconder concluídos" hides it */
     complete: boolean
     /** The round's steps by the profession that makes them */
     professions: {
@@ -337,15 +337,8 @@ export function present(
     complete: profession.entries.every((m) => m.complete),
   }))
   const gatherComplete = materials.every((m) => m.complete)
-  /** How many rounds and professions are all done: the button says it, or hides */
-  const completeCount =
-    Number(gatherComplete) +
-    materialGroups.filter((g) => g.complete).length +
-    rounds.reduce(
-      (sum, group) =>
-        sum + Number(group.complete) + group.professions.filter((p) => p.complete).length,
-      0
-    )
+  /** Lines they have all of, gathered or made: "Esconder concluídos" says how many */
+  const doneCount = materials.filter((m) => m.complete).length + steps.filter((s) => s.done).length
 
   const node = (n: PlanNode): PresentedNode => {
     const choice = n.choice === null ? '' : String(n.choice)
@@ -456,7 +449,7 @@ export function present(
     materialsDone: materials.filter((m) => m.complete).length,
     /** Round 1 has nothing left to gather */
     gatherComplete,
-    completeCount,
+    doneCount,
     /** "Etapas": the crafts by round, from round 2 (round 1 is `materials`) */
     rounds,
     warnings: result.warnings,

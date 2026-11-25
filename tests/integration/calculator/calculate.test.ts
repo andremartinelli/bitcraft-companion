@@ -39,8 +39,8 @@ describe('calculation as the page shows it', () => {
       ['Carpentry'],
     ])
     expect(panel.rounds[0].steps[0].waitingLabel).toBe('10 Rough Wood Trunk')
-    // Nothing done yet: nothing to fold
-    expect(panel.completeCount).toBe(0)
+    // Nothing done yet: nothing to hide
+    expect(panel.doneCount).toBe(0)
   })
 
   test('raw choices and owned quantities change the result', async () => {
@@ -166,6 +166,26 @@ describe('calculation as the page shows it', () => {
     expect(panel.buildRound?.round).toBe(panel.rounds.at(-1)!.round + 1)
     expect(panel.buildRound?.entries[0].waitingLabel).toContain('Rough Plank')
   })
+  test('"Esconder concluídos" counts the lines they have all of', async () => {
+    const plank = await itemId('item', 1030)
+    const stripped = await itemId('item', 1020)
+    const panel = await calculate(
+      {
+        ...emptyState(),
+        targets: [{ itemId: plank, quantity: 10 }],
+        owned: { [stripped]: 20 },
+      },
+      0
+    )
+
+    const done = [
+      ...panel.materials.filter((m) => m.complete).map((m) => m.item.name),
+      ...panel.rounds.flatMap((r) => r.steps.filter((s) => s.done).map((s) => s.item.name)),
+    ]
+    expect(done).toEqual(['Rough Wood Trunk', 'Rough Stripped Wood'])
+    expect(panel.doneCount).toBe(2)
+  })
+
   test('"Trocar receita": a step made in more than one way lists them, the default first', async () => {
     await importTables(withSecondStrippedWoodRecipe())
     const plank = await itemId('item', 1030)

@@ -9,7 +9,7 @@ interface RememberedDetailsProps extends HTMLChakraProps<'details'> {
   /** Where this browser remembers it open or closed */
   rememberKey: string
   defaultOpen?: boolean
-  /** All done: "Colapsar todos os concluídos" closes it */
+  /** All done: "Esconder concluídos" hides it (data-complete) */
   complete?: boolean
   /** False: always starts as `defaultOpen` and forgets toggles (the inventory during a search) */
   remember?: boolean
