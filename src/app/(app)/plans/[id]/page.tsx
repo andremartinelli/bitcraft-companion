@@ -17,9 +17,6 @@ import { inventoryFreshness } from '@/services/game_sync/stale_sync'
 import { quickPlanCatalog } from '@/services/plans/quick_plans'
 import { planIdSchema } from '@/validators/plan'
 
-/** The sync on demand runs in this page's actions */
-export const maxDuration = 60
-
 interface PlanPageProps {
   params: Promise<{ id: string }>
 }

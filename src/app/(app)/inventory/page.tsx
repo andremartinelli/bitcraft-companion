@@ -15,9 +15,6 @@ import { parseSearchParams, type SearchParams } from '@/validators/search_params
 
 export const metadata: Metadata = { title: 'Inventário' }
 
-/** The sync on demand runs in this page's actions */
-export const maxDuration = 60
-
 /** The first tab is the default */
 const TABS: { value: InventoryTab; label: string }[] = [
   { value: 'professions', label: 'Por profissão' },
