@@ -24,7 +24,20 @@ O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num
   - O proxy do GitHub da sessão só deixa a `api.github.com` ler os repositórios anexados à sessão. A importação normal pede o commit do BitCraft_GameData a essa API e recebe 403. Por isso a receita baixa as mesmas tabelas da ponta do branch pelo `raw.githubusercontent.com` e importa da pasta (`--path`).
   - O inventário do app de dev lê o `bitjita.com`, que precisa estar liberado na rede do ambiente. Sem ele, as páginas abrem, mas o sync falha.
 - **Docs do Next:** a versão instalada traz a documentação em `node_modules/next/dist/docs/`. Consulte lá em vez de confiar na memória. O `agentRules: false` do `next.config.ts` impede o `next dev` de gerar um `AGENTS.md` com esse mesmo aviso a cada execução.
-- **Pull requests:** trabalhe num branch e abra o PR; o merge e as releases são do dono do repositório. A CI (`.github/workflows/ci.yml`) roda typecheck, lint e testes em cada PR.
+- **Pull requests:** trabalhe num branch e abra o PR; o merge e as releases são do dono do repositório. A CI (`.github/workflows/ci.yml`) roda typecheck, lint e testes em cada PR. O merge é pelo auto-merge do GitHub (abaixo).
+
+## Merge dos PRs
+
+O `main` tem um ruleset no GitHub ("Main protection"): só entra commit com a CI ("Testes") verde num branch em dia com o `main`, e ninguém força push nem apaga o `main`. O merge é squash, pelo auto-merge do GitHub. Merge no `main` não publica nada: produção só muda com uma release.
+
+- **Quando o dono disser para fazer o merge de um PR,** ligue o auto-merge. O GitHub faz o merge (squash, o único método ligado no repositório) sozinho quando a CI passar. Nunca ligue o auto-merge nem faça o merge sem o pedido dele.
+  - Na nuvem o proxy recusa o GraphQL do GitHub, e o `gh pr merge --auto` usa GraphQL. Use a rota REST da nuvem: `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge -f merge_method=squash`. Sem o `merge_method`, ela pede merge commit e o GitHub recusa. Fora da nuvem: `gh pr merge <n> --auto --squash`.
+  - PR já em dia e com a CI verde não aceita auto-merge: faça o merge direto, `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/merge -f merge_method=squash`.
+  - O `.claude/settings.json` deixa em "ask" os comandos e as ferramentas do GitHub MCP que fazem merge ou ligam o auto-merge. Numa sessão na nuvem com mais de um repositório esse arquivo não vale: lá, o pedido do dono no chat é a única aprovação.
+  - Na nuvem o `gh` grava, mesmo com o `gh auth status` dizendo que o token é inválido: o proxy da sessão põe a credencial.
+- **PR atrás do `main`** (outro PR entrou antes): o auto-merge espera. Atualize com `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/update-branch` (o `gh pr update-branch` usa GraphQL; ou o botão "Update branch" do PR); a CI roda de novo e o merge sai quando ela passar.
+- Não espere a CI: diga que o auto-merge está ligado e que o resultado aparece no PR. Com a CI vermelha o merge não sai. Para cancelar: `gh api -X DELETE repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge`.
+- Commit novo de quem não tem acesso de escrita (um fork) desliga o auto-merge: o dono liga de novo depois de revisar.
 
 ## Grafo do código (graphify)
 
