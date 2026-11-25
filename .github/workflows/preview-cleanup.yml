@@ -8,7 +8,7 @@
 # Repository secrets (Settings → Secrets and variables → Actions):
 # - NEON_API_KEY: a Neon API key
 # - NEON_PROJECT_ID: the project's id in Neon (Settings → General)
-# Step by step in docs/deploy.md (Previews).
+# The setup steps are kept outside this repository (owner's private notes).
 name: Limpar bancos dos previews
 
 on:
@@ -32,8 +32,8 @@ jobs:
     steps:
       - name: Confere os segredos
         run: |
-          test -n "$NEON_API_KEY" || { echo "::error::Falta o segredo NEON_API_KEY (veja docs/deploy.md)."; exit 1; }
-          test -n "$NEON_PROJECT_ID" || { echo "::error::Falta o segredo NEON_PROJECT_ID (veja docs/deploy.md)."; exit 1; }
+          test -n "$NEON_API_KEY" || { echo "::error::Falta o segredo NEON_API_KEY."; exit 1; }
+          test -n "$NEON_PROJECT_ID" || { echo "::error::Falta o segredo NEON_PROJECT_ID."; exit 1; }
       - name: Apaga os branches
         run: |
           set -euo pipefail
