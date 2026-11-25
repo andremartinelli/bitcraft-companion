@@ -16,6 +16,7 @@ import type { ReactNode } from 'react'
 import { updateRecipeChoice } from '@/app/(app)/recipe_choices/actions'
 import { CalculatorResult } from '@/components/calculator/calculator_result'
 import { ItemPicker } from '@/components/calculator/item_picker'
+import { addItemList } from '@/services/calculator/item_list'
 import { ItemChip, StaticChip } from '@/components/items/item_chip'
 import { CommitInput } from '@/components/ui/commit_input'
 import { formatAgo } from '@/lib/format'
@@ -88,6 +89,11 @@ export function CalculatorView({
       <ItemPicker
         onAddItem={(itemId) => change(addTarget(state, itemId))}
         onAddBuilding={(recipeId) => change(addBuilding(state, recipeId))}
+        onAddList={(list) => {
+          const added = addItemList(state, list)
+          if (!added.errors.length) change(added.state)
+          return added.errors
+        }}
         actions={pickerActions}
       />
 

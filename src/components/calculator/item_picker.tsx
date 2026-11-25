@@ -1,14 +1,17 @@
 'use client'
 
 import { Badge, Box, Button, Field, Flex, Input, Spinner, Text, Wrap } from '@chakra-ui/react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
 import { ItemIcon } from '@/components/items/item_icon'
 import { rarityLabel } from '@/lib/format'
 import type { BuildingSearchResult, ItemSearchResult } from '@/models/item'
+import { looksLikeList, type ResolvedList } from '@/services/calculator/item_list'
 
 interface ItemPickerProps {
   onAddItem: (itemId: number) => void
   onAddBuilding: (recipeId: number) => void
+  /** A pasted list, resolved: adds all of it, or returns why it can't */
+  onAddList: (list: ResolvedList) => string[]
   /** Next to the field: "Planos rápidos" in a plan */
   actions?: ReactNode
 }
@@ -23,14 +26,16 @@ interface Suggestions {
  * "Adicionar item ou construção": suggestions while typing, from
  * /api/items/search. A click adds it to the calculation.
  */
-export function ItemPicker({ onAddItem, onAddBuilding, actions }: ItemPickerProps) {
+export function ItemPicker({ onAddItem, onAddBuilding, onAddList, actions }: ItemPickerProps) {
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null)
   const [loading, setLoading] = useState(false)
+  const [listErrors, setListErrors] = useState<string[]>([])
   const input = useRef<HTMLInputElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const request = useRef<AbortController | null>(null)
 
   const search = (q: string) => {
+    setListErrors([])
     if (timer.current) clearTimeout(timer.current)
     request.current?.abort()
     if (q.trim().length < 2) {
@@ -56,6 +61,33 @@ export function ItemPicker({ onAddItem, onAddBuilding, actions }: ItemPickerProp
     }, 250)
   }
 
+  /**
+   * A list (several lines, JSON, or "10 Rough Plank") is read from the
+   * clipboard: a one-line input would drop its line breaks. All or nothing.
+   */
+  const paste = async (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData('text')
+    if (!looksLikeList(text)) return
+    event.preventDefault()
+    search('')
+    setLoading(true)
+    try {
+      const response = await fetch('/api/items/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      const list: ResolvedList = await response.json()
+      const errors = list.errors?.length ? list.errors : onAddList(list)
+      setListErrors(errors)
+      if (!errors.length && input.current) input.current.value = ''
+    } catch {
+      setListErrors(['Não deu para ler a lista agora. Tente colar de novo.'])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const pick = (add: () => void) => {
     add()
     setSuggestions(null)
@@ -64,7 +96,7 @@ export function ItemPicker({ onAddItem, onAddBuilding, actions }: ItemPickerProp
 
   return (
     <Box mb="4">
-      <Field.Root>
+      <Field.Root invalid={listErrors.length > 0}>
         <Field.Label>Adicionar item ou construção</Field.Label>
         <Flex gap="2" align="start" wrap="wrap" width="full">
           <Box position="relative" flex="1" minW="60" maxW="xl">
@@ -75,6 +107,7 @@ export function ItemPicker({ onAddItem, onAddBuilding, actions }: ItemPickerProp
               placeholder="Ex.: Pyrelite Axe, Simple Plank, Rough Loom"
               autoComplete="off"
               onChange={(event) => search(event.currentTarget.value)}
+              onPaste={paste}
             />
             {loading && (
               <Spinner size="xs" position="absolute" right="3" top="3" color="fg.muted" />
@@ -82,6 +115,18 @@ export function ItemPicker({ onAddItem, onAddBuilding, actions }: ItemPickerProp
           </Box>
           {actions}
         </Flex>
+        {listErrors.length > 0 ? (
+          <Field.ErrorText display="block">
+            Nada foi adicionado. Corrija a lista e cole de novo:
+            {listErrors.map((message) => (
+              <Text key={message}>{message}</Text>
+            ))}
+          </Field.ErrorText>
+        ) : (
+          <Field.HelperText>
+            …ou cole uma lista, uma linha por item: 10 Rough Plank
+          </Field.HelperText>
+        )}
       </Field.Root>
       {suggestions && (
         <Box mt="2" aria-live="polite">
