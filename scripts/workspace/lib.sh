@@ -288,3 +288,21 @@ ensure_game_data() {
 postgres_version() {
   pg_psql -tAc 'SHOW server_version' | cut -d' ' -f1
 }
+
+# graphify: the code's knowledge graph in graphify-out/ (CLAUDE.md, "Grafo do
+# código"). Pinned: read the new version's changelog and hooks before bumping.
+GRAPHIFY_VERSION=0.9.119
+
+# Installs graphify GRAPHIFY_VERSION with uv (a no-op when it is already there)
+# and its /graphify skill for Claude Code (user scope, outside git).
+ensure_graphify() {
+  export PATH="$HOME/.local/bin:$PATH"
+  uv tool install -q "graphifyy==${GRAPHIFY_VERSION}" && graphify install >/dev/null
+}
+
+# Rebuilds graphify-out/ (in .gitignore) from the branch's code: syntax trees
+# only, no LLM, about 4 s. --force: the graph follows the branch even when it
+# shrinks (graphify keeps the old graph otherwise).
+update_graph() {
+  graphify update . --force >/dev/null
+}

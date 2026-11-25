@@ -38,6 +38,10 @@ install_deps
 migrate_databases
 ensure_game_data
 
+# A cache built before graphify was pinned (or with another version) gets it here.
+graph_note=", grafo do graphify em dia (graphify-out/)"
+{ ensure_graphify && update_graph; } || graph_note=", SEM o grafo do graphify (veja ensure_graphify em scripts/workspace/lib.sh)"
+
 node_note=""
 case "$(node -v)" in
   "v$(ci_node_major)."*) ;;
@@ -49,4 +53,4 @@ case "$game_data" in
   local) game_note="dados do jogo da ponta do branch cereal/cs (pelo raw.githubusercontent.com)" ;;
   *) game_note="dados do jogo do commit ${game_data:0:12}" ;;
 esac
-echo "Postgres $(postgres_version) em 127.0.0.1:${PG_PORT} (bitcraft_dev e bitcraft_test, migrations em dia), node $(node -v)${node_note}, ${game_note}."
+echo "Postgres $(postgres_version) em 127.0.0.1:${PG_PORT} (bitcraft_dev e bitcraft_test, migrations em dia), node $(node -v)${node_note}, ${game_note}${graph_note}."
