@@ -57,12 +57,13 @@ async function closestName(name: string): Promise<string | null> {
       ' OR '
     )
   const candidates = await db.$queryRaw<{ name: string }[]>`
-    SELECT DISTINCT name FROM (
+    SELECT name FROM (
       SELECT i.name FROM items i WHERE i.removed_at IS NULL AND (${any('i.name')})
       UNION
       SELECT r.name FROM recipes r
       WHERE r.removed_at IS NULL AND r.kind = 'construction' AND (${any('r.name')})
     ) names
+    ORDER BY abs(length(name) - ${name.length}::int)
     LIMIT 500`
   const wanted = name.toLowerCase()
   let best: { name: string; distance: number } | null = null
@@ -132,6 +133,16 @@ export async function resolveItemList(text: string): Promise<ResolvedList> {
     }
   }
 
+  for (const total of itemTotals.values()) {
+    if (total.quantity > MAX_QUANTITY) {
+      errors.push(`“${total.name}”: as linhas da lista somam mais que 100.000.`)
+    }
+  }
+  for (const total of buildingTotals.values()) {
+    if (total.quantity > MAX_BUILDING_QUANTITY) {
+      errors.push(`“${total.name}”: as linhas da lista somam mais que 1.000.`)
+    }
+  }
   if (errors.length) return { items: [], buildings: [], errors }
   return { items: [...itemTotals.values()], buildings: [...buildingTotals.values()], errors: [] }
 }

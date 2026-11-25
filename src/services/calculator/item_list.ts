@@ -36,7 +36,8 @@ export const MAX_LIST_LENGTH = 20_000
 const BULLET = /^(?:[-*•]|\d+[.)])\s+/
 const QUANTITY = String.raw`(\d{1,3}(?:[.,]\d{3})+|\d+)`
 const LEADING = new RegExp(String.raw`^${QUANTITY}\s*[x×]?\s+(.+)$`, 'i')
-const TRAILING = new RegExp(String.raw`^(.+?)\s*(?:[x×]\s*|:\s*)${QUANTITY}$`, 'i')
+// The x needs a space before it: "Flax 10" is a name without a quantity, not "Fla" x 10
+const TRAILING = new RegExp(String.raw`^(.+?)(?:\s+[x×]\s*|\s*:\s*)${QUANTITY}$`, 'i')
 
 /** "1.000" and "1,000" are a thousand: lists have whole quantities */
 const quantityOf = (text: string) => Number(text.replace(/[.,]/g, ''))
@@ -46,7 +47,7 @@ const quote = (text: string) => `“${text.length > 60 ? `${text.slice(0, 60)}�
 /** The pasted text is a list, not a name to search ("Rough Plank" stays a search) */
 export function looksLikeList(text: string) {
   const trimmed = text.trim()
-  if (/[\r\n]/.test(trimmed) || trimmed.startsWith('[')) return true
+  if (/[\r\n]/.test(trimmed) || /^(\[|```)/.test(trimmed)) return true
   const line = trimmed.replace(BULLET, '')
   return LEADING.test(line) || TRAILING.test(line)
 }
@@ -85,8 +86,9 @@ function parseJson(text: string): ParsedEntry[] {
 
 /** Every line or JSON entry, in order; blank lines are skipped */
 export function parseItemList(text: string): ParsedEntry[] {
-  const trimmed = text.trim()
-  if (trimmed.startsWith('[')) return parseJson(trimmed)
+  // Assistants often wrap JSON in a ```json fence
+  const trimmed = text.trim().replace(/^```\w*\s*([\s\S]*?)\s*```$/, '$1')
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) return parseJson(trimmed)
   const entries = text.split(/\r?\n/).flatMap((raw, index): ParsedEntry[] => {
     if (!raw.trim()) return []
     const where = `Linha ${index + 1}`

@@ -42,6 +42,12 @@ describe('resolving a pasted list', () => {
     ])
   })
 
+  test('repeated lines over the limit say so', async () => {
+    expect((await resolveItemList('60000 Rough Plank\n60000 Rough Plank')).errors).toEqual([
+      '“Rough Plank”: as linhas da lista somam mais que 100.000.',
+    ])
+  })
+
   test('a quantity over the limit is an error on its line', async () => {
     expect((await resolveItemList('100001 Rough Plank')).errors).toEqual([
       'Linha 1, “Rough Plank”: a quantidade vai de 1 a 100.000.',

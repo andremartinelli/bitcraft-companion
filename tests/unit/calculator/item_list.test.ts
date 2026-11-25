@@ -53,6 +53,18 @@ describe('pasted item list', () => {
     ])
   })
 
+  test('a name ending in x is not a quantity; a fenced JSON is JSON', () => {
+    expect(parseItemList('Rough Flax 10')).toEqual([
+      { error: 'Linha 1, “Rough Flax 10”: falta a quantidade (ex.: 10 Rough Plank).' },
+    ])
+    expect(parseItemList('Rough Flax x10')).toEqual([
+      { where: 'Linha 1', name: 'Rough Flax', quantity: 10 },
+    ])
+    const fenced = '```json\n[{"name": "Rough Plank", "quantity": 10}]\n```'
+    expect(looksLikeList(fenced)).toBe(true)
+    expect(parseItemList(fenced)).toEqual([{ where: 'Item 1', name: 'Rough Plank', quantity: 10 }])
+  })
+
   test('levenshtein', () => {
     expect(levenshtein('rough plnk', 'rough plank')).toBe(1)
     expect(levenshtein('', 'abc')).toBe(3)

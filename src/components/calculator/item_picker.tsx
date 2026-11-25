@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge, Box, Button, Field, Flex, Input, Spinner, Text, Wrap } from '@chakra-ui/react'
-import { useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
 import { ItemIcon } from '@/components/items/item_icon'
 import { rarityLabel } from '@/lib/format'
 import type { BuildingSearchResult, ItemSearchResult } from '@/models/item'
@@ -33,6 +33,11 @@ export function ItemPicker({ onAddItem, onAddBuilding, onAddList, actions }: Ite
   const input = useRef<HTMLInputElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const request = useRef<AbortController | null>(null)
+  // The list arrives after a request: add it to the state as it is then, not at the paste
+  const addList = useRef(onAddList)
+  useEffect(() => {
+    addList.current = onAddList
+  })
 
   const search = (q: string) => {
     setListErrors([])
@@ -77,8 +82,12 @@ export function ItemPicker({ onAddItem, onAddBuilding, onAddList, actions }: Ite
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
-      const list: ResolvedList = await response.json()
-      const errors = list.errors?.length ? list.errors : onAddList(list)
+      const body = await response.json()
+      const errors: string[] = !response.ok
+        ? (body.errors ?? [body.error ?? 'Não deu para ler a lista agora. Tente colar de novo.'])
+        : body.errors.length
+          ? body.errors
+          : addList.current(body as ResolvedList)
       setListErrors(errors)
       if (!errors.length && input.current) input.current.value = ''
     } catch {
