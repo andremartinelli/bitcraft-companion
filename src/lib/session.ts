@@ -20,6 +20,8 @@ export interface CurrentUser {
   id: number
   email: string
   fullName: string | null
+  /** The account's character (Meu personagem), or null */
+  gamePlayerId: number | null
 }
 
 /** The account of a session token, if the token is valid and the account still exists */
@@ -28,7 +30,7 @@ async function userFromToken(token: string | undefined): Promise<CurrentUser | n
   if (!userId) return null
   return db.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, fullName: true },
+    select: { id: true, email: true, fullName: true, gamePlayerId: true },
   })
 }
 

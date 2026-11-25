@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       gameDataDate={gameDataDate}
       userName={user.fullName || user.email}
       inviteCount={invites}
+      hasCharacter={user.gamePlayerId !== null}
     >
       {children}
     </AppShell>

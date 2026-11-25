@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
+import { claimGamePlayer } from '@/models/game_player'
 import { createUser, CreateUserError } from '@/services/auth/create_user'
+import { findPlayerByNick } from '@/services/game_sync/find_player'
 
 /** New accounts from one IP in a day: the app is open, and the free plans are small */
 export const MAX_SIGNUPS_PER_IP = 5
@@ -11,18 +13,22 @@ export type SignupResult =
 
 /**
  * The sign-up page: anyone can create an account, up to MAX_SIGNUPS_PER_IP
- * a day from the same IP. Without an IP (local), there is no limit.
+ * a day from the same IP. Without an IP (local), there is no limit. With a
+ * nick, the account is created only when BitJita finds that character, and
+ * starts with it (Meu personagem).
  */
 export async function signUp({
   email,
   fullName,
   password,
+  gamePlayerUsername = null,
   ip = null,
   now = new Date(),
 }: {
   email: string
   fullName: string
   password: string
+  gamePlayerUsername?: string | null
   ip?: string | null
   now?: Date
 }): Promise<SignupResult> {
@@ -37,10 +43,17 @@ export async function signUp({
       }
     }
   }
+  // Asked before the account exists: an unknown nick or BitJita down creates nothing
+  const found = gamePlayerUsername ? await findPlayerByNick(gamePlayerUsername) : null
+  if (found && !found.ok) return found
+
+  let user
   try {
-    return { ok: true, user: await createUser({ email, fullName, password, signupIp: ip }) }
+    user = await createUser({ email, fullName, password, signupIp: ip })
   } catch (error) {
     if (error instanceof CreateUserError) return { ok: false, error: error.message }
     throw error
   }
+  if (found) await claimGamePlayer(user.id, found.player)
+  return { ok: true, user }
 }

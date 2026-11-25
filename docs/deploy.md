@@ -81,7 +81,7 @@ A importação no Neon roda pelo workflow [`.github/workflows/game-data-import.y
 
 ## 8. Personagens (Vocês)
 
-Cada um cria a sua conta e, em **Inventário → Meu personagem**, informa o nick do seu personagem. Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha. Quem seguia vários personagens antes de 25/11/2026 escolhe ali qual é o seu ("É o meu"); os outros entram nos planos pela conta de quem joga com eles. Para planos em conjunto, alguém cria um grupo em **Conta**, convida os outros pelo e-mail e manda a cada um o link do convite ("Copiar link"); quem abre o link aceita. Depois, o dono do plano o compartilha pelo menu "Compartilhar com o grupo".
+Cada um cria a sua conta e informa o nick do seu personagem: no cadastro (campo opcional) ou depois, em **Inventário → Meu personagem**. Quem não tem personagem vê um aviso ⚠️ na aba Inventário e na calculadora, com o link para Meu personagem. Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha. Quem seguia vários personagens antes de 25/11/2026 digita ali o nick do seu; os outros entram nos planos pela conta de quem joga com eles. Para planos em conjunto, alguém cria um grupo em **Conta**, convida os outros pelo e-mail e manda a cada um o link do convite ("Copiar link"); quem abre o link aceita. Depois, o dono do plano o compartilha pelo menu "Compartilhar com o grupo".
 
 ## 9. Juntar no `main` (feito)
 

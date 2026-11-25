@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { optionalNick } from '@/validators/game_player'
 
 /** E-mails are stored and compared in lowercase */
 export const email = () =>
@@ -24,7 +25,7 @@ export const createUserSchema = z.object({
   password: password(),
 })
 
-/** POST /signup: the account, with the password typed twice */
+/** POST /signup: the account, with the password typed twice and, optionally, the character's nick */
 export const signupSchema = z
   .object({
     fullName: z
@@ -35,6 +36,7 @@ export const signupSchema = z
     email: email(),
     password: password(),
     passwordConfirmation: z.string(),
+    gamePlayerUsername: optionalNick(),
   })
   .refine((data) => data.password === data.passwordConfirmation, {
     error: 'As senhas não conferem.',

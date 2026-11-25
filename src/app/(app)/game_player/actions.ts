@@ -2,10 +2,9 @@
 
 import { refresh } from 'next/cache'
 import { requireUser } from '@/lib/session'
-import { chooseLegacyPlayer, claimGamePlayer, releaseGamePlayer } from '@/models/game_player'
-import { BitJitaError } from '@/services/game_sync/bitjita_client'
-import { inventorySource } from '@/services/game_sync/inventory_source'
-import { gamePlayerIdSchema, gamePlayerSchema } from '@/validators/game_player'
+import { claimGamePlayer, releaseGamePlayer } from '@/models/game_player'
+import { findPlayerByNick } from '@/services/game_sync/find_player'
+import { gamePlayerSchema } from '@/validators/game_player'
 
 export interface GamePlayerFormState {
   error: string | null
@@ -34,37 +33,15 @@ export async function createGamePlayer(
   if (!parsed.success) return failed(parsed.error.issues[0].message, typed)
   const { username } = parsed.data
 
-  let found
-  try {
-    found = await inventorySource().findPlayer(username)
-  } catch (error) {
-    if (!(error instanceof BitJitaError)) throw error
-    return failed(`Não foi possível consultar a BitJita agora: ${error.message}.`, typed)
-  }
-  if (!found) return failed(`Nenhum personagem chamado "${username}" na BitJita.`, typed)
+  const found = await findPlayerByNick(username)
+  if (!found.ok) return failed(found.error, typed)
 
-  const player = await claimGamePlayer(user.id, found)
+  const player = await claimGamePlayer(user.id, found.player)
   refresh()
   return {
     error: null,
     notice: `${player.username} é o seu personagem. Sincronize o inventário para ver os itens.`,
     username: '',
-  }
-}
-
-/**
- * PATCH /game_player: an account that followed several characters chooses
- * its own ("É o meu"); the others leave its list.
- */
-export async function updateGamePlayer(id: number): Promise<{ notice: string }> {
-  const user = await requireUser()
-  const playerId = gamePlayerIdSchema.safeParse(id)
-  const chosen = playerId.success ? await chooseLegacyPlayer(user.id, playerId.data) : null
-  refresh()
-  return {
-    notice: chosen
-      ? `${chosen.username} é o seu personagem.`
-      : 'Esse personagem já não estava na sua lista.',
   }
 }
 

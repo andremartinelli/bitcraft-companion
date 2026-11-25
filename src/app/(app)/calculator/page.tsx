@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { UrlCalculator } from '@/components/calculator/url_calculator'
+import { NoCharacterNotice } from '@/components/game_players/no_character_notice'
 import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { requireUser } from '@/lib/session'
@@ -25,7 +26,7 @@ export default async function CalculatorPage({
 }) {
   const user = await requireUser()
   const { state, errors } = readStateFromQuery(await searchParams)
-  const { playerIds } = await inventoryScope(user.id)
+  const { playerIds, hasMine } = await inventoryScope(user.id)
   const [panel, freshness] = await Promise.all([
     // The account's recipes where the URL chose none; the URL keeps only its own
     withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, playerIds)),
@@ -41,7 +42,13 @@ export default async function CalculatorPage({
         state={state}
         panel={panel}
         errors={errors}
-        inventoryControls={freshness.hasPlayers && <SyncControls stale={freshness.stale} />}
+        inventoryControls={
+          // Keyed: a fragment from a server component reaches the client as a list
+          <>
+            {!hasMine && <NoCharacterNotice key="no-character" />}
+            {freshness.hasPlayers && <SyncControls key="sync" stale={freshness.stale} />}
+          </>
+        }
       />
     </>
   )

@@ -1,87 +1,107 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculadora de custo, planos e o inventário dos seus personagens. Roda de graça na Vercel, com o banco no Neon.
+**English** · [Português](README.pt-BR.md)
 
-Stack: Next.js, Prisma, Postgres e Chakra UI. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md), e o desenho em [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md).
+A companion app for BitCraft Online 1.0: look up recipes and items, calculate costs, keep plans, and see the inventory of your character and of the people in your plans. It runs for free on Vercel, with the database on Neon.
 
-Produção muda a cada release publicada no GitHub: o workflow roda os testes, as migrations no Neon e o deploy na Vercel. O passo a passo está em [docs/deploy.md](docs/deploy.md). Esta versão substituiu o app AdonisJS que rodava no PC; ele ficou no histórico do git, antes do merge de 24/11/2026.
+Stack: Next.js, Prisma, Postgres and Chakra UI. The project's conventions (Rails style) are in [CLAUDE.md](CLAUDE.md), and the design in [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md). The app's interface and the rest of the documentation are in Portuguese (pt-BR).
 
-## Requisitos
+Production changes with each release published on GitHub: the workflow runs the tests, the migrations on Neon and the deploy to Vercel. The step by step is in [docs/deploy.md](docs/deploy.md). This version replaced the AdonisJS app that ran on a PC; it stays in the git history, before the merge of 24/11/2026.
 
-- Node.js 24 ou mais novo
+## Requirements
+
+- Node.js 24 or newer
 - Git
 
-## Desenvolvimento nas sessões do Claude Code na nuvem
+## Development in Claude Code cloud sessions
 
-O projeto é desenvolvido em sessões do Claude Code na nuvem (claude.ai/code). O ambiente roda `scripts/workspace/cloud-setup.sh` uma vez (Node e Postgres nas versões da CI, `.env` só com valores locais, dependências, migrations, dados do jogo e um usuário de desenvolvimento), e cada sessão liga o Postgres sozinha pelo hook de início (`scripts/workspace/cloud-start.sh`). Depois é só `npm test` ou `npm run dev`. Os detalhes estão no [CLAUDE.md](CLAUDE.md).
+The project is developed in Claude Code cloud sessions (claude.ai/code). The environment runs `scripts/workspace/cloud-setup.sh` once (Node and Postgres in the CI versions, a `.env` with local values only, dependencies, migrations, game data and a development user), and each session starts Postgres on its own through the start hook (`scripts/workspace/cloud-start.sh`). Then just `npm test` or `npm run dev`. The details are in [CLAUDE.md](CLAUDE.md).
 
-## Instalação local (sem a nuvem)
+## Local setup (without the cloud)
 
 ```bash
 npm install
-cp .env.example .env          # e preencha SESSION_SECRET e CRON_SECRET
+cp .env.example .env          # and fill in SESSION_SECRET and CRON_SECRET
 ```
 
-O Postgres local roda com o `prisma dev`, sem instalar serviço nem Docker. Abra dois terminais e deixe-os abertos:
+Local Postgres runs with `prisma dev`, without installing a service or Docker. Open two terminals and leave them open:
 
 ```bash
-npm run db:dev                # banco de dev, porta 51214
-npm run db:test               # banco dos testes, porta 51224
+npm run db:dev                # dev database, port 51214
+npm run db:test               # test database, port 51224
 ```
 
-Depois, noutro terminal:
+Then, in another terminal:
 
 ```bash
-npx prisma migrate dev        # cria as tabelas no banco de dev
-npx prisma migrate deploy     # e no de testes, com DATABASE_URL_UNPOOLED apontando para a porta 51224
-npm run game-data:import      # dados do jogo (uns 15 s); rode de novo a cada patch
+npx prisma migrate dev        # creates the tables in the dev database
+npx prisma migrate deploy     # and in the test one, with DATABASE_URL_UNPOOLED pointing to port 51224
+npm run game-data:import      # game data (about 15 s); run it again on every patch
 npm run dev                   # http://localhost:3100
 ```
 
-O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e grava no banco de `DATABASE_URL_UNPOOLED`. Em produção, ele roda pelo workflow manual "Importar dados do jogo" do GitHub Actions, contra o Neon, e nunca na Vercel ([docs/deploy.md](docs/deploy.md), passo 6):
-- o que é novo entra;
-- o que saiu do jogo é marcado como removido (nada é apagado);
-- itens renomeados aparecem no resumo.
+`game-data:import` downloads the data from the community repository [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) and writes it to the `DATABASE_URL_UNPOOLED` database. In production it runs through the manual "Importar dados do jogo" GitHub Actions workflow, against Neon, and never on Vercel ([docs/deploy.md](docs/deploy.md), step 6):
+- what is new comes in;
+- what left the game is marked as removed (nothing is deleted);
+- renamed items show up in the summary.
 
-Opções: `-- --commit=<sha>` importa um commit específico, e `-- --path=<pasta>` lê os JSONs de uma pasta local.
+Options: `-- --commit=<sha>` imports a specific commit, and `-- --path=<folder>` reads the JSONs from a local folder.
 
-## Contas
+## Accounts
 
-O app fica público na internet e **sempre pede login**. Qualquer pessoa cria uma conta em `/signup`, com senha de no mínimo 8 caracteres. Para segurar os planos grátis, cada IP cria no máximo 5 contas por dia. Também dá para criar uma conta pela linha de comando:
+The app is public on the internet and **always asks for a login**. Anyone can create an account at `/signup`, with a password of at least 8 characters. To stay within the free plans, each IP creates at most 5 accounts a day. The character's nick is optional on sign-up: when given, the app checks it on BitJita before creating the account, and the account starts with that character. If BitJita does not find the nick or is down, the account is not created and the form says why; the field can be cleared to go on. An account can also be created from the command line:
 
 ```bash
-npm run users:create -- --email=voce@exemplo.com --name="Seu nome"
+npm run users:create -- --email=you@example.com --name="Your name"
 ```
 
-Para desenvolver, `npm run db:seed` cria um usuário de teste. O e-mail e a senha estão em `prisma/seed.ts`, e o seed se recusa a rodar fora de um banco local.
+For development, `npm run db:seed` creates a test user. Its e-mail and password are in `prisma/seed.ts`, and the seed refuses to run outside a local database.
 
-Depois de 10 senhas erradas seguidas para o mesmo e-mail, ele fica bloqueado por 15 minutos, mesmo com a senha certa. A sessão vale 30 dias, e "Sair" a encerra neste navegador.
+After 10 wrong passwords in a row for the same e-mail, it is locked for 15 minutes, even with the right password. A session lasts 30 days, and "Sair" ends it in that browser.
 
-Cada conta tem os seus planos. O dono de um plano pode compartilhá-lo com outra conta pelo e-mail: ela vê e edita, e só o dono apaga. Quem recebeu pode sair do plano.
+Each account has its own plans. For shared plans, an account creates a group in **Conta** and sends the invite link to the others. A plan's owner shares it with the whole group ("Todos do grupo") or with people of the group one by one: whoever receives it sees and edits it, and only the owner deletes it.
 
-## Inventário
+## Inventory
 
-Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem token de jogador. Cada conta informa, em **Meu personagem** (`/game_player`), o seu personagem; o nick é conferido na BitJita antes de ser salvo. Um personagem de duas contas é lido uma vez só. O inventário, a calculadora rápida e o "Você tem" de cada item usam o personagem da conta. Um plano usa também os personagens das pessoas com quem ele está compartilhado, cada um uma vez; "Usar apenas meu inventário" deixa só o seu.
+Inventories come from the public [BitJita](https://bitjita.com) API, without any player token. Each account has one character, given on sign-up or in **Meu personagem** (`/game_player`); the nick is checked on BitJita before it is saved. A character of two accounts is read only once. An account without a character sees a ⚠️ warning on the Inventário tab and in the calculator, with a link to Meu personagem. The inventory page, the quick calculator and each item's "Você tem" use the account's character. A plan also uses the characters of the plan's people (its owner and whoever received it), each once; "Usar apenas meu inventário" keeps only yours. The typed "já tenho" wins over the inventory.
 
-O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme quando ninguém usa o app):
+The app reads BitJita in three ways, and never on a timer (the Neon database sleeps when nobody uses the app):
 
-- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da página que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta. Até 20 por vez, os mais antigos primeiro.
-- **"Sincronizar agora"**, nas mesmas páginas, para os personagens da página (até 20). Do PC, `npm run inventory:sync` lê todos.
-- **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET` e lê até 20 personagens que ninguém olhou na última hora.
+- **When a page that shows the inventory opens** (the inventory, the calculator and the plans): the page's characters not read in the last `INVENTORY_STALE_MINUTES` minutes (1, like the old app) are read again, with the page already open. Up to 20 at a time, the oldest first.
+- **"Sincronizar agora"**, on the same pages, for the page's characters (up to 20). From a PC, `npm run inventory:sync` reads all of them.
+- **A daily Vercel cron** (`vercel.json`, at 6 a.m. Brasília time) calls `/api/cron/inventory-sync` with the `CRON_SECRET` key and reads up to 20 characters nobody looked at in the last hour.
 
-Só um sync roda por vez. Se a BitJita falhar, os dados anteriores ficam, e a página diz quem não foi lido.
+Only one sync runs at a time. If BitJita fails, the previous data stays, and the page says who was not read.
 
-## Testes
+## Tests
 
 ```bash
-npm test                      # unit (sem banco) e integration (Postgres de testes)
+npm test                      # unit (no database) and integration (test Postgres)
 npm run test:unit
 npm run typecheck
 npm run lint
 ```
 
-Os testes de integração apagam tudo do banco de testes antes de cada teste. Eles se recusam a rodar se `TEST_DATABASE_URL` não estiver definida ou for o banco de dev.
+The integration tests erase everything in the test database before each test. They refuse to run if `TEST_DATABASE_URL` is not set or is the dev database.
 
-## Regras do jogo
+## Game rules
 
-O app só lê dados. Ele não modifica o cliente do jogo nem automatiza nada. Os inventários vêm da API pública da BitJita: o app nunca conecta nos servidores do jogo com o token de um jogador (isso derruba a sessão do jogo da pessoa) e não guarda token de ninguém. Compartilhar o token de um jogador é "account sharing" e dá ban.
+The app only reads data. It does not modify the game client or automate anything. Inventories come from BitJita's public API: the app never connects to the game servers with a player's token (that drops the player's game session) and stores nobody's token. Sharing a player's token is "account sharing" and gets you banned.
+
+## Conventions (Rails → Next)
+
+The project follows Rails conventions. When in doubt, do what Rails would do.
+
+| Rails | Here |
+|---|---|
+| RESTful `resources` | Folders in `src/app/(app)/` with resource URLs (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_player`). Mutations in server actions, one `actions.ts` per resource, with Rails action names (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) only for what is not a form action: search as you type, the cron and the BitJita sync. Next runs a tab's actions one at a time, so an action of several seconds holds the others and the page looks frozen. |
+| Thin controllers | Pages (server components) and actions only read the input, validate, call and render or redirect. Rules live in `src/models/` or `src/services/`. |
+| Service objects / POROs | `src/services/<area>/<name>.ts`, one class or module per use case. |
+| Models | Prisma has no classes: each table's queries and rules live in `src/models/<model>.ts`. Game data always filters out removed rows with `active` (`removedAt: null`). |
+| Strong params + validations | Zod in `src/validators/<resource>.ts`, one schema per resource and action. Invalid input becomes a message in Portuguese, never a 500 error. |
+| Migrations | `prisma migrate`. Never edit a migration already applied; create a new one. SQL Prisma cannot express (like a partial index) goes in the migration itself, with a comment. |
+| `db/seeds.rb` | Seeders for dev and test only. Game data comes from `npm run game-data:import`. |
+| Rake tasks | Scripts in `scripts/`, run with `tsx` through `npm run`. |
+| Partials and layouts | App Router layouts and React components with Chakra in `src/components/<area>/`. Client components (`'use client'`) only where there is interaction or Chakra; the page fetches the data and passes plain data. |
+| Model and request specs | Vitest: `tests/unit/` without a database and `tests/integration/` with the test Postgres (reset for each test), with fixtures in `tests/fixtures/`. Test the services and models the actions call. |
+| Names | Plural snake_case tables (`@@map`), singular PascalCase models, camelCase fields (`@map` to snake_case), snake_case files. Code in English, interface in Portuguese (pt-BR). Item names stay as they come from the game, in English. |

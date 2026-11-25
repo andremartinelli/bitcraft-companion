@@ -33,16 +33,19 @@ describe('whose inventory a page uses', () => {
     await account()
     expect(await inventoryScope(me.id)).toEqual({
       playerIds: [me.player],
+      hasMine: true,
       hasOthers: false,
       onlyMine: false,
     })
-    expect((await inventoryScope((await account(null)).id)).playerIds).toEqual([])
+    const none = await inventoryScope((await account(null)).id)
+    expect([none.playerIds, none.hasMine]).toEqual([[], false])
   })
 
   test('a plan nobody else has: only mine', async () => {
     const plan = await newPlan(me.id)
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
+      hasMine: true,
       hasOthers: false,
       onlyMine: false,
     })
@@ -102,6 +105,7 @@ describe('whose inventory a page uses', () => {
 
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
+      hasMine: true,
       hasOthers: true,
       onlyMine: true,
     })

@@ -10,6 +10,8 @@ import { onlyMyInventory } from '@/models/plan_user_setting'
  */
 export interface InventoryScope {
   playerIds: number[]
+  /** The account has a character: without one, the page warns (NoCharacterNotice) */
+  hasMine: boolean
   /** The plan's other people have characters: "Usar apenas meu inventário" changes something */
   hasOthers: boolean
   onlyMine: boolean
@@ -25,6 +27,7 @@ export async function inventoryScope(userId: number, planId?: number): Promise<I
   const others = people.filter((id) => !mine.includes(id))
   return {
     playerIds: onlyMine ? mine : [...mine, ...others],
+    hasMine: mine.length > 0,
     hasOthers: others.length > 0,
     onlyMine,
   }

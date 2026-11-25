@@ -6,7 +6,7 @@ import { LinkButton } from '@/components/layout/link_button'
 import { PageHeader } from '@/components/layout/page_header'
 import { formatAgo } from '@/lib/format'
 import { requireUser } from '@/lib/session'
-import { claimNames, findAccountPlayer, listLegacyPlayers } from '@/models/game_player'
+import { claimNames, findAccountPlayer } from '@/models/game_player'
 
 export const metadata: Metadata = { title: 'Meu personagem' }
 
@@ -25,13 +25,11 @@ const toRow = (player: NonNullable<Awaited<ReturnType<typeof findAccountPlayer>>
 
 /**
  * GET /game_player: the account's character, by nick, read from BitJita's
- * public API. No password or game token. An account that followed several
- * before "um personagem por conta" chooses its own among them.
+ * public API. No password or game token.
  */
 export default async function GamePlayerPage() {
   const user = await requireUser()
   const mine = await findAccountPlayer(user.id)
-  const legacy = mine ? [] : await listLegacyPlayers(user.id)
 
   return (
     <>
@@ -45,13 +43,9 @@ export default async function GamePlayerPage() {
       ) : (
         <>
           <AddGamePlayerForm />
-          {legacy.length > 0 ? (
-            <GamePlayerTable players={legacy.map(toRow)} choose />
-          ) : (
-            <EmptyNotice>
-              Nenhum personagem ainda. Informe o nick do seu personagem para ler o inventário dele.
-            </EmptyNotice>
-          )}
+          <EmptyNotice>
+            Nenhum personagem ainda. Informe o nick do seu personagem para ler o inventário dele.
+          </EmptyNotice>
         </>
       )}
     </>

@@ -84,7 +84,7 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
   - route handlers usam `userFromRequest(request)`;
   - os dois estão em `src/lib/session.ts`.
 - Só `/login`, `/signup` e `/api/cron/*` são abertos. O cron tem a própria chave, `CRON_SECRET`.
-- O cadastro em `/signup` é aberto, com senha de no mínimo 8 caracteres e no máximo 5 contas novas por IP por dia (`src/services/auth/signup.ts`). `npm run users:create` continua existindo.
+- O cadastro em `/signup` é aberto, com senha de no mínimo 8 caracteres e no máximo 5 contas novas por IP por dia (`src/services/auth/signup.ts`). O campo "Nick do seu personagem" é opcional: preenchido, o app o confere na BitJita depois do limite por IP e antes de criar a conta; se a BitJita não achar o nick ou estiver fora do ar, a conta não é criada e o formulário diz por quê. `npm run users:create` continua existindo.
 - Senhas usam scrypt (`src/services/auth/password.ts`). Depois de 10 erros seguidos, o e-mail fica bloqueado por 15 minutos.
 
 **Contas (decidido em 24/11/2026):**
@@ -97,7 +97,8 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
   - "Compartilhar com o grupo automaticamente" é por conta e grupo (`group_members.auto_share_plans`): o plano novo já nasce com "Todos do grupo";
   - quem sai ou é removido de um grupo deixa de ver os planos do grupo, e o grupo os dele. O compartilhamento um a um entre duas pessoas só acaba quando elas não têm mais nenhum grupo em comum. Os compartilhamentos por e-mail de antes dos grupos continuam, e o dono os remove no plano.
 - **Personagem (decidido em 25/11/2026, `src/models/game_player.ts`):** cada conta tem um, o próprio (`users.game_player_id`, página Meu personagem em `/game_player`). Um personagem existe uma vez só, e é lido uma vez, mesmo que duas contas digam que é o delas. Sem nenhuma conta, ele é apagado.
-  - Antes, cada conta seguia até 5 (`user_game_players`). Essas linhas só servem para quem seguia 2 ou mais escolher o seu ("É o meu"); quem seguia 1 já saiu da migração com ele. A tabela e a coluna sem uso `plans.use_inventory` saem numa migração de limpeza.
+  - Conta sem personagem vê um aviso ⚠️ na aba Inventário do menu e na linha do inventário da calculadora e do plano, com o link para Meu personagem (`NoCharacterNotice`).
+  - Antes, cada conta seguia até 5 (`user_game_players`). Quem seguia 1 saiu da migração com ele; quem seguia 2 ou mais e não escolheu digita o nick, guiado pelo aviso (decidido em 25/11/2026). O app não lê mais essa tabela nem a coluna `plans.use_inventory` (`@ignore` no schema); as duas saem na migração de limpeza (issue #17), numa release depois da que parou de lê-las.
 - **Inventário (decidido em 25/11/2026, `src/services/inventory/scope.ts`):** sempre ligado; o "já tenho" digitado vale mais.
   - fora de um plano (calculadora rápida, página Inventário, "Você tem" do item): só o personagem da conta;
   - num plano: o meu personagem e os das pessoas do plano (o dono e quem o recebeu, uma a uma ou "Todos do grupo"), cada personagem uma vez;

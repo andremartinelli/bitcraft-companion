@@ -2,10 +2,22 @@ import { z } from 'zod'
 
 const NICK_MESSAGE = 'Informe o nick do personagem.'
 
+const NICK_MAX = 40
+
 /** POST /game_player: the exact nick, as in the game */
 export const gamePlayerSchema = z.object({
-  username: z.string({ error: NICK_MESSAGE }).trim().min(1, NICK_MESSAGE).max(40, NICK_MESSAGE),
+  username: z
+    .string({ error: NICK_MESSAGE })
+    .trim()
+    .min(1, NICK_MESSAGE)
+    .max(NICK_MAX, NICK_MESSAGE),
 })
 
-/** PATCH /game_player: the character chosen among the ones the account followed */
-export const gamePlayerIdSchema = z.coerce.number().int().positive().max(2_147_483_647)
+/** POST /signup: the nick is optional there; blank means none */
+export const optionalNick = () =>
+  z
+    .string()
+    .trim()
+    .max(NICK_MAX, { error: `O nick pode ter no máximo ${NICK_MAX} caracteres.` })
+    .optional()
+    .transform((nick) => nick || null)

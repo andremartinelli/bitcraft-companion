@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
+import { NoCharacterNotice } from '@/components/game_players/no_character_notice'
 import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
@@ -108,6 +109,7 @@ export default async function PlanPage({ params }: PlanPageProps) {
         inventoryControls={
           // Keyed: a fragment from a server component reaches the client as a list
           <>
+            {!scope.hasMine && <NoCharacterNotice key="no-character" />}
             {scope.hasOthers && (
               <OnlyMyInventory key="only-mine" planId={plan.id} checked={scope.onlyMine} />
             )}
