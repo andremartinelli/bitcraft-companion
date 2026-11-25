@@ -1,4 +1,4 @@
-// Schema do banco. A URL fica em prisma.config.ts (Prisma 7). Desenho: docs/design/2026-11-24-vercel.md
+// Database schema. The URL lives in prisma.config.ts (Prisma 7). Design: docs/design/2026-11-24-vercel.md
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -22,7 +22,7 @@ enum RecipeKind {
   @@map("recipe_kind")
 }
 
-/// resource: árvore, veio, planta. enemy: um animal caçado.
+/// resource: tree, vein, plant. enemy: a hunted animal.
 enum ExtractionSource {
   resource
   enemy
@@ -68,17 +68,17 @@ enum SyncStatus {
   @@map("sync_status")
 }
 
-// ---------------------------------------------------------------- contas
+// ---------------------------------------------------------------- accounts
 
 model User {
   id           Int         @id @default(autoincrement())
   fullName     String?     @map("full_name")
   email        String      @unique @db.VarChar(254)
-  /// Hash scrypt (node:crypto), nunca a senha
+  /// scrypt hash (node:crypto), never the password
   password     String
-  /// De onde veio o cadastro pela página: limita as contas novas por IP
+  /// Where the page sign-up came from: limits new accounts per IP
   signupIp     String?     @map("signup_ip")
-  /// O personagem da conta (Meu personagem). Duas contas podem dizer que é o mesmo
+  /// The account's character ("Meu personagem"). Two accounts can claim the same one
   gamePlayerId Int?        @map("game_player_id")
   gamePlayer   GamePlayer? @relation(fields: [gamePlayerId], references: [id], onDelete: SetNull)
   createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -100,9 +100,9 @@ model User {
   @@map("users")
 }
 
-/// Cadastros com nick que falharam (a BitJita não achou ou estava fora do ar).
-/// Contam no limite de contas novas por IP por dia, como as contas criadas:
-/// sem isso, cadastros com nicks inventados consultariam a BitJita sem limite.
+/// Sign-ups whose nick failed (BitJita didn't find it or was down).
+/// They count toward the daily limit of new accounts per IP, like created accounts:
+/// without it, sign-ups with made-up nicks would query BitJita without a limit.
 model SignupNickFailure {
   id        Int      @id @default(autoincrement())
   ip        String
@@ -123,11 +123,11 @@ model LoginAttempt {
   @@map("login_attempts")
 }
 
-// ---------------------------------------------------------- dados do jogo
+// ---------------------------------------------------------- game data
 
 model GameDataImport {
   id         Int       @id @default(autoincrement())
-  /// github, local ou memory (testes)
+  /// github, local or memory (tests)
   source     String
   commitSha  String?   @map("commit_sha")
   sourceDate DateTime? @map("source_date") @db.Timestamptz(3)
@@ -142,9 +142,9 @@ model GameDataImport {
   @@map("game_data_imports")
 }
 
-/// O grafo de receitas da calculadora, em JSON comprimido com gzip. É gravado
-/// pela importação, na mesma transação. Fica numa tabela própria para que as
-/// consultas a game_data_imports nunca tragam esses bytes.
+/// The calculator's recipe graph, as gzip-compressed JSON. It is written
+/// by the import, in the same transaction. It lives in its own table so that
+/// queries on game_data_imports never fetch these bytes.
 model RecipeGraphSnapshot {
   importId  Int            @id @map("import_id")
   import    GameDataImport @relation(fields: [importId], references: [id], onDelete: Cascade)
@@ -154,7 +154,7 @@ model RecipeGraphSnapshot {
   @@map("recipe_graph_snapshots")
 }
 
-/// O id é o do jogo
+/// The id is the game's
 model Skill {
   id   Int    @id
   name String
@@ -184,7 +184,7 @@ model BuildingType {
   @@map("building_types")
 }
 
-/// Um item ou um cargo do jogo. Nunca é apagado: quando sai do jogo, ganha removed_at.
+/// A game item or cargo. Never deleted: when it leaves the game, it gets removed_at.
 model Item {
   id             Int       @id @default(autoincrement())
   kind           ItemKind
@@ -194,11 +194,11 @@ model Item {
   tier           Int
   tag            String?
   rarity         String?
-  /// O ícone no jogo ("GeneratedIcons/Items/Berries"); a imagem vem da BitJita (src/lib/item_icon.ts)
+  /// The icon in the game ("GeneratedIcons/Items/Berries"); the image comes from BitJita (src/lib/item_icon.ts)
   iconAssetName  String?   @map("icon_asset_name")
-  /// item_list_id do jogo: este item é uma saída aleatória ("... Output")
+  /// The game's item_list_id: this item is a random output ("... Output")
   itemListGameId Int?      @map("item_list_game_id")
-  /// A mesma lista pelo nosso id, resolvida pelo importador
+  /// The same list by our id, resolved by the importer
   itemListId     Int?      @map("item_list_id")
   itemList       ItemList? @relation(fields: [itemListId], references: [id])
   removedAt      DateTime? @map("removed_at") @db.Timestamptz(3)
@@ -242,7 +242,7 @@ model ItemListPossibility {
   id          Int      @id @default(autoincrement())
   itemListId  Int      @map("item_list_id")
   itemList    ItemList @relation(fields: [itemListId], references: [id], onDelete: Cascade)
-  /// Ordem dentro da lista, como vem do jogo
+  /// Order within the list, as it comes from the game
   position    Int
   probability Float
 
@@ -265,15 +265,15 @@ model ItemListPossibilityItem {
   @@map("item_list_possibility_items")
 }
 
-/// Receita de craft ou de construção. Uma skill, no máximo uma ferramenta e
-/// no máximo uma estação (o importador para com erro se um patch mudar isso).
+/// Craft or construction recipe. One skill, at most one tool and
+/// at most one station (the importer stops with an error if a patch changes this).
 model Recipe {
   id                     Int           @id @default(autoincrement())
   kind                   RecipeKind
   gameId                 Int           @map("game_id")
-  /// Com os placeholders resolvidos: {0} é o primeiro produto, {1} o primeiro ingrediente
+  /// With placeholders resolved: {0} is the first product, {1} the first ingredient
   name                   String
-  /// Craft, Scrap, Cook...; "Build" nas construções
+  /// Craft, Scrap, Cook...; "Build" for constructions
   verb                   String
   actionsRequired        Int           @map("actions_required")
   timePerAction          Float         @map("time_per_action")
@@ -335,7 +335,7 @@ model RecipeOutput {
   @@map("recipe_outputs")
 }
 
-/// Pesquisa do assentamento: upgrade de tier, Township, Homestead...
+/// Settlement research: tier upgrade, Township, Homestead...
 model ClaimTech {
   id           Int       @id @default(autoincrement())
   gameId       Int       @unique @map("game_id")
@@ -344,9 +344,9 @@ model ClaimTech {
   tier         Int
   /// TierUpgrade, Settlement, Homestead, Carpentry, MemberCount...
   techType     String    @map("tech_type")
-  /// Suprimentos do assentamento, que não são item
+  /// Settlement supplies, which are not items
   suppliesCost Int       @default(0) @map("supplies_cost")
-  /// Não aparece no jogo, ou não pode ser pesquisada
+  /// Doesn't show in the game, or can't be researched
   hidden       Boolean   @default(false)
   removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
   lastImportId Int?      @map("last_import_id")
@@ -371,7 +371,7 @@ model ClaimTechInput {
   @@map("claim_tech_inputs")
 }
 
-/// Coleta no mundo (Chop, Mine, Gather...) ou caça (Hunt, Slay)
+/// World gathering (Chop, Mine, Gather...) or hunting (Hunt, Slay)
 model ExtractionRecipe {
   id           Int              @id @default(autoincrement())
   source       ExtractionSource @default(resource)
@@ -408,10 +408,10 @@ model ExtractionRecipeOutput {
   @@map("extraction_recipe_outputs")
 }
 
-// ------------------------------------------------------------------ planos
+// ------------------------------------------------------------------ plans
 
-/// Um estado da calculadora com nome. É de quem o criou (created_by_id), que
-/// pode compartilhá-lo com outras contas (plan_shares).
+/// A named calculator state. It belongs to whoever created it (created_by_id), who
+/// can share it with other accounts (plan_shares).
 model Plan {
   id          Int      @id @default(autoincrement())
   name        String   @db.VarChar(80)
@@ -435,7 +435,7 @@ model Plan {
   @@map("plans")
 }
 
-/// "Todos do grupo" no plano: quem está no grupo vê e edita, inclusive quem entrar depois
+/// "Todos do grupo" on the plan: whoever is in the group sees and edits it, including people who join later
 model PlanGroupShare {
   planId    Int      @map("plan_id")
   plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -448,7 +448,7 @@ model PlanGroupShare {
   @@map("plan_group_shares")
 }
 
-/// Contas que compartilham planos entre si. Só quem criou convida e remove pessoas
+/// Accounts that share plans with each other. Only the creator invites and removes people
 model Group {
   id        Int      @id @default(autoincrement())
   name      String   @db.VarChar(60)
@@ -465,13 +465,13 @@ model Group {
   @@map("groups")
 }
 
-/// Uma conta no grupo, o dono também. Uma conta pode estar em vários grupos
+/// An account in the group, the owner too. An account can be in several groups
 model GroupMember {
   groupId        Int      @map("group_id")
   group          Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   userId         Int      @map("user_id")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// Os planos novos dessa conta já nascem compartilhados com o grupo
+  /// This account's new plans are born already shared with the group
   autoSharePlans Boolean  @default(false) @map("auto_share_plans")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
@@ -480,17 +480,17 @@ model GroupMember {
   @@map("group_members")
 }
 
-/// Um convite: um link (token) que o dono manda para a pessoa. O app não confirma e-mails,
-/// por isso o convite só aparece na página Conta de uma conta que já tinha esse e-mail ao convidar
+/// An invite: a link (token) the owner sends to the person. The app doesn't confirm e-mails,
+/// so the invite only shows on the "Conta" page of an account that already had that e-mail when invited
 model GroupInvite {
   id          Int      @id @default(autoincrement())
   groupId     Int      @map("group_id")
   group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  /// Em minúsculas, como o e-mail das contas: só identifica o convite para o dono
+  /// Lowercase, like account e-mails: it only identifies the invite for the owner
   email       String   @db.VarChar(254)
-  /// O segredo do link /invites/[token]: quem tem o link aceita
+  /// The secret of the /invites/[token] link: whoever has the link accepts
   token       String   @unique @db.VarChar(64)
-  /// A conta que já tinha o e-mail ao convidar: vê o convite na página Conta
+  /// The account that already had the e-mail when invited: sees the invite on the "Conta" page
   userId      Int?     @map("user_id")
   user        User?    @relation("GroupInvitee", fields: [userId], references: [id], onDelete: Cascade)
   invitedById Int?     @map("invited_by_id")
@@ -502,7 +502,7 @@ model GroupInvite {
   @@map("group_invites")
 }
 
-/// Uma conta com quem o dono compartilhou o plano: ela vê e edita, não apaga
+/// An account the owner shared the plan with: it sees and edits, can't delete
 model PlanShare {
   planId    Int      @map("plan_id")
   plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -515,13 +515,13 @@ model PlanShare {
   @@map("plan_shares")
 }
 
-/// O que cada pessoa escolheu para si num plano. Não muda o que os outros veem
+/// What each person chose for themselves on a plan. It doesn't change what others see
 model PlanUserSetting {
   planId          Int      @map("plan_id")
   plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
   userId          Int      @map("user_id")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// "Usar apenas meu inventário": só o meu personagem, sem as outras pessoas do plano
+  /// "Usar apenas meu inventário": only my character, without the plan's other people
   onlyMyInventory Boolean  @default(false) @map("only_my_inventory")
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -543,7 +543,7 @@ model PlanItem {
   @@map("plan_items")
 }
 
-/// Uma construção do plano (receita de construção)
+/// A construction in the plan (construction recipe)
 model PlanBuilding {
   id       Int    @id @default(autoincrement())
   planId   Int    @map("plan_id")
@@ -563,7 +563,7 @@ model PlanChoice {
   plan     Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
   itemId   Int     @map("item_id")
   item     Item    @relation(fields: [itemId], references: [id])
-  /// null: tratar o item como matéria-prima
+  /// null: treat the item as a raw material
   recipeId Int?    @map("recipe_id")
   recipe   Recipe? @relation(fields: [recipeId], references: [id])
 
@@ -571,8 +571,8 @@ model PlanChoice {
   @@map("plan_choices")
 }
 
-/// A receita que a conta escolheu para um item ("Trocar receita"): os planos
-/// novos nascem com ela e a calculadora rápida a usa
+/// The recipe the account chose for an item ("Trocar receita"): new plans
+/// are born with it and the quick calculator uses it
 model UserRecipeChoice {
   id       Int    @id @default(autoincrement())
   userId   Int    @map("user_id")
@@ -598,21 +598,21 @@ model PlanOwnedItem {
   @@map("plan_owned_items")
 }
 
-// -------------------------------------------------------------- inventário
+// -------------------------------------------------------------- inventory
 
-/// Um personagem, pelo entityId público da BitJita. Nenhum token. É o de uma
-/// conta (users.game_player_id) e existe uma vez só, mesmo que duas contas o escolham.
+/// A character, by BitJita's public entityId. No token. It is an
+/// account's (users.game_player_id) and exists only once, even if two accounts choose it.
 model GamePlayer {
   id            Int       @id @default(autoincrement())
   username      String
-  /// 18 dígitos: não cabe num number do JavaScript
+  /// 18 digits: doesn't fit in a JavaScript number
   entityId      String    @unique @map("entity_id")
   regionId      Int?      @map("region_id")
-  /// As claims do personagem na última leitura: [{ entityId, name }]
+  /// The character's claims at the last read: [{ entityId, name }]
   claims        Json?
-  /// A última leitura que deu certo
+  /// The last successful read
   lastSyncedAt  DateTime? @map("last_synced_at") @db.Timestamptz(3)
-  /// A última tentativa, desse certo ou não: decide se está na hora de ler de novo
+  /// The last attempt, successful or not: decides whether it's time to read again
   lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(3)
   lastError     String?   @map("last_error")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -627,9 +627,9 @@ model GamePlayer {
 model InventoryContainer {
   id            Int           @id @default(autoincrement())
   kind          ContainerKind
-  /// entityId do inventário ou do prédio, como a BitJita manda
+  /// entityId of the inventory or building, as BitJita sends it
   gameEntityId  String        @map("game_entity_id")
-  /// Nulo nos baús da claim, que são do grupo
+  /// Null in the claim's chests, which belong to the group
   gamePlayerId  Int?          @map("game_player_id")
   gamePlayer    GamePlayer?   @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
   claimEntityId String?       @map("claim_entity_id")
@@ -661,8 +661,8 @@ model InventoryEntry {
   @@map("inventory_entries")
 }
 
-/// Um sync do inventário. O índice parcial único (SQL na migration) garante um
-/// só "running" por vez:
+/// An inventory sync. The unique partial index (SQL in the migration) guarantees a
+/// single "running" at a time:
 ///   CREATE UNIQUE INDEX sync_runs_one_running ON sync_runs (status) WHERE status = 'running';
 model SyncRun {
   id         Int         @id @default(autoincrement())
@@ -672,7 +672,7 @@ model SyncRun {
   status     SyncStatus
   message    String?
   counts     Json?
-  /// A conta cujos personagens foram lidos; nulo no cron, que lê os de todas
+  /// The account whose characters were read; null in the cron, which reads everyone's
   userId     Int?        @map("user_id")
   user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   startedAt  DateTime    @map("started_at") @db.Timestamptz(3)

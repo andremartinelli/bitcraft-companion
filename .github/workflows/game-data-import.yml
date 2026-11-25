@@ -1,10 +1,10 @@
-# Importação dos dados do jogo no Neon, à mão, a cada patch do jogo:
-# Actions → Importar dados do jogo → Run workflow. Lê o
-# BitCraftToolBox/BitCraft_GameData (o último commit, ou o informado) e grava
-# pela URL direta do Neon. Passo a passo em docs/deploy.md (passo 6).
+# Game data import into Neon, by hand, on every game patch:
+# Actions → Importar dados do jogo → Run workflow. Reads
+# BitCraftToolBox/BitCraft_GameData (the latest commit, or the one given) and writes
+# through Neon's direct URL. Step by step in docs/deploy.md (step 6).
 #
-# Segredo do repositório: DATABASE_URL_UNPOOLED, o mesmo do release.yml. Com
-# ele aqui, nenhuma sessão do Claude e nenhum PC precisa da URL do Neon.
+# Repository secret: DATABASE_URL_UNPOOLED, the same as release.yml. With
+# it here, no Claude session and no PC needs Neon's URL.
 name: Importar dados do jogo
 
 on:
@@ -15,7 +15,7 @@ on:
         required: false
         default: ''
 
-# A mesma fila do release.yml: um espera o outro terminar
+# The same queue as release.yml: one waits for the other to finish
 concurrency:
   group: production
   cancel-in-progress: false
@@ -39,7 +39,7 @@ jobs:
             echo "::error::O commit tem de ser um SHA do BitCraft_GameData (7 a 40 caracteres hexadecimais)."
             exit 1
           fi
-          # O repositório é público, e os logs também: esconde o endereço do Neon
+          # The repository is public, and so are the logs: hides Neon's address
           node -e 'const u = new URL(process.env.DATABASE_URL_UNPOOLED); console.log(`::add-mask::${u.host}`); console.log(`::add-mask::${u.hostname}`)'
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -47,8 +47,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
-      # O código da importação espera as tabelas desta versão. Se o Neon tiver
-      # migration pendente, o status falha: publique uma release antes.
+      # The import code expects this version's tables. If Neon has a
+      # pending migration, the status fails: publish a release first.
       - name: Migrations em dia no Neon
         run: npx prisma migrate status
       - name: Importação

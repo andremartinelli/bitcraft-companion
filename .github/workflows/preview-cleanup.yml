@@ -1,14 +1,14 @@
-# Apaga do Neon o banco de um preview (branch "preview/<branch do git>") quando
-# o branch do git é apagado. A integração da Vercel com o Neon só apaga o
-# banco quando o deployment é apagado, e o plano Free tem 10 branches.
-# À mão (Actions → Limpar bancos dos previews → Run workflow): apaga todo
-# branch preview/* do Neon cujo branch do git já não existe.
-# A API do Neon não acorda o banco: a limpeza não gasta CU-horas.
+# Deletes a preview's database from Neon (branch "preview/<git branch>") when
+# the git branch is deleted. The Vercel-Neon integration only deletes the
+# database when the deployment is deleted, and the Free plan has 10 branches.
+# By hand (Actions → Limpar bancos dos previews → Run workflow): deletes every
+# preview/* branch in Neon whose git branch no longer exists.
+# Neon's API doesn't wake the database: the cleanup doesn't spend CU-hours.
 #
-# Segredos do repositório (Settings → Secrets and variables → Actions):
-# - NEON_API_KEY: uma chave da API do Neon
-# - NEON_PROJECT_ID: o id do projeto no Neon (Settings → General)
-# Passo a passo em docs/deploy.md (Previews).
+# Repository secrets (Settings → Secrets and variables → Actions):
+# - NEON_API_KEY: a Neon API key
+# - NEON_PROJECT_ID: the project's id in Neon (Settings → General)
+# Step by step in docs/deploy.md (Previews).
 name: Limpar bancos dos previews
 
 on:
@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches"
           auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
-          # id e nome de cada branch preview/* do Neon
+          # id and name of each preview/* branch in Neon
           curl -fsS "${auth[@]}" "$api" \
             | jq -r '.branches[] | select(.name | startswith("preview/")) | [.id, .name] | @tsv' > neon.tsv
 

@@ -1,14 +1,14 @@
-# Deploy de produção: a cada release publicada no GitHub (ou à mão, em
-# Actions → Release → Run workflow). Os pushes não publicam em produção
+# Production deploy: on every release published on GitHub (or by hand, in
+# Actions → Release → Run workflow). Pushes don't publish to production
 # (vercel.json: git.deploymentEnabled.main = false).
 #
-# 1. Testes: typecheck, lint e a suíte inteira, com um Postgres só para eles.
-# 2. Deploy: as migrations no Neon e o deploy de produção na Vercel.
+# 1. Tests: typecheck, lint and the whole suite, with a Postgres just for them.
+# 2. Deploy: the migrations on Neon and the production deploy on Vercel.
 #
-# Segredos do repositório (Settings → Secrets and variables → Actions):
-# - VERCEL_TOKEN: um token da conta da Vercel (vercel.com/account/settings/tokens)
-# - DATABASE_URL_UNPOOLED: a URL direta do Neon (sem -pooler no host)
-# Passo a passo em docs/deploy.md.
+# Repository secrets (Settings → Secrets and variables → Actions):
+# - VERCEL_TOKEN: a token from the Vercel account (vercel.com/account/settings/tokens)
+# - DATABASE_URL_UNPOOLED: Neon's direct URL (no -pooler in the host)
+# Step by step in docs/deploy.md.
 name: Release
 
 on:
@@ -16,7 +16,7 @@ on:
     types: [published]
   workflow_dispatch:
 
-# Um deploy de produção por vez; um novo espera o anterior terminar
+# One production deploy at a time; a new one waits for the previous to finish
 concurrency:
   group: production
   cancel-in-progress: false
@@ -45,7 +45,7 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/test
-      # Só para assinar os cookies dos testes; não é a chave de produção
+      # Only to sign the tests' cookies; not the production key
       SESSION_SECRET: chave-dos-testes-do-ci-nao-usada-em-producao
     steps:
       - uses: actions/checkout@v5
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # O projeto bitcraft-companion na conta andremartinellis-projects (não são segredos)
+      # The bitcraft-companion project in the andremartinellis-projects account (not secrets)
       VERCEL_ORG_ID: team_bIWRhHrUIp6b12mxDa1pZorm
       VERCEL_PROJECT_ID: prj_fUTZ3bYKsd7MDg4wfJ6f8EWH4wXO
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -84,7 +84,7 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
-      # Antes do código novo: as migrations só acrescentam, o app no ar continua funcionando
+      # Before the new code: migrations only add, the live app keeps working
       - name: Migrations no Neon
         run: npx prisma migrate deploy
       - name: Deploy de produção
