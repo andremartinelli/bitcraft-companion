@@ -1,12 +1,13 @@
 import type { RecipeGraph } from '@/services/calculator/recipe_graph'
 import type { GraphItem, GraphRecipe } from '@/services/calculator/recipe_graph'
 import type { InventoryOption, OwnedSource } from '@/services/calculator/inventory_owned'
-import type {
-  CalculatorState,
-  NodeReason,
-  PlanNode,
-  PlanResult,
-  PlanStep,
+import {
+  previousTierInput,
+  type CalculatorState,
+  type NodeReason,
+  type PlanNode,
+  type PlanResult,
+  type PlanStep,
 } from '@/services/calculator/production_planner'
 import { ANY_PROFESSION, type ItemHolder } from '@/services/inventory/professions'
 
@@ -366,11 +367,19 @@ export function present(
   }
 
   return {
-    targets: state.targets.map((t, index) => ({
-      index,
-      item: item(t.itemId),
-      quantity: t.quantity,
-    })),
+    targets: state.targets.map((t, index) => {
+      const previous = previousTierInput(graph, state, t.itemId)
+      return {
+        index,
+        item: item(t.itemId),
+        quantity: t.quantity,
+        /** The previous tier its recipe takes, and whether they marked it as theirs */
+        previousTier:
+          previous === null
+            ? null
+            : { item: item(previous), owned: (state.owned[previous] ?? 0) > 0 },
+      }
+    }),
     /** The buildings of the plan, as listed at the top */
     buildings: (state.buildings ?? []).map((b, index) => ({
       index,

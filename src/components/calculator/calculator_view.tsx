@@ -109,6 +109,29 @@ export function CalculatorView({
                       <ItemChip item={target.item} />
                       {target.item.removed && <Badge colorPalette="red">saiu do jogo</Badge>}
                     </HStack>
+                    {target.previousTier && (
+                      // "Já tenho" = 1 on the previous tier: the one they keep equipped
+                      <Checkbox.Root
+                        size="sm"
+                        mt="1.5"
+                        checked={target.previousTier.owned}
+                        onCheckedChange={({ checked }) =>
+                          change(
+                            setOwned(
+                              state,
+                              target.previousTier!.item.id,
+                              checked === true ? '1' : ''
+                            )
+                          )
+                        }
+                      >
+                        <Checkbox.HiddenInput />
+                        <Checkbox.Control />
+                        <Checkbox.Label fontWeight="normal" color="fg.muted">
+                          Já tenho {target.previousTier.item.name}
+                        </Checkbox.Label>
+                      </Checkbox.Root>
+                    )}
                   </Table.Cell>
                   <Table.Cell textAlign="end">
                     <CommitInput

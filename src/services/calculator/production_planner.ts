@@ -150,6 +150,30 @@ export function defaultProducer(graph: RecipeGraph, itemId: number): Producer | 
     })[0]
 }
 
+/**
+ * The previous tier that the recipe for an item takes, when it takes one: an
+ * Elenvar Hammer (T4) takes an Emarium Hammer (T3), and so do clothing,
+ * armor and weapons. Players usually have it already, equipped. Null when
+ * the item is not made, or its recipe takes no previous tier.
+ */
+export function previousTierInput(
+  graph: RecipeGraph,
+  state: CalculatorState,
+  itemId: number
+): number | null {
+  const item = graph.items.get(itemId)
+  const choice = state.choices[itemId]
+  if (!item?.tag || choice === 'raw') return null
+  const producer =
+    producersOf(graph, itemId).find((p) => p.recipeId === choice) ?? defaultProducer(graph, itemId)
+  const recipe = producer && graph.recipes.get(producer.recipeId)
+  const input = recipe?.inputs.find((input) => {
+    const other = graph.items.get(input.itemId)
+    return other?.tag === item.tag && other.tier === item.tier - 1
+  })
+  return input?.itemId ?? null
+}
+
 export function plan(graph: RecipeGraph, state: CalculatorState): PlanResult {
   const warnings: string[] = []
   const pool = new Map<number, number>(
