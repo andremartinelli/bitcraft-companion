@@ -28,7 +28,7 @@ O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num
 
 ## Merge dos PRs
 
-O `main` tem um ruleset no GitHub ("Proteger o main"): só entra commit com a CI ("Testes") verde num branch em dia com o `main`, e ninguém força push nem apaga o `main`. O merge é squash, pelo auto-merge do GitHub. Merge no `main` não publica nada: produção só muda com uma release.
+O `main` tem um ruleset no GitHub ("Main protection"): só entra commit com a CI ("Testes") verde num branch em dia com o `main`, e ninguém força push nem apaga o `main`. O merge é squash, pelo auto-merge do GitHub. Merge no `main` não publica nada: produção só muda com uma release.
 
 - **Quando o dono disser para fazer o merge de um PR,** ligue o auto-merge. O GitHub faz o merge (squash, o único método ligado no repositório) sozinho quando a CI passar. Nunca ligue o auto-merge nem faça o merge sem o pedido dele.
   - Na nuvem o proxy recusa o GraphQL do GitHub, e o `gh pr merge --auto` usa GraphQL. Use a rota REST da nuvem: `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge`. Fora da nuvem: `gh pr merge <n> --auto --squash`.
