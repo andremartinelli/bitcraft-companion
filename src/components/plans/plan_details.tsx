@@ -21,7 +21,7 @@ export function PlanDetails({ planId, name, updated, notes }: PlanDetailsProps) 
   return (
     <Box mb="4">
       <Flex gap="3" align="center" wrap="wrap">
-        <Field.Root orientation="horizontal" invalid={error !== null} width="auto" gap="2">
+        <Field.Root orientation="horizontal" invalid={error !== null} width="auto" minW="0" gap="2">
           <Field.Label>Nome</Field.Label>
           <CommitInput
             key={name}
@@ -29,6 +29,7 @@ export function PlanDetails({ planId, name, updated, notes }: PlanDetailsProps) 
             inputMode="text"
             size="sm"
             width="72"
+            minW="0"
             maxLength={80}
             value={name}
             disabled={pending}
