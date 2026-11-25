@@ -1,153 +1,155 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário do personagem de cada conta e das pessoas dos seus planos, lido da API pública da BitJita. Roda de graça na Vercel, com o banco no Neon (Postgres).
+Companion app for BitCraft Online 1.0, with open sign-up. It looks up recipes and items, calculates costs (calculator and plans) and tracks the inventory of each account's character and of the people in its plans, read from the public BitJita API. It runs for free on Vercel, with the database on Neon (Postgres).
 
-- Design aprovado: `docs/design/2026-11-24-vercel.md`. Os anteriores (`2026-11-21-*`) descrevem o app Adonis.
-- Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`.
-- **Histórico:** o app Adonis antigo foi portado e saiu do repositório no merge para o `main` (24/11/2026). Para consultá-lo, veja o histórico do git antes desse merge (pasta `legacy/` no branch `claude/fork-vercel-e03995`, ou o `main` até o commit `c4a56b3`).
+- Approved design: `docs/design/2026-11-24-vercel.md`. The old AdonisJS app's design docs exist only in git history.
+- Reference prototype (look and behavior): `docs/reference/bitcraft-receitas.html`.
+- **History:** the old AdonisJS app was ported and removed from the repository in the merge to `main` (2026-11-24). To look at it, check the git history before that merge (the `legacy/` folder on branch `claude/fork-vercel-e03995`, or `main` up to commit `c4a56b3`).
+- **Language:** code, comments, documentation, commits and PRs are in English. The app's interface is in Portuguese (pt-BR) and stays that way; so do messages only the owner reads (CLI script errors, Telegram or merge-bot notices). `README.md` is English and `README.pt-BR.md` is Portuguese, each linking to the other.
+- **Private notes:** the deploy and release steps (Vercel, Neon, GitHub secrets, previews, production data import) are not in this repository. They are in the owner's private notes, folder `projetos/bitcraft-companion`.
 
-## Sessões do Claude Code na nuvem
+## Claude Code cloud sessions
 
-O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num ambiente só deste repositório.
+Development runs in Claude Code cloud sessions (claude.ai/code), in an environment for this repository only.
 
-- **Ao abrir a sessão,** o hook SessionStart (`.claude/settings.json` → `scripts/workspace/session-start.sh`) primeiro confere o branch. Uma sessão aberta num branch que o cache do ambiente já guarda pode começar no commit do cache, e não no último push. Se a árvore estiver sem mudanças e o branch só estiver atrás do GitHub, o hook o avança (`git merge --ff-only`) e diz isso no resumo. Se o branch tiver mudanças ou tiver divergido, o hook só avisa. Depois ele roda `scripts/workspace/cloud-start.sh`:
-  - liga o Docker e um Postgres 17 em `127.0.0.1:54320`, com os bancos `bitcraft_dev` (o app) e `bitcraft_test` (os testes de integração);
-  - roda `npm ci` se o `package-lock.json` mudou, gera o cliente do Prisma e aplica as migrations do branch nos dois bancos.
+- **When the session opens,** the SessionStart hook (`.claude/settings.json` → `scripts/workspace/session-start.sh`) first checks the branch. A session opened on a branch that the environment cache already holds may start at the cache's commit instead of the last push. If the tree is clean and the branch is only behind GitHub, the hook fast-forwards it (`git merge --ff-only`) and says so in the summary. If the branch has changes or has diverged, the hook only warns. Then it runs `scripts/workspace/cloud-start.sh`:
+  - starts Docker and a Postgres 17 on `127.0.0.1:54320`, with the databases `bitcraft_dev` (the app) and `bitcraft_test` (integration tests);
+  - runs `npm ci` if `package-lock.json` changed, generates the Prisma client and applies the branch's migrations to both databases.
 
-  A última linha do log (`.workspace/cloud-start.log`) é o resumo. Se o hook avisar que falhou, leia o log antes de rodar o app ou os testes.
-- **O cache do ambiente** é montado por `scripts/workspace/cloud-setup.sh`: Node e Postgres nas versões da CI, `.env` só com valores locais, dependências, migrations, dados do jogo no `bitcraft_dev` e o usuário do `db:seed`. O cache guarda arquivos, não processos; por isso o hook liga tudo de novo em cada sessão.
-- **Node:** a imagem da nuvem só traz alguns Node em `/opt/nodeNN`. Quando o da CI não está entre eles, a receita o baixa do `nodejs.org` (conferido pelo `SHASUMS256.txt`) para `/opt/nodeNN`. Se o download falhar, ela usa o mais novo da imagem e avisa no resumo.
-- **Sessão com vários repositórios não roda hooks.** Rode `bash scripts/workspace/cloud-start.sh` à mão antes do app ou dos testes de integração.
-- **Login no app de dev:** `dev@example.com` / `dev-password-local` (`prisma/seed.ts`).
-- **Nada da nuvem chega à produção.** O `.env` aponta só para o Postgres local, e os scripts recusam outra URL. Não há segredo de produção na nuvem: as releases (deploy e migrations no Neon) e a importação dos dados do jogo no Neon rodam pelos workflows do GitHub Actions, disparados pelo dono do repositório.
-- **Rede:** os testes usam fixtures e não precisam de rede.
-  - O proxy do GitHub da sessão só deixa a `api.github.com` ler os repositórios anexados à sessão. A importação normal pede o commit do BitCraft_GameData a essa API e recebe 403. Por isso a receita baixa as mesmas tabelas da ponta do branch pelo `raw.githubusercontent.com` e importa da pasta (`--path`).
-  - O inventário do app de dev lê o `bitjita.com`, que precisa estar liberado na rede do ambiente. Sem ele, as páginas abrem, mas o sync falha.
-- **Docs do Next:** a versão instalada traz a documentação em `node_modules/next/dist/docs/`. Consulte lá em vez de confiar na memória. O `agentRules: false` do `next.config.ts` impede o `next dev` de gerar um `AGENTS.md` com esse mesmo aviso a cada execução.
-- **Pull requests:** trabalhe num branch e abra o PR; o merge e as releases são do dono do repositório. A CI (`.github/workflows/ci.yml`) roda typecheck, lint e testes em cada PR. O merge é pelo auto-merge do GitHub (abaixo).
+  The last line of the log (`.workspace/cloud-start.log`) is the summary. If the hook warns that it failed, read the log before running the app or the tests.
+- **The environment cache** is built by `scripts/workspace/cloud-setup.sh`: Node and Postgres in the CI versions, a `.env` with local values only, dependencies, migrations, game data in `bitcraft_dev` and the `db:seed` user. The cache keeps files, not processes; that is why the hook starts everything again in each session.
+- **Node:** the cloud image only ships a few Node versions in `/opt/nodeNN`. When the CI's version is not among them, the recipe downloads it from `nodejs.org` (checked against `SHASUMS256.txt`) into `/opt/nodeNN`. If the download fails, it uses the newest one in the image and says so in the summary.
+- **Sessions with several repositories do not run hooks.** Run `bash scripts/workspace/cloud-start.sh` by hand before the app or the integration tests.
+- **Dev login:** `dev@example.com` / `dev-password-local` (`prisma/seed.ts`).
+- **Nothing from the cloud reaches production.** The `.env` points only to the local Postgres, and the scripts refuse any other URL. There are no production secrets in the cloud: releases (deploy and migrations on Neon) and the game data import on Neon run through GitHub Actions workflows, triggered by the repository owner.
+- **Network:** tests use fixtures and need no network.
+  - The session's GitHub proxy only lets `api.github.com` read the repositories attached to the session. The normal import asks that API for the BitCraft_GameData commit and gets a 403. So the recipe downloads the same tables from the branch tip through `raw.githubusercontent.com` and imports from the folder (`--path`).
+  - The dev app's inventory reads `bitjita.com`, which must be allowed in the environment's network. Without it, pages open but the sync fails.
+- **Next docs:** the installed version ships its documentation in `node_modules/next/dist/docs/`. Look there instead of trusting memory. `agentRules: false` in `next.config.ts` stops `next dev` from generating an `AGENTS.md` with that same notice on every run.
+- **Pull requests:** work on a branch and open the PR; merging and releases are the repository owner's. CI (`.github/workflows/ci.yml`) runs typecheck, lint and tests on every PR. Merging goes through GitHub auto-merge (below).
 
-## Merge dos PRs
+## Merging PRs
 
-O `main` tem um ruleset no GitHub ("Main protection"): só entra commit com a CI ("Testes") verde num branch em dia com o `main`, e ninguém força push nem apaga o `main`. O merge é squash, pelo auto-merge do GitHub. Merge no `main` não publica nada: produção só muda com uma release.
+`main` has a GitHub ruleset ("Main protection"): only commits with green CI ("Testes") on a branch up to date with `main` get in, and nobody can force-push or delete `main`. The merge is a squash, through GitHub auto-merge. Merging to `main` publishes nothing: production only changes with a release.
 
-- **Quando o dono disser para fazer o merge de um PR,** ligue o auto-merge. O GitHub faz o merge (squash, o único método ligado no repositório) sozinho quando a CI passar. Nunca ligue o auto-merge nem faça o merge sem o pedido dele.
-  - Na nuvem o proxy recusa o GraphQL do GitHub, e o `gh pr merge --auto` usa GraphQL. Use a rota REST da nuvem: `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge -f merge_method=squash`. Sem o `merge_method`, ela pede merge commit e o GitHub recusa. Fora da nuvem: `gh pr merge <n> --auto --squash`.
-  - PR já em dia e com a CI verde não aceita auto-merge: faça o merge direto, `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/merge -f merge_method=squash`.
-  - O `.claude/settings.json` deixa em "ask" os comandos e as ferramentas do GitHub MCP que fazem merge ou ligam o auto-merge. Numa sessão na nuvem com mais de um repositório esse arquivo não vale: lá, o pedido do dono no chat é a única aprovação.
-  - Na nuvem o `gh` grava, mesmo com o `gh auth status` dizendo que o token é inválido: o proxy da sessão põe a credencial.
-- **PR atrás do `main`** (outro PR entrou antes): o auto-merge espera. Atualize com `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/update-branch` (o `gh pr update-branch` usa GraphQL; ou o botão "Update branch" do PR); a CI roda de novo e o merge sai quando ela passar.
-- Não espere a CI: diga que o auto-merge está ligado e que o resultado aparece no PR. Com a CI vermelha o merge não sai. Para cancelar: `gh api -X DELETE repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge`.
-- Commit novo de quem não tem acesso de escrita (um fork) desliga o auto-merge: o dono liga de novo depois de revisar.
+- **When the owner says to merge a PR,** turn on auto-merge. GitHub then squash-merges (the only method enabled in the repository) once CI passes. Never turn on auto-merge or merge without that request.
+  - In the cloud the proxy refuses GitHub's GraphQL, and `gh pr merge --auto` uses GraphQL. Use the cloud REST route: `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge -f merge_method=squash`. Without `merge_method` it asks for a merge commit and GitHub refuses. Outside the cloud: `gh pr merge <n> --auto --squash`.
+  - A PR that is already up to date with green CI does not accept auto-merge: merge it directly, `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/merge -f merge_method=squash`.
+  - `.claude/settings.json` sets "ask" on the commands and GitHub MCP tools that merge or turn on auto-merge. In a cloud session with more than one repository that file does not apply: there, the owner's request in the chat is the only approval.
+  - In the cloud `gh` writes even when `gh auth status` says the token is invalid: the session proxy adds the credential.
+- **PR behind `main`** (another PR went in first): auto-merge waits. Update it with `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/update-branch` (`gh pr update-branch` uses GraphQL; or the PR's "Update branch" button); CI runs again and the merge happens when it passes.
+- Do not wait for CI: say that auto-merge is on and that the result shows on the PR. With red CI the merge does not happen. To cancel: `gh api -X DELETE repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge`.
+- A new commit from someone without write access (a fork) turns auto-merge off: the owner turns it on again after reviewing.
 
-## Grafo do código (graphify)
+## Code graph (graphify)
 
-O [graphify](https://github.com/safishamsi/graphify) monta em `graphify-out/` (fora do git) um grafo do código: quem chama quem e quais arquivos andam juntos.
+[graphify](https://github.com/safishamsi/graphify) builds a code graph in `graphify-out/` (outside git): who calls whom and which files change together.
 
-- **Na nuvem,** o `cloud-start.sh` instala a versão fixada em `scripts/workspace/lib.sh` (`GRAPHIFY_VERSION`) e refaz o grafo do branch a cada sessão, só com a árvore sintática: sem IA e em uns 4 s. Fora da nuvem: `uv tool install graphifyy==<versão>` e `graphify update .`.
-- **Antes do primeiro grep ou leitura de arquivo** numa pergunta sobre o código:
-  - rode `graphify query "<pergunta>"`;
-  - para a ligação entre duas coisas, `graphify path "<A>" "<B>"`;
-  - para um conceito, `graphify explain "<X>"`.
-  Leia só as linhas que o grafo apontou, e repita esta regra no pedido de todo subagente que explore o código. Os hooks `PreToolUse` do `.claude/settings.json` lembram disso (`scripts/workspace/graphify-hook.sh`, que não faz nada onde o graphify não está instalado).
-- `graphify-out/GRAPH_REPORT.md` só para uma visão geral da arquitetura.
-- **Depois de mudar código,** rode `graphify update .`.
-- O grafo de cada sessão não lê os `.md` com IA. `/graphify .` faz a leitura completa com subagentes e gasta o plano: só quando o dono pedir.
-- **Trocar de versão:** leia o changelog e os hooks da nova, mude o `GRAPHIFY_VERSION` e prove numa sessão nova.
+- **In the cloud,** `cloud-start.sh` installs the version pinned in `scripts/workspace/lib.sh` (`GRAPHIFY_VERSION`) and rebuilds the branch's graph every session, from the syntax tree only: no AI, about 4 s. Outside the cloud: `uv tool install graphifyy==<version>` and `graphify update .`.
+- **Before the first grep or file read** on a question about the code:
+  - run `graphify query "<question>"`;
+  - for the link between two things, `graphify path "<A>" "<B>"`;
+  - for a concept, `graphify explain "<X>"`.
+  Read only the lines the graph pointed to, and repeat this rule in the request of every subagent that explores the code. The `PreToolUse` hooks in `.claude/settings.json` remind of this (`scripts/workspace/graphify-hook.sh`, which does nothing where graphify is not installed).
+- `graphify-out/GRAPH_REPORT.md` only for an architecture overview.
+- **After changing code,** run `graphify update .`.
+- Each session's graph does not read the `.md` files with AI. `/graphify .` does the full read with subagents and spends the plan: only when the owner asks.
+- **Changing versions:** read the new one's changelog and hooks, change `GRAPHIFY_VERSION` and prove it in a fresh session.
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) com TypeScript, Prisma 7 sobre Postgres (`@prisma/adapter-pg`), Chakra UI 3, Zod para validação e Vitest para testes.
+Next.js 16 (App Router, Turbopack) with TypeScript, Prisma 7 on Postgres (`@prisma/adapter-pg`), Chakra UI 3, Zod for validation and Vitest for tests.
 
-## Convenções (Rails → Next)
+## Conventions (Rails → Next)
 
-O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
+The project follows Rails conventions. When in doubt, do what Rails would do.
 
-| Rails | Aqui |
+| Rails | Here |
 |---|---|
-| `resources` RESTful | Pastas em `src/app/(app)/` com URLs de recurso (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_player`). Mutações em server actions, num `actions.ts` por recurso, com os nomes das ações do Rails (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) só para o que não é ação de formulário: busca enquanto se digita, o cron e a sincronização com a BitJita. O Next roda as actions de uma aba uma de cada vez, então uma action de vários segundos segura as outras e a página parece travada. |
-| Controllers magros | Páginas (server components) e actions só leem a entrada, validam, chamam e renderizam ou redirecionam. Regras ficam em `src/models/` ou `src/services/`. |
-| Service objects / POROs | `src/services/<area>/<nome>.ts`, uma classe ou um módulo por caso de uso. |
-| Models | O Prisma não tem classes: as consultas e regras de cada tabela ficam em `src/models/<model>.ts`. Os dados do jogo sempre filtram os removidos com `active` (`removedAt: null`). |
-| Strong params + validations | Zod em `src/validators/<recurso>.ts`, um schema por recurso e ação. Entrada inválida vira mensagem em português, nunca erro 500. |
-| Migrations | `prisma migrate`. Nunca editar uma migration já aplicada; criar uma nova. O SQL que o Prisma não expressa (como índice parcial) vai na própria migration, com um comentário. |
-| `db/seeds.rb` | Seeders só para dev e teste. Os dados do jogo vêm de `npm run game-data:import`. |
-| Rake tasks | Scripts em `scripts/`, rodados com `tsx` pelos `npm run`. |
-| Partials e layouts | Layouts do App Router e componentes React com Chakra em `src/components/<area>/`. Componente de cliente (`'use client'`) só onde há interação ou Chakra; a página busca os dados e passa dados simples. |
-| Model e request specs | Vitest: `tests/unit/` sem banco e `tests/integration/` com o Postgres de teste (zerado a cada teste), com fixtures em `tests/fixtures/`. Teste os services e models que as actions chamam. |
-| Nomes | Tabelas no plural em snake_case (`@@map`), models no singular em PascalCase, campos em camelCase (`@map` para snake_case), arquivos em snake_case. Código em inglês, interface em português (pt-BR). Os nomes dos itens ficam como vêm do jogo, em inglês. |
+| RESTful `resources` | Folders in `src/app/(app)/` with resource URLs (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_player`). Mutations are server actions, one `actions.ts` per resource, with Rails-style action names (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) only for what is not a form action: search-as-you-type, the cron and the BitJita sync. Next runs one tab's actions one at a time, so an action that takes several seconds holds the others and the page looks frozen. |
+| Thin controllers | Pages (server components) and actions only read the input, validate, call, and render or redirect. Rules live in `src/models/` or `src/services/`. |
+| Service objects / POROs | `src/services/<area>/<name>.ts`, one class or module per use case. |
+| Models | Prisma has no classes: each table's queries and rules live in `src/models/<model>.ts`. Game data queries always filter out removed rows with `active` (`removedAt: null`). |
+| Strong params + validations | Zod in `src/validators/<resource>.ts`, one schema per resource and action. Invalid input becomes a message in Portuguese (it is shown in the UI), never a 500 error. |
+| Migrations | `prisma migrate`. Never edit a migration that was already applied; create a new one. SQL that Prisma cannot express (such as a partial index) goes in the migration itself, with a comment. |
+| `db/seeds.rb` | Seeders for dev and test only. Game data comes from `npm run game-data:import`. |
+| Rake tasks | Scripts in `scripts/`, run with `tsx` through `npm run`. |
+| Partials and layouts | App Router layouts and React components with Chakra in `src/components/<area>/`. A client component (`'use client'`) only where there is interaction or Chakra; the page fetches the data and passes plain data. |
+| Model and request specs | Vitest: `tests/unit/` without a database and `tests/integration/` with the test Postgres (wiped on each test), with fixtures in `tests/fixtures/`. Test the services and models that the actions call. |
+| Names | Tables plural in snake_case (`@@map`), models singular in PascalCase, fields in camelCase (`@map` to snake_case), files in snake_case. Code in English, interface in Portuguese (pt-BR). Item names stay as they come from the game, in English. |
 
-**Login (o app é público na internet):**
+**Login (the app is public on the internet):**
 
-- O `src/proxy.ts` manda para `/login` quem não tem sessão, e responde 401 nas rotas `/api`. Ele é só a primeira barreira.
-- **Toda página, action e route handler confere de novo:**
-  - páginas e actions usam `requireUser()`;
-  - route handlers usam `userFromRequest(request)`;
-  - os dois estão em `src/lib/session.ts`.
-- Só `/login`, `/signup` e `/api/cron/*` são abertos. O cron tem a própria chave, `CRON_SECRET`.
-- O cadastro em `/signup` é aberto, com senha de no mínimo 8 caracteres e no máximo 5 contas novas por IP por dia (`src/services/auth/signup.ts`). O campo "Nick do seu personagem" é opcional: preenchido, o app o confere na BitJita depois do limite por IP e antes de criar a conta; se a BitJita não achar o nick ou estiver fora do ar, a conta não é criada e o formulário diz por quê. Cada tentativa com nick que falha conta no limite por IP como uma conta (`signup_nick_failures`, decidido em 25/11/2026), para nicks inventados não consultarem a BitJita sem limite. `npm run users:create` continua existindo.
-- Senhas usam scrypt (`src/services/auth/password.ts`). Depois de 10 erros seguidos, o e-mail fica bloqueado por 15 minutos.
+- `src/proxy.ts` sends anyone without a session to `/login`, and answers 401 on `/api` routes. It is only the first barrier.
+- **Every page, action and route handler checks again:**
+  - pages and actions use `requireUser()`;
+  - route handlers use `userFromRequest(request)`;
+  - both are in `src/lib/session.ts`.
+- Only `/login`, `/signup` and `/api/cron/*` are open. The cron has its own key, `CRON_SECRET`.
+- Sign-up at `/signup` is open, with a password of at least 8 characters and at most 5 new accounts per IP per day (`src/services/auth/signup.ts`). The "Nick do seu personagem" field is optional: when filled in, the app checks it on BitJita after the per-IP limit and before creating the account; if BitJita does not find the nick or is down, the account is not created and the form says why. Each attempt with a failing nick counts toward the per-IP limit like an account (`signup_nick_failures`, decided 2026-11-25), so made-up nicks cannot query BitJita without limit. `npm run users:create` still exists.
+- Passwords use scrypt (`src/services/auth/password.ts`). After 10 wrong attempts in a row, the e-mail is locked for 15 minutes.
 
-**Contas (decidido em 24/11/2026):**
+**Accounts (decided 2026-11-24):**
 
-- **Planos:** cada plano é de quem o criou (`created_by_id`). O dono compartilha com os seus grupos: quem recebe vê e edita, só o dono apaga. Toda consulta de plano passa por `findPlanFor`, `canEditPlan` ou `listPlans(userId)`.
-- **Grupos (decidido em 25/11/2026, `src/models/group.ts`):**
-  - cada conta cria até 5 grupos e pode estar em quantos grupos de outras contas quiser; cada grupo tem até 50 pessoas, contando os convites pendentes;
-  - só quem criou convida e remove pessoas. O convite é um link (`/invites/[token]`) que o dono copia e manda; quem abre o link aceita ou recusa, e o login e o cadastro voltam para ele (`next`). O app não manda nem confirma e-mail: por isso o convite só aparece na página Conta (`/account`) de uma conta que já tinha aquele e-mail ao convidar, e cadastrar o e-mail convidado depois não dá acesso a nada;
-  - no plano, o menu "Compartilhar com o grupo" tem, por grupo, "Todos do grupo" (`plan_group_shares`, vale também para quem entrar depois) e as pessoas uma a uma (`plan_shares`, só com quem está num grupo com o dono);
-  - "Compartilhar com o grupo automaticamente" é por conta e grupo (`group_members.auto_share_plans`): o plano novo já nasce com "Todos do grupo";
-  - quem sai ou é removido de um grupo deixa de ver os planos do grupo, e o grupo os dele. O compartilhamento um a um entre duas pessoas só acaba quando elas não têm mais nenhum grupo em comum. Os compartilhamentos por e-mail de antes dos grupos continuam, e o dono os remove no plano.
-- **Personagem (decidido em 25/11/2026, `src/models/game_player.ts`):** cada conta tem um, o próprio (`users.game_player_id`, página Meu personagem em `/game_player`). Um personagem existe uma vez só, e é lido uma vez, mesmo que duas contas digam que é o delas. Sem nenhuma conta, ele é apagado.
-  - Conta sem personagem vê um aviso ⚠️ na aba Inventário do menu e na linha do inventário da calculadora e do plano, com o link para Meu personagem (`NoCharacterNotice`).
-  - Antes, cada conta seguia até 5 (`user_game_players`). Quem seguia 1 saiu da migração com ele; quem seguia 2 ou mais e não escolheu digita o nick, guiado pelo aviso (decidido em 25/11/2026). Essa tabela, a coluna `plans.use_inventory` e os personagens sem nenhuma conta saíram na migração `legacy_player_cleanup` (issue #17).
-- **Inventário (decidido em 25/11/2026, `src/services/inventory/scope.ts`):** sempre ligado; o "já tenho" digitado vale mais.
-  - fora de um plano (calculadora rápida, página Inventário, "Você tem" do item): só o personagem da conta;
-  - num plano: o meu personagem e os das pessoas do plano (o dono e quem o recebeu, uma a uma ou "Todos do grupo"), cada personagem uma vez;
-  - "Usar apenas meu inventário" deixa só o meu. Cada pessoa marca para si, por plano (`plan_user_settings`), e não muda o que os outros veem.
-- **Receitas (decidido em 25/11/2026, `src/models/user_recipe_choice.ts`):**
-  - nas Etapas, o item com 2 ou mais receitas tem "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), só com receitas; "Tratar como matéria-prima" fica na Árvore de produção;
-  - escolher uma receita (nas Etapas ou na árvore) muda o plano e a guarda como padrão da conta (`user_recipe_choices`), também num plano compartilhado;
-  - o plano novo nasce com os padrões de quem o cria e depois guarda as próprias escolhas: mudar o padrão não muda plano nenhum. A calculadora rápida usa os padrões onde a URL não escolheu.
+- **Plans:** each plan belongs to whoever created it (`created_by_id`). The owner shares it with their groups: whoever receives it sees and edits it, only the owner deletes it. Every plan query goes through `findPlanFor`, `canEditPlan` or `listPlans(userId)`.
+- **Groups (decided 2026-11-25, `src/models/group.ts`):**
+  - each account creates up to 5 groups and can be in as many groups of other accounts as it wants; each group has up to 50 people, counting pending invites;
+  - only the creator invites and removes people. The invite is a link (`/invites/[token]`) that the owner copies and sends; whoever opens it accepts or declines, and login and sign-up return to it (`next`). The app neither sends nor confirms e-mail: so the invite only shows on the Account page (`/account`) of an account that already had that e-mail when invited, and registering the invited e-mail later grants nothing;
+  - on a plan, the "Compartilhar com o grupo" menu has, per group, "Todos do grupo" (`plan_group_shares`, also applies to whoever joins later) and people one by one (`plan_shares`, only with people in a group with the owner);
+  - "share with the group automatically" is per account and group (`group_members.auto_share_plans`): a new plan is born with "Todos do grupo";
+  - whoever leaves or is removed from a group stops seeing the group's plans, and the group stops seeing theirs. One-to-one sharing between two people only ends when they have no group in common. E-mail shares from before groups remain, and the owner removes them on the plan.
+- **Character (decided 2026-11-25, `src/models/game_player.ts`):** each account has one, its own (`users.game_player_id`, "Meu personagem" page at `/game_player`). A character exists once and is read once, even if two accounts say it is theirs. With no account left, it is deleted.
+  - An account without a character sees a ⚠️ notice in the menu's Inventory tab and in the inventory row of the calculator and the plan, with a link to Meu personagem (`NoCharacterNotice`).
+  - Before, each account followed up to 5 (`user_game_players`). Whoever followed 1 left the migration with it; whoever followed 2 or more and did not choose types the nick, guided by the notice (decided 2026-11-25). That table, the `plans.use_inventory` column and the characters with no account were removed in the `legacy_player_cleanup` migration (issue #17).
+- **Inventory (decided 2026-11-25, `src/services/inventory/scope.ts`):** always on; the typed "already have" wins.
+  - outside a plan (quick calculator, Inventory page, an item's "Você tem"): only the account's character;
+  - in a plan: my character and the plan's people's characters (the owner and whoever received it, one by one or "Todos do grupo"), each character once;
+  - "Usar apenas meu inventário" leaves only mine. Each person sets it for themselves, per plan (`plan_user_settings`), and it does not change what others see.
+- **Recipes (decided 2026-11-25, `src/models/user_recipe_choice.ts`):**
+  - in the Steps, an item with 2 or more recipes has "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), recipes only; "Tratar como matéria-prima" stays in the Production tree;
+  - choosing a recipe (in the Steps or the tree) changes the plan and saves it as the account's default (`user_recipe_choices`), also on a shared plan;
+  - a new plan is born with its creator's defaults and then keeps its own choices: changing the default changes no plan. The quick calculator uses the defaults where the URL did not choose.
 
-Detalhes que já custaram tempo:
+Details that already cost time:
 
-- **Chakra no App Router:** os estilos do Emotion vão para o `<head>` pelo `EmotionRegistry` (`src/components/ui/emotion_registry.tsx`); sem ele, a hidratação falha. O tema claro e escuro é uma classe no `<html>` posta por um script `beforeInteractive` (`src/components/ui/color_mode.ts`), sem `next-themes`.
-- **O cliente do Prisma é gerado** em `src/generated/prisma` (fora do git) e importado de `@/generated/prisma/client.ts`. Use `db` de `src/lib/db.ts`, que só conecta no primeiro uso.
-- **Datas:** a Vercel roda em UTC. Formate com `src/lib/format.ts`, que usa o fuso `America/Sao_Paulo`.
-- **Ícones dos itens:** o nome vem dos dados do jogo (`items.icon_asset_name`) e a imagem, da BitJita; só `src/lib/item_icon.ts` sabe o endereço. Alguns ícones não existem lá: o `ItemIcon` os esconde, inclusive os que falham antes da hidratação.
-- **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_` (`namesMatch` e `containsWord` em `src/lib/search.ts`).
-- **Sync do inventário:** por personagem, pelo `last_attempt_at`, até 20 por vez (`MAX_PLAYERS_PER_SYNC`), os tentados há mais tempo primeiro. Sob demanda (uma página que mostra o inventário chama `POST /api/inventory/sync` com `onlyIfStale`, que lê os personagens da página não tentados no último minuto; num plano, com `planId`, os do plano), pelo botão (a mesma rota) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`: personagens não lidos na última hora). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
-- **`prisma dev`:** se o banco local passar a fechar as conexões ("Server has closed the connection"), pare e suba de novo (`npx prisma dev stop bitcraft-dev`, depois `npm run db:dev`). Os dados ficam no disco.
+- **Chakra on the App Router:** Emotion's styles go to the `<head>` through `EmotionRegistry` (`src/components/ui/emotion_registry.tsx`); without it, hydration fails. The light and dark theme is a class on `<html>` set by a `beforeInteractive` script (`src/components/ui/color_mode.ts`), without `next-themes`.
+- **The Prisma client is generated** in `src/generated/prisma` (outside git) and imported from `@/generated/prisma/client.ts`. Use `db` from `src/lib/db.ts`, which only connects on first use.
+- **Dates:** Vercel runs in UTC. Format with `src/lib/format.ts`, which uses the `America/Sao_Paulo` time zone.
+- **Item icons:** the name comes from the game data (`items.icon_asset_name`) and the image from BitJita; only `src/lib/item_icon.ts` knows the address. Some icons do not exist there: `ItemIcon` hides them, including those that fail before hydration.
+- **Text search:** Postgres is case-sensitive in `LIKE`. Use `ILIKE` (or `mode: 'insensitive'`) with the escape of `%` and `_` (`namesMatch` and `containsWord` in `src/lib/search.ts`).
+- **Inventory sync:** per character, by `last_attempt_at`, up to 20 at a time (`MAX_PLAYERS_PER_SYNC`), least recently attempted first. On demand (a page that shows the inventory calls `POST /api/inventory/sync` with `onlyIfStale`, which reads the page's characters not attempted in the last minute; on a plan, with `planId`, the plan's), by the button (the same route) and by a daily cron (`/api/cron/inventory-sync`, with `CRON_SECRET`: characters not read in the last hour). Never a timer. The lock between instances is the partial index `sync_runs_one_running`: a second `running` raises P2002.
+- **`prisma dev`:** if the local database starts closing connections ("Server has closed the connection"), stop it and start it again (`npx prisma dev stop bitcraft-dev`, then `npm run db:dev`). The data stays on disk.
 
-## Limites do plano grátis (não negociáveis)
+## Free plan limits (non-negotiable)
 
-- **Neon:** 100 CU-horas de compute, 1 GB e 5 GB de transferência por mês. Ao estourar um limite, o banco fica suspenso até o próximo ciclo e o app sai do ar. Por isso:
-  - nada de timer, polling ou cron frequente que acorde o banco (ele dorme depois de 5 minutos parado);
-  - o grafo de receitas da calculadora vem comprimido de `recipe_graph_snapshots`, e não das tabelas;
-  - consultas que não precisam de colunas grandes usam `select`.
-- **Vercel Hobby:** sem disco persistente, cron no máximo uma vez por dia e funções de até 300 s. A importação dos dados do jogo nunca roda na Vercel: em produção, ela roda pelo workflow manual "Importar dados do jogo" do GitHub Actions (`.github/workflows/game-data-import.yml`).
-- **Previews:** cada preview da Vercel tem um branch próprio do Neon e entra direto numa conta de teste (`src/lib/preview.ts`, `scripts/preview_prepare.ts`). Só com `VERCEL_ENV=preview`: em produção e no dev, `/preview_session` dá 404. Passo a passo em `docs/deploy.md` (Previews).
-- **Deploy:** produção só muda quando uma release é publicada no GitHub (`.github/workflows/release.yml`: testes, `prisma migrate deploy` no Neon e `vercel deploy --prod`). Push no `main` não publica (`vercel.json`). Passo a passo em `docs/deploy.md`.
+- **Neon:** 100 CU-hours of compute, 1 GB and 5 GB of transfer per month. When a limit is exceeded, the database is suspended until the next cycle and the app goes down. Therefore:
+  - no timer, polling or frequent cron that wakes the database (it sleeps after 5 idle minutes);
+  - the calculator's recipe graph comes compressed from `recipe_graph_snapshots`, not from the tables;
+  - queries that do not need large columns use `select`.
+- **Vercel Hobby:** no persistent disk, cron at most once a day and functions of up to 300 s. The game data import never runs on Vercel: in production it runs through the manual "Importar dados do jogo" GitHub Actions workflow (`.github/workflows/game-data-import.yml`).
+- **Previews:** each Vercel preview has its own Neon branch and goes straight into a test account (`src/lib/preview.ts`, `scripts/preview_prepare.ts`). Only with `VERCEL_ENV=preview`: in production and dev, `/preview_session` returns 404.
+- **Deploy:** production only changes when a release is published on GitHub (`.github/workflows/release.yml`: tests, `prisma migrate deploy` on Neon and `vercel deploy --prod`). A push to `main` does not publish (`vercel.json`).
 
-## Regras do jogo (não negociáveis)
+## Game rules (non-negotiable)
 
-- Nada de modificar o cliente, macros, automação de jogabilidade ou ler a memória do jogo.
-- O sync com o jogo só lê dados públicos e nunca chama reducers.
-- **Nunca conectar nos servidores do jogo (SpacetimeDB) com o token de um jogador.** A conexão conta como um novo login e derruba a sessão do jogo dessa pessoa (testado em 21/11/2026). Também não guardar token de jogador: compartilhar token é "account sharing" e dá ban.
-- A fonte dos inventários é a API pública da BitJita (sem token). Uma fonte oficial só com token do Developer Program da Clockwork Labs. Plano: `docs/design/2026-11-21-inventario.md`.
+- No modifying the client, macros, gameplay automation or reading the game's memory.
+- The game sync only reads public data and never calls reducers.
+- **Never connect to the game servers (SpacetimeDB) with a player's token.** The connection counts as a new login and kicks that person's game session (tested 2026-11-21). Also never store a player token: sharing a token is "account sharing" and gets a ban.
+- The inventory source is BitJita's public API (no token). An official source only with a Clockwork Labs Developer Program token. The old plan is in git history (`docs/design/2026-11-21-inventario.md`, before it was removed).
 
-## Comandos
+## Commands
 
 ```bash
-npm run dev                  # servidor de desenvolvimento em http://localhost:3100
-npm test                     # todos os testes (unit e integration)
-npm run test:unit            # só os sem banco
+npm run dev                  # development server at http://localhost:3100
+npm test                     # all tests (unit and integration)
+npm run test:unit            # only the ones without a database
 npm run typecheck
 npm run lint
-npx prisma migrate dev       # cria e aplica migrations no banco de dev
-npm run game-data:import     # importa os dados do jogo no banco de dev (último commit do BitCraft_GameData)
-npm run users:create -- --email=voce@exemplo.com --name="Nome"   # cria uma conta (a senha é pedida)
-npm run inventory:sync       # lê os inventários na BitJita agora (o mesmo do botão)
-npm run db:seed              # só local: o usuário de desenvolvimento (veja prisma/seed.ts)
+npx prisma migrate dev       # creates and applies migrations on the dev database
+npm run game-data:import     # imports game data into the dev database (latest BitCraft_GameData commit)
+npm run users:create -- --email=you@example.com --name="Name"   # creates an account (the password is asked for)
+npm run inventory:sync       # reads the inventories from BitJita now (same as the button)
+npm run db:seed              # local only: the development user (see prisma/seed.ts)
 ```
 
-**Fora da nuvem (plano B):** sem Docker, o Postgres local é o `prisma dev`. Rode `npm run db:dev` e `npm run db:test`, cada um num terminal que fica aberto, com as URLs do `.env.example`. O `prisma dev` só respeita as portas do `.env` rodando em primeiro plano (`--detach` escolhe outras).
+**Outside the cloud (plan B):** without Docker, the local Postgres is `prisma dev`. Run `npm run db:dev` and `npm run db:test`, each in a terminal that stays open, with the URLs from `.env.example`. `prisma dev` only respects the `.env` ports when running in the foreground (`--detach` picks other ones).

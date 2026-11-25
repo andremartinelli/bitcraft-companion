@@ -4,7 +4,7 @@
 
 A companion app for BitCraft Online 1.0: look up recipes and items, calculate costs, keep plans, and see the inventory of your character and of the people in your plans. It runs for free on Vercel, with the database on Neon.
 
-Stack: Next.js, Prisma, Postgres and Chakra UI. The project's conventions (Rails style) are in [CLAUDE.md](CLAUDE.md), and the design in [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md). The app's interface and the rest of the documentation are in Portuguese (pt-BR).
+Stack: Next.js, Prisma, Postgres and Chakra UI. The project's conventions (Rails style) are in [CLAUDE.md](CLAUDE.md), and the design in [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md). The app's interface is in Portuguese (pt-BR); code and documentation are in English.
 
 Production changes with each release published on GitHub: the workflow runs the tests, the migrations on Neon and the deploy to Vercel. The step by step is in [docs/deploy.md](docs/deploy.md). This version replaced the AdonisJS app that ran on a PC; it stays in the git history, before the merge of 24/11/2026.
 
