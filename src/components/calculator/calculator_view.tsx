@@ -72,6 +72,13 @@ export function CalculatorView({
   const change = (next: CalculatorState) => {
     if (next !== state) onChange(next)
   }
+  // "Já tenho" = 1 on the previous tier: the one they keep equipped
+  const markPrevious = (s: CalculatorState, itemId: number, checked: boolean) =>
+    setOwned(s, itemId, checked ? '1' : '')
+  const previousTiers = panel.targets.flatMap((t) => (t.previousTier ? [t.previousTier] : []))
+  const ownedPrevious = previousTiers.filter((p) => p.owned).length
+  const allPrevious =
+    ownedPrevious === 0 ? false : ownedPrevious === previousTiers.length ? true : 'indeterminate'
 
   return (
     <Box>
@@ -97,6 +104,26 @@ export function CalculatorView({
             <Table.Header>
               <Table.Row bg="bg.muted">
                 <Table.ColumnHeader>Item</Table.ColumnHeader>
+                {previousTiers.length > 0 && (
+                  <Table.ColumnHeader>
+                    <Checkbox.Root
+                      size="sm"
+                      checked={allPrevious}
+                      onCheckedChange={({ checked }) =>
+                        change(
+                          previousTiers.reduce(
+                            (s, p) => markPrevious(s, p.item.id, checked === true),
+                            state
+                          )
+                        )
+                      }
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control />
+                      <Checkbox.Label>Tier anterior</Checkbox.Label>
+                    </Checkbox.Root>
+                  </Table.ColumnHeader>
+                )}
                 <Table.ColumnHeader textAlign="end">Quantidade</Table.ColumnHeader>
                 <Table.ColumnHeader />
               </Table.Row>
@@ -109,30 +136,28 @@ export function CalculatorView({
                       <ItemChip item={target.item} />
                       {target.item.removed && <Badge colorPalette="red">saiu do jogo</Badge>}
                     </HStack>
-                    {target.previousTier && (
-                      // "Já tenho" = 1 on the previous tier: the one they keep equipped
-                      <Checkbox.Root
-                        size="sm"
-                        mt="1.5"
-                        checked={target.previousTier.owned}
-                        onCheckedChange={({ checked }) =>
-                          change(
-                            setOwned(
-                              state,
-                              target.previousTier!.item.id,
-                              checked === true ? '1' : ''
-                            )
-                          )
-                        }
-                      >
-                        <Checkbox.HiddenInput />
-                        <Checkbox.Control />
-                        <Checkbox.Label fontWeight="normal" color="fg.muted">
-                          Já tenho {target.previousTier.item.name}
-                        </Checkbox.Label>
-                      </Checkbox.Root>
-                    )}
                   </Table.Cell>
+                  {previousTiers.length > 0 && (
+                    <Table.Cell>
+                      {target.previousTier && (
+                        <Checkbox.Root
+                          size="sm"
+                          checked={target.previousTier.owned}
+                          onCheckedChange={({ checked }) =>
+                            change(
+                              markPrevious(state, target.previousTier!.item.id, checked === true)
+                            )
+                          }
+                        >
+                          <Checkbox.HiddenInput />
+                          <Checkbox.Control />
+                          <Checkbox.Label fontWeight="normal">
+                            {target.previousTier.item.name}
+                          </Checkbox.Label>
+                        </Checkbox.Root>
+                      )}
+                    </Table.Cell>
+                  )}
                   <Table.Cell textAlign="end">
                     <CommitInput
                       key={`${target.item.id}:${target.quantity}`}
@@ -170,6 +195,7 @@ export function CalculatorView({
                       {building.removed && <Badge colorPalette="red">saiu do jogo</Badge>}
                     </HStack>
                   </Table.Cell>
+                  {previousTiers.length > 0 && <Table.Cell />}
                   <Table.Cell textAlign="end">
                     <CommitInput
                       key={`${building.recipe.id}:${building.quantity}`}
