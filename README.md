@@ -49,7 +49,7 @@ Options: `-- --commit=<sha>` imports a specific commit, and `-- --path=<folder>`
 
 ## Accounts
 
-The app is public on the internet and **always asks for a login**. Anyone can create an account at `/signup`, with a password of at least 8 characters. To stay within the free plans, each IP creates at most 5 accounts a day. The character's nick is optional on sign-up: when given, the app checks it on BitJita before creating the account, and the account starts with that character. If BitJita does not find the nick or is down, the account is not created and the form says why; the field can be cleared to go on. An account can also be created from the command line:
+The app is public on the internet and **always asks for a login**. Anyone can create an account at `/signup`, with a password of at least 8 characters. To stay within the free plans, each IP creates at most 5 accounts a day. The character's nick is optional on sign-up: when given, the app checks it on BitJita before creating the account, and the account starts with that character. If BitJita does not find the nick or is down, the account is not created and the form says why; the field can be cleared to go on. Each failed nick attempt counts toward the limit of 5 per IP per day, like an account. An account can also be created from the command line:
 
 ```bash
 npm run users:create -- --email=you@example.com --name="Your name"

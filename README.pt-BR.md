@@ -49,7 +49,7 @@ Opções: `-- --commit=<sha>` importa um commit específico, e `-- --path=<pasta
 
 ## Contas
 
-O app fica público na internet e **sempre pede login**. Qualquer pessoa cria uma conta em `/signup`, com senha de no mínimo 8 caracteres. Para segurar os planos grátis, cada IP cria no máximo 5 contas por dia. O nick do personagem é opcional no cadastro: preenchido, o app o confere na BitJita antes de criar a conta, e a conta já nasce com ele. Se a BitJita não achar o nick ou estiver fora do ar, a conta não é criada e o formulário diz por quê; dá para apagar o campo e seguir. Também dá para criar uma conta pela linha de comando:
+O app fica público na internet e **sempre pede login**. Qualquer pessoa cria uma conta em `/signup`, com senha de no mínimo 8 caracteres. Para segurar os planos grátis, cada IP cria no máximo 5 contas por dia. O nick do personagem é opcional no cadastro: preenchido, o app o confere na BitJita antes de criar a conta, e a conta já nasce com ele. Se a BitJita não achar o nick ou estiver fora do ar, a conta não é criada e o formulário diz por quê; dá para apagar o campo e seguir. Cada tentativa com nick que falha conta no limite de 5 por IP por dia, como uma conta. Também dá para criar uma conta pela linha de comando:
 
 ```bash
 npm run users:create -- --email=voce@exemplo.com --name="Seu nome"
