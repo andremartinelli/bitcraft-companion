@@ -107,7 +107,7 @@ Cada push num branch que não é o `main` gera um preview na Vercel, com um banc
 
 ### O que configurar (Você, uma vez)
 
-1. **Branches de preview no Neon:** na Vercel, **Storage → o banco Neon → Settings**, ligue "Create a branch for each preview deployment" e marque o ambiente **Preview**.
+1. **Branches de preview no Neon:** na Vercel, **Storage → o banco Neon → Projects**, no **⋮** da linha `bitcraft-companion` → **Manage**: marque **Preview** em Environments e, em **Advanced Options**, ligue **Preview** em "Create database branch for deployment" (feito em 25/11/2026).
 2. **Compute dos branches:** no console do Neon, em **Settings → Compute**, deixe o compute padrão dos branches novos em **0,25 CU** e o "scale to zero" em 5 minutos.
 3. **Variáveis na Vercel,** em **Settings → Environment Variables**, marcando só **Preview**:
 
@@ -125,4 +125,4 @@ Cada push num branch que não é o `main` gera um preview na Vercel, com um banc
 
 5. **Apagar o branch no merge:** no GitHub, **Settings → General → Pull Requests**, ligue "Automatically delete head branches". Assim a limpeza roda sozinha a cada merge.
 
-Para apagar de uma vez os bancos de branches que já não existem: **Actions → Limpar bancos dos previews → Run workflow**.
+O GitHub só roda a limpeza com o workflow que está no `main`: ela começa a funcionar depois do merge deste PR. Para apagar de uma vez os bancos de branches que já não existem: **Actions → Limpar bancos dos previews → Run workflow**.
