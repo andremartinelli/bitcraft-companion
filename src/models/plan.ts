@@ -102,35 +102,44 @@ export async function canEditPlan(id: number, userId: number) {
  */
 export async function sharePlan(planId: number, ownerId: number, userId: number) {
   if (userId === ownerId) return false
-  const [owned, together] = await Promise.all([
-    db.plan.count({ where: { id: planId, createdById: ownerId } }),
-    db.groupMember.count({ where: { userId: ownerId, group: { members: { some: { userId } } } } }),
-  ])
-  if (!owned || !together) return false
-  await db.planShare.upsert({
-    where: { planId_userId: { planId, userId } },
-    create: { planId, userId },
-    update: {},
+  return db.$transaction(async (tx) => {
+    if (!(await tx.plan.count({ where: { id: planId, createdById: ownerId } }))) return false
+    // Locked, like in sharePlanWithGroup: both memberships in every group they have in common
+    const together = await tx.$queryRaw<unknown[]>`
+      SELECT 1 FROM group_members mine
+      JOIN group_members theirs ON theirs.group_id = mine.group_id
+      WHERE mine.user_id = ${ownerId} AND theirs.user_id = ${userId}
+      FOR SHARE`
+    if (!together.length) return false
+    await tx.planShare.upsert({
+      where: { planId_userId: { planId, userId } },
+      create: { planId, userId },
+      update: {},
+    })
+    return true
   })
-  return true
 }
 
 /**
  * The owner shares the plan with a whole group it is in ("Todos do grupo"),
  * which also reaches whoever joins later. False when it can't.
  */
-export async function sharePlanWithGroup(planId: number, ownerId: number, groupId: number) {
-  const [owned, member] = await Promise.all([
-    db.plan.count({ where: { id: planId, createdById: ownerId } }),
-    db.groupMember.count({ where: { groupId, userId: ownerId } }),
-  ])
-  if (!owned || !member) return false
-  await db.planGroupShare.upsert({
-    where: { planId_groupId: { planId, groupId } },
-    create: { planId, groupId },
-    update: {},
+export function sharePlanWithGroup(planId: number, ownerId: number, groupId: number) {
+  return db.$transaction(async (tx) => {
+    if (!(await tx.plan.count({ where: { id: planId, createdById: ownerId } }))) return false
+    // The membership stays locked until the share is saved: leaving the group at the same
+    // time waits for it, and its cleanup (models/group removeMember) then sees the share
+    const member = await tx.$queryRaw<unknown[]>`
+      SELECT 1 FROM group_members WHERE group_id = ${groupId} AND user_id = ${ownerId}
+      FOR SHARE`
+    if (!member.length) return false
+    await tx.planGroupShare.upsert({
+      where: { planId_groupId: { planId, groupId } },
+      create: { planId, groupId },
+      update: {},
+    })
+    return true
   })
-  return true
 }
 
 /** The owner stops sharing the plan with a whole group. False when there was nothing to do */
@@ -203,12 +212,12 @@ export function insertPlan({
     })
     await writeState(tx, plan.id, state)
     if (userId !== null) {
-      const groups = await tx.groupMember.findMany({
-        where: { userId, autoSharePlans: true },
-        select: { groupId: true },
-      })
+      // Locked, like in sharePlanWithGroup
+      const groups = await tx.$queryRaw<{ group_id: number }[]>`
+        SELECT group_id FROM group_members WHERE user_id = ${userId} AND auto_share_plans
+        FOR SHARE`
       await tx.planGroupShare.createMany({
-        data: groups.map(({ groupId }) => ({ planId: plan.id, groupId })),
+        data: groups.map((group) => ({ planId: plan.id, groupId: group.group_id })),
       })
     }
     return plan

@@ -196,6 +196,49 @@ describe('groups', () => {
       expect(await db.planShare.count()).toBe(1)
     })
 
+    /**
+     * Runs `share` while André is leaving the group (his membership deleted,
+     * not committed yet), and returns what it answered
+     */
+    const whileLeaving = async (groupId: number, share: () => Promise<boolean>) => {
+      let release!: () => void
+      const held = new Promise<void>((resolve) => (release = resolve))
+      let deleted!: () => void
+      const gone = new Promise<void>((resolve) => (deleted = resolve))
+      const leaving = db.$transaction(async (tx) => {
+        await tx.groupMember.deleteMany({ where: { groupId, userId: andre.id } })
+        deleted()
+        await held
+      })
+      await gone
+      const sharing = share()
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      release()
+      await leaving
+      return sharing
+    }
+
+    test('sharing while leaving at the same time waits, and is refused', async () => {
+      const group = await clan()
+      const plan = await planOf(andre.id)
+      expect(
+        await whileLeaving(group.id, () => sharePlanWithGroup(plan.id, andre.id, group.id))
+      ).toBe(false)
+      expect(await whileLeaving(group.id, () => sharePlan(plan.id, andre.id, vitor.id))).toBe(false)
+      expect(await db.planGroupShare.count()).toBe(0)
+      expect(await db.planShare.count()).toBe(0)
+    })
+
+    test('a new plan does not start shared with a group its owner is leaving', async () => {
+      const group = await clan()
+      await setAutoShare(group.id, andre.id, true)
+      await whileLeaving(group.id, async () => {
+        await planOf(andre.id)
+        return true
+      })
+      expect(await db.planGroupShare.count()).toBe(0)
+    })
+
     test('only the owner deletes the group; its people stop sharing', async () => {
       const group = await clan()
       const plan = await planOf(vitor.id)

@@ -104,6 +104,8 @@ export function acceptInvite(inviteId: number, user: Account) {
       select: { groupId: true },
     })
     if (!invite) return false
+    // The group's row, like in inviteToGroup: an invite at the same time counts the people after this
+    await tx.group.update({ where: { id: invite.groupId }, data: { updatedAt: new Date() } })
     // Two accepts at once: only the one that deletes it goes on
     const { count } = await tx.groupInvite.deleteMany({ where: { id: inviteId } })
     if (!count) return false
