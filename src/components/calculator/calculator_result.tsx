@@ -289,9 +289,9 @@ function TreeNode({
             </Text>
           )
         )}
-        <HStack gap="2" ml="auto">
+        <HStack gap="2" ml="auto" wrap="wrap" minW="0">
           {node.options.length > 1 && (
-            <NativeSelect.Root size="xs" width="64">
+            <NativeSelect.Root size="xs" width="64" maxW="full">
               <NativeSelect.Field
                 aria-label={`Receita para ${node.item.name}`}
                 value={selected}

@@ -17,7 +17,7 @@ export function SavePlanForm({ state }: { state: CalculatorState }) {
   return (
     <form action={action}>
       <Stack gap="1">
-        <HStack gap="2">
+        <HStack gap="2" wrap="wrap">
           <input type="hidden" name="state" value={stateToQuery(state)} />
           <Input
             name="name"
