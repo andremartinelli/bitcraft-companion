@@ -3,6 +3,7 @@ import { UrlCalculator } from '@/components/calculator/url_calculator'
 import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { requireUser } from '@/lib/session'
+import { withRecipeChoices } from '@/models/user_recipe_choice'
 import { calculate } from '@/services/calculator/calculate'
 import { readStateFromQuery } from '@/services/calculator/state_params'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
@@ -16,6 +17,7 @@ export const maxDuration = 60
 /**
  * GET /calculator?t=157x10...: the quick calculator. The state is in the
  * URL; nothing is saved. Invalid values show their message instead of failing.
+ * Items the URL chose no recipe for use the account's (Trocar receita).
  */
 export default async function CalculatorPage({
   searchParams,
@@ -25,7 +27,8 @@ export default async function CalculatorPage({
   const user = await requireUser()
   const { state, errors } = readStateFromQuery(await searchParams)
   const [panel, freshness] = await Promise.all([
-    calculate(state, user.id),
+    // The account's recipes where the URL chose none; the URL keeps only its own
+    withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, user.id)),
     inventoryFreshness(user.id),
   ])
   return (

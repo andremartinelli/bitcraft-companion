@@ -13,6 +13,7 @@ import {
   Text,
 } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
+import { updateRecipeChoice } from '@/app/(app)/recipe_choices/actions'
 import { CalculatorResult } from '@/components/calculator/calculator_result'
 import { ItemPicker } from '@/components/calculator/item_picker'
 import { ItemChip, StaticChip } from '@/components/items/item_chip'
@@ -266,7 +267,11 @@ export function CalculatorView({
       <CalculatorResult
         panel={panel}
         storageKey={storageKey}
-        onChoice={(itemId, value) => change(setChoice(state, itemId, value))}
+        onChoice={(itemId, value) => {
+          change(setChoice(state, itemId, value))
+          // A recipe (not "Automático" or raw material) becomes the account's default
+          if (/^\d+$/.test(value)) void updateRecipeChoice({ itemId, recipeId: Number(value) })
+        }}
         onOwned={(itemId, value) => change(setOwned(state, itemId, value))}
       />
     </Box>

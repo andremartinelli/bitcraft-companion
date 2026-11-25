@@ -81,15 +81,16 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  plansCreated    Plan[]           @relation("PlanCreatedBy")
-  plansUpdated    Plan[]           @relation("PlanUpdatedBy")
+  plansCreated    Plan[]             @relation("PlanCreatedBy")
+  plansUpdated    Plan[]             @relation("PlanUpdatedBy")
   planShares      PlanShare[]
   followedPlayers UserGamePlayer[]
-  groupsOwned     Group[]          @relation("GroupOwner")
+  groupsOwned     Group[]            @relation("GroupOwner")
   groupMembers    GroupMember[]
-  groupInvites    GroupInvite[]    @relation("GroupInvitedBy")
-  invitesReceived GroupInvite[]    @relation("GroupInvitee")
+  groupInvites    GroupInvite[]      @relation("GroupInvitedBy")
+  invitesReceived GroupInvite[]      @relation("GroupInvitee")
   syncRuns        SyncRun[]
+  recipeChoices   UserRecipeChoice[]
 
   @@index([signupIp, createdAt])
   @@map("users")
@@ -196,6 +197,7 @@ model Item {
   extractionOutputs ExtractionRecipeOutput[]
   planItems         PlanItem[]
   planChoices       PlanChoice[]
+  userRecipeChoices UserRecipeChoice[]
   planOwnedItems    PlanOwnedItem[]
   inventoryEntries  InventoryEntry[]
 
@@ -278,10 +280,11 @@ model Recipe {
   createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  inputs        RecipeInput[]
-  outputs       RecipeOutput[]
-  planChoices   PlanChoice[]
-  planBuildings PlanBuilding[]
+  inputs            RecipeInput[]
+  outputs           RecipeOutput[]
+  planChoices       PlanChoice[]
+  userRecipeChoices UserRecipeChoice[]
+  planBuildings     PlanBuilding[]
 
   @@unique([kind, gameId])
   @@index([verb])
@@ -535,6 +538,21 @@ model PlanChoice {
 
   @@unique([planId, itemId])
   @@map("plan_choices")
+}
+
+/// A receita que a conta escolheu para um item ("Trocar receita"): os planos
+/// novos nascem com ela e a calculadora rápida a usa
+model UserRecipeChoice {
+  id       Int    @id @default(autoincrement())
+  userId   Int    @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId   Int    @map("item_id")
+  item     Item   @relation(fields: [itemId], references: [id])
+  recipeId Int    @map("recipe_id")
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+
+  @@unique([userId, itemId])
+  @@map("user_recipe_choices")
 }
 
 model PlanOwnedItem {

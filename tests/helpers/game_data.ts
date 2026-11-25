@@ -155,3 +155,22 @@ export function withSetsAndTools(tables: Record<GameTable, RawRow[]> = fixtureTa
   )
   return tables
 }
+
+/**
+ * A second way to make Rough Stripped Wood (recipe 106, "Carve"): 3 logs
+ * give 2, in 50 actions. The saw (101) stays the default: lower id.
+ */
+export function withSecondStrippedWoodRecipe(
+  tables: Record<GameTable, RawRow[]> = fixtureTables()
+) {
+  const saw = tables.crafting_recipe_desc.find((row) => row.id === 101)
+  tables.crafting_recipe_desc.push({
+    ...saw,
+    id: 106,
+    name: 'Carve {0}',
+    consumed_item_stacks: [{ item_id: 1010, quantity: 3, item_type: 'Item' }],
+    crafted_item_stacks: [{ item_id: 1020, quantity: 2, item_type: 'Item' }],
+    actions_required: 50,
+  })
+  return tables
+}

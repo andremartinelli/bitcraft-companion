@@ -13,6 +13,7 @@ import {
 } from '@chakra-ui/react'
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { LuCircleCheck } from 'react-icons/lu'
+import { RecipePicker } from '@/components/calculator/recipe_picker'
 import { ItemChip, StaticChip } from '@/components/items/item_chip'
 import { EmptyNotice } from '@/components/layout/empty_notice'
 import { CommitInput } from '@/components/ui/commit_input'
@@ -136,7 +137,7 @@ function MaterialRow({ row }: { row: Material }) {
   )
 }
 
-function StepRow({ step }: { step: Step }) {
+function StepRow({ step, onChoice }: { step: Step; onChoice: ResultProps['onChoice'] }) {
   const approx = step.approximate ? '≈ ' : ''
   return (
     <Row
@@ -149,6 +150,7 @@ function StepRow({ step }: { step: Step }) {
       ready={step.ready}
     >
       <ItemChip item={step.item} />
+      {step.recipes.length > 0 && <RecipePicker step={step} onChoice={onChoice} />}
       <StepWhere step={step} />
       {step.done ? (
         <Muted>{step.haveLabel}</Muted>
@@ -492,7 +494,7 @@ export function CalculatorResult({ panel, storageKey, onChoice, onOwned }: Resul
                 complete={profession.complete}
               >
                 {profession.entries.map((step) => (
-                  <StepRow key={step.itemId} step={step} />
+                  <StepRow key={step.itemId} step={step} onChoice={onChoice} />
                 ))}
               </ProfessionBox>
             ))}
