@@ -9,6 +9,7 @@ export interface ItemSearchResult {
   name: string
   tier: number
   rarity: string | null
+  iconAssetName: string | null
   kind: 'item' | 'cargo'
   /** Set when the item is a craft result whose rarity is drawn ("resultado do craft") */
   itemListGameId: number | null
@@ -33,8 +34,8 @@ export async function searchItems(q: string | undefined, limit = 20): Promise<It
   if (!words.length || (q ?? '').trim().length < MIN_QUERY) return []
   const craftable = Prisma.join(['Scrap', 'Recraft', 'Unpack', 'Package'])
   return db.$queryRaw<ItemSearchResult[]>`
-    SELECT i.id, i.name, i.tier, i.rarity, i.kind::text AS kind,
-           i.item_list_game_id AS "itemListGameId"
+    SELECT i.id, i.name, i.tier, i.rarity, i.icon_asset_name AS "iconAssetName",
+           i.kind::text AS kind, i.item_list_game_id AS "itemListGameId"
     FROM items i
     WHERE i.removed_at IS NULL AND ${namesMatch('i.name', words)}
     ORDER BY EXISTS (

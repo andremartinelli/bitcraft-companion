@@ -177,6 +177,8 @@ model Item {
   tier           Int
   tag            String?
   rarity         String?
+  /// O ícone no jogo ("GeneratedIcons/Items/Berries"); a imagem vem da BitJita (src/lib/item_icon.ts)
+  iconAssetName  String?   @map("icon_asset_name")
   /// item_list_id do jogo: este item é uma saída aleatória ("... Output")
   itemListGameId Int?      @map("item_list_game_id")
   /// A mesma lista pelo nosso id, resolvida pelo importador

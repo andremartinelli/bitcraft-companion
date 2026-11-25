@@ -5,6 +5,7 @@
     "description": "A trunk of rough wood.",
     "tier": 1,
     "tag": "Trunk",
-    "rarity": "Common"
+    "rarity": "Common",
+    "icon_asset_name": ""
   }
 ]

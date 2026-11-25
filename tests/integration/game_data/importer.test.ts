@@ -25,9 +25,9 @@ describe('game data importer', () => {
       hunting: 0,
     })
     const same = await db.item.findMany({ where: { gameId: 1010 }, orderBy: { kind: 'desc' } })
-    expect(same.map((i) => [i.kind, i.name])).toEqual([
-      ['cargo', 'Rough Wood Trunk'],
-      ['item', 'Rough Wood Log'],
+    expect(same.map((i) => [i.kind, i.name, i.iconAssetName])).toEqual([
+      ['cargo', 'Rough Wood Trunk', null],
+      ['item', 'Rough Wood Log', 'GeneratedIcons/Items/RoughWoodLog'],
     ])
   })
 
@@ -224,5 +224,7 @@ describe('game data importer', () => {
     expect(graph.items.get(plank.id)?.name).toBe('Rough Plank')
     expect(graph.producers.get(plank.id)?.length).toBeGreaterThan(0)
     expect(graph.constructions.size).toBe(1)
+    const log = await db.item.findFirstOrThrow({ where: { name: 'Rough Wood Log' } })
+    expect(graph.items.get(log.id)?.iconAssetName).toBe('GeneratedIcons/Items/RoughWoodLog')
   })
 })

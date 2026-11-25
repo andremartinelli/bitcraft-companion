@@ -30,9 +30,9 @@ export interface RecipeFilters {
   page?: number
 }
 
-/** An item as the pages show it: a chip with name, tier and rarity */
+/** An item as the pages show it: a chip with icon, name, tier and rarity */
 export const itemSummary = {
-  select: { id: true, name: true, tier: true, rarity: true, kind: true },
+  select: { id: true, name: true, tier: true, rarity: true, iconAssetName: true, kind: true },
 } satisfies Prisma.ItemDefaultArgs
 
 export type ItemSummary = Prisma.ItemGetPayload<typeof itemSummary>

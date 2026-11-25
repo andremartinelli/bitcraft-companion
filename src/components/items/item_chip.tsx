@@ -3,6 +3,7 @@
 import { Badge, Box, Text } from '@chakra-ui/react'
 import NextLink from 'next/link'
 import type { ReactNode } from 'react'
+import { ItemIcon } from '@/components/items/item_icon'
 import { formatNumber, rarityLabel } from '@/lib/format'
 
 /** The rarities that show (Common shows nothing), each with its color */
@@ -19,6 +20,7 @@ export interface ChipItem {
   name: string
   tier: number
   rarity: string | null
+  iconAssetName: string | null
 }
 
 interface ItemChipProps {
@@ -50,7 +52,7 @@ function Chip({ output, children }: { output?: boolean; children: ReactNode }) {
   )
 }
 
-/** Link to an item page: "2× Rough Plank T1 Raro" */
+/** Link to an item page: "2× [icon] Rough Plank T1 Raro" */
 export function ItemChip({ item, quantity, output }: ItemChipProps) {
   const rarity = rarityLabel(item.rarity)
   return (
@@ -61,6 +63,7 @@ export function ItemChip({ item, quantity, output }: ItemChipProps) {
             {formatNumber(quantity)}×
           </Text>
         )}
+        <ItemIcon assetName={item.iconAssetName} />
         <Text as="span" _hover={{ textDecoration: 'underline' }}>
           {item.name}
         </Text>

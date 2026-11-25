@@ -50,6 +50,7 @@ export default async function ItemPage({ params }: ItemPageProps) {
         name: item.name,
         tier: item.tier,
         rarity: item.rarity,
+        iconAssetName: item.iconAssetName,
         kind: item.kind,
         tag: item.tag,
         description: item.description,
