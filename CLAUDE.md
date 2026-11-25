@@ -78,7 +78,7 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 
 - **Planos:** cada plano é de quem o criou (`created_by_id`). O dono compartilha com os seus grupos: quem recebe vê e edita, só o dono apaga. Toda consulta de plano passa por `findPlanFor`, `canEditPlan` ou `listPlans(userId)`.
 - **Grupos (decidido em 25/11/2026, `src/models/group.ts`):**
-  - qualquer conta cria grupos e pode estar em vários; cada grupo tem até 50 pessoas, contando os convites pendentes;
+  - cada conta cria até 5 grupos e pode estar em quantos grupos de outras contas quiser; cada grupo tem até 50 pessoas, contando os convites pendentes;
   - só quem criou convida (por qualquer e-mail, com conta ou não) e remove pessoas; quem é convidado aceita ou recusa na página Conta (`/account`). O app não manda e-mail;
   - no plano, o menu "Compartilhar com o grupo" tem, por grupo, "Todos do grupo" (`plan_group_shares`, vale também para quem entrar depois) e as pessoas uma a uma (`plan_shares`, só com quem está num grupo com o dono);
   - "Compartilhar com o grupo automaticamente" é por conta e grupo (`group_members.auto_share_plans`): o plano novo já nasce com "Todos do grupo";

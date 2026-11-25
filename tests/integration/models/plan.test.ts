@@ -219,7 +219,7 @@ describe('plans', () => {
 
     /** A group of the owner with these accounts in it */
     const groupWith = async (ownerId: number, ...memberIds: number[]) => {
-      const group = await insertGroup(ownerId, 'Clã')
+      const group = (await insertGroup(ownerId, 'Clã')).group!
       await db.groupMember.createMany({
         data: memberIds.map((id) => ({ groupId: group.id, userId: id })),
       })

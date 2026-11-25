@@ -13,6 +13,9 @@ type Tx = Prisma.TransactionClient
 /** People per group, pending invites included */
 export const MAX_GROUP_PEOPLE = 50
 
+/** Groups an account creates; being in other people's groups has no limit */
+export const MAX_GROUPS_OWNED = 5
+
 const person = { select: { fullName: true, email: true } } as const
 
 /**
@@ -43,9 +46,23 @@ export async function listGroups(userId: number) {
 
 export type GroupWithPeople = Awaited<ReturnType<typeof listGroups>>[number]
 
-/** A new group, with its owner already in it */
+export type InsertGroupResult =
+  | { group: Awaited<ReturnType<typeof db.group.create>>; error: null }
+  | { group: null; error: string }
+
+/** A new group, with its owner already in it, up to MAX_GROUPS_OWNED per account */
 export function insertGroup(ownerId: number, name: string) {
-  return db.group.create({ data: { name, ownerId, members: { create: { userId: ownerId } } } })
+  return db.$transaction(async (tx): Promise<InsertGroupResult> => {
+    // Locks the account's row: two "Criar grupo" at once can't pass the limit together
+    await tx.$queryRaw`SELECT 1 FROM users WHERE id = ${ownerId} FOR UPDATE`
+    if ((await tx.group.count({ where: { ownerId } })) >= MAX_GROUPS_OWNED) {
+      return { group: null, error: `Você já criou ${MAX_GROUPS_OWNED} grupos, o limite por conta.` }
+    }
+    const group = await tx.group.create({
+      data: { name, ownerId, members: { create: { userId: ownerId } } },
+    })
+    return { group, error: null }
+  })
 }
 
 export type InviteResult = { ok: true } | { ok: false; error: string }

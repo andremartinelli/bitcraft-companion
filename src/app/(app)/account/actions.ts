@@ -29,7 +29,8 @@ export async function createGroup(
   const typed = String(formData.get('name') ?? '')
   const name = groupNameSchema.safeParse(typed)
   if (!name.success) return { error: name.error.issues[0].message, value: typed }
-  await insertGroup(user.id, name.data)
+  const { error } = await insertGroup(user.id, name.data)
+  if (error) return { error, value: typed }
   refresh()
   return { error: null, value: '' }
 }

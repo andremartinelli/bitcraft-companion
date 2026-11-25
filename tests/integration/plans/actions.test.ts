@@ -223,7 +223,7 @@ describe('plan actions', () => {
     }
     /** Vitor's group, with André in it */
     const clan = async () => {
-      const group = await insertGroup(userId, 'Clã')
+      const group = (await insertGroup(userId, 'Clã')).group!
       await db.groupMember.create({ data: { groupId: group.id, userId: otherId } })
       return group
     }

@@ -9,6 +9,7 @@ import {
   listGroups,
   listInvites,
   MAX_GROUP_PEOPLE,
+  MAX_GROUPS_OWNED,
   removeInvite,
   removeMember,
   setAutoShare,
@@ -35,14 +36,14 @@ describe('groups', () => {
 
   /** Vitor's group with André in it, through the invite */
   const clan = async (name = 'Clã') => {
-    const group = await insertGroup(vitor.id, name)
+    const group = (await insertGroup(vitor.id, name)).group!
     await inviteToGroup(group.id, vitor.id, andre.email)
     await acceptInvite((await listInvites(andre.email)).at(-1)!.id, andre)
     return group
   }
 
   test('the owner is in the group it creates; pending invites only show to the owner', async () => {
-    const group = await insertGroup(vitor.id, 'Clã')
+    const group = (await insertGroup(vitor.id, 'Clã')).group!
     expect(await inviteToGroup(group.id, vitor.id, ' ANDRE@example.com ')).toEqual({ ok: true })
     expect(await inviteToGroup(group.id, vitor.id, 'ana@example.com')).toEqual({ ok: true })
 
@@ -86,7 +87,7 @@ describe('groups', () => {
   })
 
   test('an invite waits for an e-mail without an account, and the account accepts it later', async () => {
-    const group = await insertGroup(vitor.id, 'Clã')
+    const group = (await insertGroup(vitor.id, 'Clã')).group!
     await inviteToGroup(group.id, vitor.id, 'ana@example.com')
 
     const ana = await account('ana@example.com')
@@ -104,15 +105,28 @@ describe('groups', () => {
 
   test('an account can be in several groups', async () => {
     await clan('Clã')
-    const friends = await insertGroup(andre.id, 'Amigos')
+    const friends = (await insertGroup(andre.id, 'Amigos')).group!
     expect((await listGroups(andre.id)).map((g) => g.name)).toEqual(['Amigos', 'Clã'])
     await inviteToGroup(friends.id, andre.id, vitor.email)
     await acceptInvite((await listInvites(vitor.email))[0].id, vitor)
     expect((await listGroups(vitor.id)).map((g) => g.name)).toEqual(['Amigos', 'Clã'])
   })
 
+  test(`an account creates up to ${MAX_GROUPS_OWNED} groups, and is in others' groups too`, async () => {
+    await clan()
+    for (let n = 2; n <= MAX_GROUPS_OWNED; n++) {
+      expect((await insertGroup(vitor.id, `G${n}`)).error).toBeNull()
+    }
+    expect(await insertGroup(vitor.id, 'Mais um')).toEqual({
+      group: null,
+      error: `Você já criou ${MAX_GROUPS_OWNED} grupos, o limite por conta.`,
+    })
+    // André is in Vitor's group and still creates his own
+    expect((await insertGroup(andre.id, 'Amigos')).error).toBeNull()
+  })
+
   test('the invited account declines, the owner cancels, nobody else can', async () => {
-    const group = await insertGroup(vitor.id, 'Clã')
+    const group = (await insertGroup(vitor.id, 'Clã')).group!
     await inviteToGroup(group.id, vitor.id, andre.email)
     await inviteToGroup(group.id, vitor.id, 'ana@example.com')
     const [forAndre] = await listInvites(andre.email)
@@ -174,7 +188,7 @@ describe('groups', () => {
 
     test('one by one sharing stays while the two still have another group in common', async () => {
       const group = await clan('Clã')
-      const friends = await insertGroup(andre.id, 'Amigos')
+      const friends = (await insertGroup(andre.id, 'Amigos')).group!
       await inviteToGroup(friends.id, andre.id, vitor.email)
       await acceptInvite((await listInvites(vitor.email))[0].id, vitor)
       const plan = await planOf(vitor.id)
