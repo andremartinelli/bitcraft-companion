@@ -12,6 +12,7 @@ interface PlanCalculatorProps {
   state: CalculatorState
   panel: CalculatorPanel
   inventoryControls?: CalculatorViewProps['inventoryControls']
+  pickerActions?: CalculatorViewProps['pickerActions']
 }
 
 /**
@@ -19,7 +20,13 @@ interface PlanCalculatorProps {
  * saved state calculated again. While it saves, further changes build on the
  * latest one. A state the server refuses saves nothing and shows why.
  */
-export function PlanCalculator({ planId, state, panel, inventoryControls }: PlanCalculatorProps) {
+export function PlanCalculator({
+  planId,
+  state,
+  panel,
+  inventoryControls,
+  pickerActions,
+}: PlanCalculatorProps) {
   const [pending, startTransition] = useTransition()
   const [latest, setLatest] = useOptimistic(state)
   const [errors, setErrors] = useState<string[]>([])
@@ -36,6 +43,7 @@ export function PlanCalculator({ planId, state, panel, inventoryControls }: Plan
       pending={pending}
       pendingLabel="Salvando…"
       inventoryControls={inventoryControls}
+      pickerActions={pickerActions}
       onChange={(next) =>
         startTransition(async () => {
           setLatest(next)

@@ -225,16 +225,23 @@ export function insertPlan({
 }
 
 /**
- * Replaces the plan's targets, buildings, choices and owned quantities in
- * one transaction, and marks who changed it. Throws P2025 when the plan is gone.
+ * Replaces the plan's targets, buildings, choices and owned quantities (and,
+ * when given, its notes) in one transaction, and marks who changed it.
+ * Throws P2025 when the plan is gone.
  */
-export function savePlanState(id: number, state: CalculatorState, userId: number | null) {
+export function savePlanState(
+  id: number,
+  state: CalculatorState,
+  userId: number | null,
+  notes?: string
+) {
   return db.$transaction(async (tx) => {
     // First, so a plan deleted meanwhile fails before anything else
     await tx.plan.update({
       where: { id },
       data: {
         ...(state.useInventory !== undefined && { useInventory: state.useInventory }),
+        ...(notes !== undefined && { notes }),
         updatedById: userId,
         // Also when only the rows below changed
         updatedAt: new Date(),

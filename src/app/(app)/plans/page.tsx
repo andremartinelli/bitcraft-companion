@@ -7,7 +7,7 @@ import { QuickPlanMenu } from '@/components/plans/quick_plan_menu'
 import { formatDate } from '@/lib/format'
 import { requireUser } from '@/lib/session'
 import { authorName, listPlans } from '@/models/plan'
-import QuickPlans from '@/services/plans/quick_plans'
+import { quickPlanCatalog } from '@/services/plans/quick_plans'
 
 export const metadata: Metadata = { title: 'Planos' }
 
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: 'Planos' }
  */
 export default async function PlansPage() {
   const user = await requireUser()
-  const [plans, quickPlans] = await Promise.all([listPlans(user.id), new QuickPlans().catalog()])
+  const [plans, quickPlans] = await Promise.all([listPlans(user.id), quickPlanCatalog()])
 
   const rows = plans.map((plan) => {
     const author = authorName(plan.updatedBy)

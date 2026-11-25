@@ -48,6 +48,8 @@ export interface CalculatorViewProps {
   actions?: ReactNode
   /** "Sincronizar agora", which also reads BitJita when the inventory is old */
   inventoryControls?: ReactNode
+  /** Next to the search: "Planos rápidos" in a plan */
+  pickerActions?: ReactNode
 }
 
 /** A quantity from a field; a blank one changes nothing */
@@ -68,6 +70,7 @@ export function CalculatorView({
   pendingLabel = 'Calculando…',
   actions,
   inventoryControls,
+  pickerActions,
 }: CalculatorViewProps) {
   const change = (next: CalculatorState) => {
     if (next !== state) onChange(next)
@@ -85,6 +88,7 @@ export function CalculatorView({
       <ItemPicker
         onAddItem={(itemId) => change(addTarget(state, itemId))}
         onAddBuilding={(recipeId) => change(addBuilding(state, recipeId))}
+        actions={pickerActions}
       />
 
       {errors.length > 0 && (

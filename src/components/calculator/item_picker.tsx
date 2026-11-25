@@ -1,13 +1,15 @@
 'use client'
 
-import { Badge, Box, Button, Field, Input, Spinner, Text, Wrap } from '@chakra-ui/react'
-import { useRef, useState } from 'react'
+import { Badge, Box, Button, Field, Flex, Input, Spinner, Text, Wrap } from '@chakra-ui/react'
+import { useRef, useState, type ReactNode } from 'react'
 import { rarityLabel } from '@/lib/format'
 import type { BuildingSearchResult, ItemSearchResult } from '@/models/item'
 
 interface ItemPickerProps {
   onAddItem: (itemId: number) => void
   onAddBuilding: (recipeId: number) => void
+  /** Next to the field: "Planos rápidos" in a plan */
+  actions?: ReactNode
 }
 
 interface Suggestions {
@@ -20,7 +22,7 @@ interface Suggestions {
  * "Adicionar item ou construção": suggestions while typing, from
  * /api/items/search. A click adds it to the calculation.
  */
-export function ItemPicker({ onAddItem, onAddBuilding }: ItemPickerProps) {
+export function ItemPicker({ onAddItem, onAddBuilding, actions }: ItemPickerProps) {
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null)
   const [loading, setLoading] = useState(false)
   const input = useRef<HTMLInputElement>(null)
@@ -63,17 +65,22 @@ export function ItemPicker({ onAddItem, onAddBuilding }: ItemPickerProps) {
     <Box mb="4">
       <Field.Root>
         <Field.Label>Adicionar item ou construção</Field.Label>
-        <Box position="relative" width="full" maxW="xl">
-          <Input
-            ref={input}
-            type="search"
-            bg="bg"
-            placeholder="Ex.: Pyrelite Axe, Simple Plank, Rough Loom"
-            autoComplete="off"
-            onChange={(event) => search(event.currentTarget.value)}
-          />
-          {loading && <Spinner size="xs" position="absolute" right="3" top="3" color="fg.muted" />}
-        </Box>
+        <Flex gap="2" align="start" wrap="wrap" width="full">
+          <Box position="relative" flex="1" minW="60" maxW="xl">
+            <Input
+              ref={input}
+              type="search"
+              bg="bg"
+              placeholder="Ex.: Pyrelite Axe, Simple Plank, Rough Loom"
+              autoComplete="off"
+              onChange={(event) => search(event.currentTarget.value)}
+            />
+            {loading && (
+              <Spinner size="xs" position="absolute" right="3" top="3" color="fg.muted" />
+            )}
+          </Box>
+          {actions}
+        </Flex>
       </Field.Root>
       {suggestions && (
         <Box mt="2" aria-live="polite">
