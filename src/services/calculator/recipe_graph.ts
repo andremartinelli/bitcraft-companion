@@ -8,6 +8,7 @@ export interface GraphItem {
   name: string
   tier: number
   rarity: string | null
+  iconAssetName: string | null
   kind: 'item' | 'cargo'
   /** The game's tag: "Animal", "Trade Good", "Leather Clothing"... */
   tag: string | null
@@ -83,6 +84,7 @@ export interface GraphRows {
     name: string
     tier: number
     rarity: string | null
+    icon_asset_name: string | null
     kind: 'item' | 'cargo'
     tag: string | null
     item_list_game_id: number | null
@@ -120,7 +122,7 @@ type Queryable = Pick<Prisma.TransactionClient, '$queryRaw'>
 export async function loadGraphRows(client: Queryable): Promise<GraphRows> {
   const [items, recipes, inputs, outputs, lists, gathers] = await Promise.all([
     client.$queryRaw<GraphRows['items']>`
-      SELECT id, name, tier, rarity, kind::text AS kind, tag, item_list_game_id,
+      SELECT id, name, tier, rarity, icon_asset_name, kind::text AS kind, tag, item_list_game_id,
              removed_at IS NOT NULL AS removed
       FROM items ORDER BY id`,
     client.$queryRaw<GraphRows['recipes']>`
@@ -170,6 +172,7 @@ export function buildRecipeGraph(rows: GraphRows): RecipeGraph {
       name: row.name,
       tier: row.tier,
       rarity: row.rarity,
+      iconAssetName: row.icon_asset_name,
       kind: row.kind,
       tag: row.tag,
       removed: row.removed,
@@ -308,7 +311,17 @@ function gatherersOf(
 
 const SNAPSHOT_VERSION = 1
 
-type SnapshotItem = [number, string, number, string | null, 'item' | 'cargo', string | null, 0 | 1]
+// The icon came last, without a new version: snapshots made before it still load (no icon)
+type SnapshotItem = [
+  number,
+  string,
+  number,
+  string | null,
+  'item' | 'cargo',
+  string | null,
+  0 | 1,
+  (string | null)?,
+]
 type SnapshotRecipe = [
   number,
   string,
@@ -395,6 +408,7 @@ export function serializeGraph(graph: RecipeGraph): Uint8Array<ArrayBuffer> {
       i.kind,
       i.tag,
       i.removed ? 1 : 0,
+      i.iconAssetName,
     ]),
     recipes: [...graph.recipes.values()].map(packRecipe),
     constructions: [...graph.constructions.values()].map(packRecipe),
@@ -418,11 +432,12 @@ export function deserializeGraph(data: Uint8Array): RecipeGraph {
   const byId = <T extends { id: number }>(list: T[]) => new Map(list.map((x) => [x.id, x]))
   return new RecipeGraph(
     byId(
-      snapshot.items.map(([id, name, tier, rarity, kind, tag, removed]) => ({
+      snapshot.items.map(([id, name, tier, rarity, kind, tag, removed, iconAssetName]) => ({
         id,
         name,
         tier,
         rarity,
+        iconAssetName: iconAssetName ?? null,
         kind,
         tag,
         removed: removed === 1,

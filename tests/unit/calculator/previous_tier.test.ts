@@ -8,6 +8,7 @@ const item = (id: number, name: string, tier: number, tag: string): GraphItem =>
   name,
   tier,
   rarity: 'Common',
+  iconAssetName: null,
   kind: 'item',
   tag,
   removed: false,

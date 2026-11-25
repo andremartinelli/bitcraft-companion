@@ -6,6 +6,7 @@
     "tier": 1,
     "tag": "Wood Log",
     "rarity": "Common",
+    "icon_asset_name": "GeneratedIcons/Items/RoughWoodLog",
     "item_list_id": 0
   },
   {

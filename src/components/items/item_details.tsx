@@ -2,6 +2,7 @@
 
 import { Badge, Box, Button, Heading, HStack, Link, Stack, Text, Wrap } from '@chakra-ui/react'
 import NextLink from 'next/link'
+import { ItemIcon } from '@/components/items/item_icon'
 import { PageHeader } from '@/components/layout/page_header'
 import { RecipeTable, type RecipeTableRow } from '@/components/recipes/recipe_table'
 import { formatNumber, rarityLabel } from '@/lib/format'
@@ -13,6 +14,7 @@ interface ItemDetailsProps {
     name: string
     tier: number
     rarity: string | null
+    iconAssetName: string | null
     kind: 'item' | 'cargo'
     tag: string | null
     description: string | null
@@ -43,6 +45,7 @@ export function ItemDetails({ item, producers, consumers, stock }: ItemDetailsPr
     <>
       <PageHeader
         title={item.name}
+        icon={<ItemIcon assetName={item.iconAssetName} size="12" />}
         actions={
           <Button asChild size="sm">
             <NextLink href={`/calculator?t=${item.id}x1`}>Calcular custo</NextLink>

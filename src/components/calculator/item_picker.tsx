@@ -2,6 +2,7 @@
 
 import { Badge, Box, Button, Field, Input, Spinner, Text, Wrap } from '@chakra-ui/react'
 import { useRef, useState } from 'react'
+import { ItemIcon } from '@/components/items/item_icon'
 import { rarityLabel } from '@/lib/format'
 import type { BuildingSearchResult, ItemSearchResult } from '@/models/item'
 
@@ -99,6 +100,7 @@ export function ItemPicker({ onAddItem, onAddBuilding }: ItemPickerProps) {
                   bg="bg"
                   onClick={() => pick(() => onAddItem(item.id))}
                 >
+                  <ItemIcon assetName={item.iconAssetName} size="4" />
                   {item.name}
                   {item.tier > 0 && (
                     <Badge size="xs" variant="outline">

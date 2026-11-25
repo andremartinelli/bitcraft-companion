@@ -204,19 +204,21 @@ async function upsertItems(tx: Tx, rows: ItemRow[], stamp: Stamp, summary: Impor
     tier: row.tier,
     tag: row.tag,
     rarity: row.rarity,
+    icon_asset_name: row.iconAssetName,
     item_list_game_id: row.itemListGameId,
   }))
   await tx.$executeRaw`
-    INSERT INTO items (kind, game_id, name, description, tier, tag, rarity, item_list_game_id,
-                       removed_at, last_import_id, created_at, updated_at)
+    INSERT INTO items (kind, game_id, name, description, tier, tag, rarity, icon_asset_name,
+                       item_list_game_id, removed_at, last_import_id, created_at, updated_at)
     SELECT r.kind::item_kind, r.game_id, r.name, r.description, r.tier, r.tag, r.rarity,
-           r.item_list_game_id, NULL, ${stamp.importId}, ${stamp.now}, ${stamp.now}
+           r.icon_asset_name, r.item_list_game_id, NULL, ${stamp.importId}, ${stamp.now}, ${stamp.now}
     FROM jsonb_to_recordset(${rowsJson(values)}::jsonb) AS r(
       kind text, game_id int, name text, description text, tier int, tag text, rarity text,
-      item_list_game_id int)
+      icon_asset_name text, item_list_game_id int)
     ON CONFLICT (kind, game_id) DO UPDATE SET
       name = EXCLUDED.name, description = EXCLUDED.description, tier = EXCLUDED.tier,
-      tag = EXCLUDED.tag, rarity = EXCLUDED.rarity, item_list_game_id = EXCLUDED.item_list_game_id,
+      tag = EXCLUDED.tag, rarity = EXCLUDED.rarity, icon_asset_name = EXCLUDED.icon_asset_name,
+      item_list_game_id = EXCLUDED.item_list_game_id,
       removed_at = NULL, last_import_id = EXCLUDED.last_import_id, updated_at = EXCLUDED.updated_at`
 
   const ids = await tx.item.findMany({ select: { id: true, kind: true, gameId: true } })

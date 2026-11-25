@@ -35,6 +35,7 @@ export interface ItemRow {
   tier: number
   tag: string | null
   rarity: string | null
+  iconAssetName: string | null
   itemListGameId: number | null
 }
 
@@ -94,6 +95,7 @@ export function toItemRows(items: RawRow[], cargo: RawRow[]): ItemRow[] {
       tier: raw.tier,
       tag: blankToNull(raw.tag),
       rarity: blankToNull(raw.rarity),
+      iconAssetName: blankToNull(raw.icon_asset_name),
       itemListGameId: raw.item_list_id || null,
     })),
     ...cargo.map((raw) => ({
@@ -104,6 +106,7 @@ export function toItemRows(items: RawRow[], cargo: RawRow[]): ItemRow[] {
       tier: raw.tier,
       tag: blankToNull(raw.tag),
       rarity: blankToNull(raw.rarity),
+      iconAssetName: blankToNull(raw.icon_asset_name),
       itemListGameId: null,
     })),
   ]

@@ -34,7 +34,13 @@ export interface ItemPlace {
 }
 
 export interface StockLine {
-  item: { id: number; name: string; tier: number; rarity: string | null }
+  item: {
+    id: number
+    name: string
+    tier: number
+    rarity: string | null
+    iconAssetName: string | null
+  }
   quantity: number
   /** Where it is and whose it is, the largest pile first */
   where: ItemPlace[]
@@ -60,6 +66,7 @@ interface EntryRow {
   name: string
   tier: number
   rarity: string | null
+  icon_asset_name: string | null
 }
 
 const KIND_ORDER = Object.keys(CONTAINER_KINDS)
@@ -84,7 +91,7 @@ function entries(userId: number, q?: string) {
   return db.$queryRaw<EntryRow[]>`
     SELECT e.item_id, e.quantity, c.id AS container_id, c.name AS container_name,
            c.kind::text AS kind, c.claim_name, p.id AS player_id, p.username,
-           i.name, i.tier, i.rarity
+           i.name, i.tier, i.rarity, i.icon_asset_name
     FROM inventory_entries e
     JOIN inventory_containers c ON c.id = e.container_id
     JOIN items i ON i.id = e.item_id
@@ -97,7 +104,13 @@ function toLines(rows: EntryRow[]): StockLine[] {
   const byItem = new Map<number, { item: StockLine['item']; where: ItemPlace[] }>()
   for (const row of rows) {
     const line = byItem.get(row.item_id) ?? {
-      item: { id: row.item_id, name: row.name, tier: row.tier, rarity: row.rarity },
+      item: {
+        id: row.item_id,
+        name: row.name,
+        tier: row.tier,
+        rarity: row.rarity,
+        iconAssetName: row.icon_asset_name,
+      },
       where: [],
     }
     line.where.push({ container: row.container_name, owner: ownerOf(row), quantity: row.quantity })
