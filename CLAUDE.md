@@ -51,7 +51,7 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 
 | Rails | Aqui |
 |---|---|
-| `resources` RESTful | Pastas em `src/app/(app)/` com URLs de recurso (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_players`). Mutações em server actions, num `actions.ts` por recurso, com os nomes das ações do Rails (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) só para o que não é ação de formulário: busca enquanto se digita e o cron. |
+| `resources` RESTful | Pastas em `src/app/(app)/` com URLs de recurso (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_players`). Mutações em server actions, num `actions.ts` por recurso, com os nomes das ações do Rails (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) só para o que não é ação de formulário: busca enquanto se digita, o cron e a sincronização com a BitJita. O Next roda as actions de uma aba uma de cada vez, então uma action de vários segundos segura as outras e a página parece travada. |
 | Controllers magros | Páginas (server components) e actions só leem a entrada, validam, chamam e renderizam ou redirecionam. Regras ficam em `src/models/` ou `src/services/`. |
 | Service objects / POROs | `src/services/<area>/<nome>.ts`, uma classe ou um módulo por caso de uso. |
 | Models | O Prisma não tem classes: as consultas e regras de cada tabela ficam em `src/models/<model>.ts`. Os dados do jogo sempre filtram os removidos com `active` (`removedAt: null`). |
@@ -93,7 +93,7 @@ Detalhes que já custaram tempo:
 - **Datas:** a Vercel roda em UTC. Formate com `src/lib/format.ts`, que usa o fuso `America/Sao_Paulo`.
 - **Ícones dos itens:** o nome vem dos dados do jogo (`items.icon_asset_name`) e a imagem, da BitJita; só `src/lib/item_icon.ts` sabe o endereço. Alguns ícones não existem lá: o `ItemIcon` os esconde, inclusive os que falham antes da hidratação.
 - **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_` (`namesMatch` e `containsWord` em `src/lib/search.ts`).
-- **Sync do inventário:** por personagem, pelo `last_attempt_at`. Sob demanda (uma página que mostra o inventário chama a action `syncIfStale`, que lê os personagens da conta não tentados no último minuto), pelo botão (`syncNow`, os da conta) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`: até 20 personagens não lidos na última hora). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
+- **Sync do inventário:** por personagem, pelo `last_attempt_at`. Sob demanda (uma página que mostra o inventário chama `POST /api/inventory/sync` com `onlyIfStale`, que lê os personagens da conta não tentados no último minuto), pelo botão (a mesma rota, os da conta) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`: até 20 personagens não lidos na última hora). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
 - **`prisma dev`:** se o banco local passar a fechar as conexões ("Server has closed the connection"), pare e suba de novo (`npx prisma dev stop bitcraft-dev`, depois `npm run db:dev`). Os dados ficam no disco.
 
 ## Limites do plano grátis (não negociáveis)

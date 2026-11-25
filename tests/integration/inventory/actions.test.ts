@@ -21,14 +21,12 @@ vi.mock('@/services/game_sync/inventory_source', async (importOriginal) => {
 
 import { refresh } from 'next/cache'
 import { addGamePlayer, removeGamePlayer } from '@/app/(app)/game_players/actions'
-import { syncIfStale, syncNow } from '@/app/(app)/inventory/actions'
 import { db } from '@/lib/db'
 import { createUser } from '@/services/auth/create_user'
 import { createSessionToken } from '@/services/auth/session_token'
 import {
   bitjitaFixture,
   CLAIM,
-  everyPathAnswers,
   fakeBitJita,
   PLAYER_ONE,
   PLAYER_TWO,
@@ -64,73 +62,9 @@ describe('inventory actions', () => {
     request.token = undefined
     const login = expect.objectContaining({ digest: expect.stringContaining(';/login;') })
 
-    await expect(syncNow()).rejects.toEqual(login)
-    await expect(syncIfStale()).rejects.toEqual(login)
     await expect(addGamePlayer(EMPTY, form({ username: 'Nimbus' }))).rejects.toEqual(login)
     await expect(removeGamePlayer(1)).rejects.toEqual(login)
     expect(request.bitjita!.calls).toHaveLength(0)
-  })
-
-  test('"Sincronizar agora" reads my characters, without the claim chests, and refreshes', async () => {
-    await addBothPlayers(userId)
-
-    expect(await syncNow()).toEqual({ notice: 'Sincronização concluída.', ok: true })
-    expect(request.bitjita!.calls.some((call) => call.path.startsWith('/api/claims/'))).toBe(false)
-    expect(refresh).toHaveBeenCalledOnce()
-    const run = await db.syncRun.findFirstOrThrow()
-    expect([run.trigger, run.userId]).toEqual(['manual', userId])
-  })
-
-  test("another account's characters are not mine to read", async () => {
-    await addBothPlayers()
-
-    const result = await syncNow()
-    expect(result.ok).toBe(false)
-    expect(request.bitjita!.calls).toHaveLength(0)
-  })
-
-  test('also when the last sync is recent', async () => {
-    await syncBothPlayers(userId)
-
-    expect((await syncNow()).ok).toBe(true)
-    expect(await db.syncRun.count()).toBe(2)
-  })
-
-  test('a failed sync keeps the data and says so', async () => {
-    await syncBothPlayers(userId)
-    request.bitjita = fakeBitJita(everyPathAnswers({ status: 503, body: {} }))
-
-    expect(await syncNow()).toEqual({
-      notice: 'A sincronização falhou. Os dados anteriores foram mantidos.',
-      ok: false,
-    })
-    expect(await db.inventoryEntry.count()).toBeGreaterThan(0)
-  })
-
-  test('a sync while another one runs does not run', async () => {
-    await addBothPlayers(userId)
-    await db.syncRun.create({
-      data: { trigger: 'auto', source: 'bitjita', status: 'running', startedAt: new Date() },
-    })
-
-    expect(await syncNow()).toEqual({
-      notice: 'Já existe uma sincronização em andamento.',
-      ok: false,
-    })
-    expect(await syncIfStale()).toEqual({ synced: false })
-    expect(request.bitjita!.calls).toHaveLength(0)
-  })
-
-  test('the page found the inventory old: it syncs once, then it is fresh', async () => {
-    await addBothPlayers(userId)
-
-    expect(await syncIfStale()).toEqual({ synced: true })
-    expect(refresh).toHaveBeenCalledOnce()
-    expect((await db.syncRun.findFirstOrThrow()).trigger).toBe('auto')
-
-    // A second tab asking right after: nothing to do
-    expect(await syncIfStale()).toEqual({ synced: false })
-    expect(await db.syncRun.count()).toBe(1)
   })
 
   test('adds a character after finding the exact nick on BitJita', async () => {

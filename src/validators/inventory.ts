@@ -6,3 +6,6 @@ export const inventorySearchSchema = z.object({
   tab: z.enum(INVENTORY_TABS).optional(),
   q: z.string().trim().max(100).optional(),
 })
+
+/** POST /api/inventory/sync: everything now, or only what is old (a page found it old) */
+export const inventorySyncSchema = z.object({ onlyIfStale: z.boolean().default(false) })
