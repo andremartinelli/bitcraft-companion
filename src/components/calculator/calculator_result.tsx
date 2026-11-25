@@ -11,7 +11,7 @@ import {
   Stack,
   Text,
 } from '@chakra-ui/react'
-import { useRef, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { LuCircleCheck } from 'react-icons/lu'
 import { ItemChip, StaticChip } from '@/components/items/item_chip'
 import { EmptyNotice } from '@/components/layout/empty_notice'
@@ -56,6 +56,7 @@ function Row({
   return (
     <Flex
       as="li"
+      data-done={done ? '' : undefined}
       gap="3"
       py="1.5"
       borderTopWidth="1px"
@@ -349,13 +350,48 @@ function TreeNode({
   )
 }
 
+const noSubscribe = () => () => {}
+
+/**
+ * "Esconder concluídos", remembered by this browser for each calculation
+ * (each plan, the calculator). The server draws it off and the browser's
+ * choice follows when the page hydrates. With storage blocked it still
+ * toggles, without memory.
+ */
+function useHideDone(storageKey: string) {
+  const key = `hide-done:${storageKey}`
+  const stored = useSyncExternalStore(
+    noSubscribe,
+    () => {
+      try {
+        return localStorage.getItem(key) === '1'
+      } catch {
+        return false
+      }
+    },
+    () => false
+  )
+  // What was clicked here, for this calculation only (another plan reuses the component)
+  const [chosen, setChosen] = useState<{ key: string; hide: boolean } | null>(null)
+  const hide = chosen?.key === key ? chosen.hide : stored
+  const toggle = () => {
+    setChosen({ key, hide: !hide })
+    try {
+      localStorage.setItem(key, hide ? '0' : '1')
+    } catch {
+      // Storage blocked: nothing to remember with
+    }
+  }
+  return [hide, toggle] as const
+}
+
 /**
  * The calculation: round 1 gathers the raw materials; the next ones make
  * each item once, in an order that works; buildings last. The full tree, to
  * change recipes and "já tenho", stays folded at the end.
  */
 export function CalculatorResult({ panel, storageKey, onChoice, onOwned }: ResultProps) {
-  const steps = useRef<HTMLElement>(null)
+  const [hideDone, toggleHideDone] = useHideDone(storageKey)
 
   if (panel.empty) {
     return (
@@ -365,11 +401,6 @@ export function CalculatorResult({ panel, storageKey, onChoice, onOwned }: Resul
       </EmptyNotice>
     )
   }
-
-  const collapseCompleted = () =>
-    steps.current
-      ?.querySelectorAll<HTMLDetailsElement>('details[data-complete]')
-      .forEach((details) => (details.open = false))
 
   return (
     <Stack gap="4">
@@ -384,14 +415,20 @@ export function CalculatorResult({ panel, storageKey, onChoice, onOwned }: Resul
         </Alert.Root>
       )}
 
-      <Box as="section" ref={steps} aria-labelledby="calc-steps">
+      <Box
+        as="section"
+        aria-labelledby="calc-steps"
+        data-hide-done={hideDone ? '' : undefined}
+        // Done lines, and rounds or professions with nothing left
+        css={{ '&[data-hide-done] :is([data-done], details[data-complete])': { display: 'none' } }}
+      >
         <Flex align="center" justify="space-between" gap="3" mb="1">
           <Heading id="calc-steps" size="lg">
             Etapas
           </Heading>
-          {panel.completeCount > 0 && (
-            <Button size="xs" variant="ghost" onClick={collapseCompleted}>
-              Colapsar todos os concluídos ({panel.completeCount})
+          {panel.doneCount > 0 && (
+            <Button size="xs" variant="ghost" onClick={toggleHideDone} aria-pressed={hideDone}>
+              {hideDone ? 'Mostrar' : 'Esconder'} concluídos ({panel.doneCount})
             </Button>
           )}
         </Flex>
