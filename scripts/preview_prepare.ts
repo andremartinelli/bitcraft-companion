@@ -19,7 +19,7 @@ if (!isPreview()) {
 const directUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL
 if (!directUrl) {
   console.error(
-    'preview_prepare: o preview não tem banco. Ligue os branches de preview do Neon (docs/deploy.md).'
+    'preview_prepare: o preview não tem banco. Ligue os branches de preview do Neon.'
   )
   process.exit(1)
 }

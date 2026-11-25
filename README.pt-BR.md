@@ -6,7 +6,7 @@ Companion app para o BitCraft Online 1.0: consulta de receitas e itens, calculad
 
 Stack: Next.js, Prisma, Postgres e Chakra UI. As convenções do projeto (no estilo Rails) estão no [CLAUDE.md](CLAUDE.md), e o desenho em [docs/design/2026-11-24-vercel.md](docs/design/2026-11-24-vercel.md) (em inglês). A interface do app é em português; o código e a documentação técnica são em inglês.
 
-Produção muda a cada release publicada no GitHub: o workflow roda os testes, as migrations no Neon e o deploy na Vercel. O passo a passo está em [docs/deploy.md](docs/deploy.md). Esta versão substituiu o app AdonisJS que rodava no PC; ele ficou no histórico do git, antes do merge de 24/11/2026.
+Produção muda a cada release publicada no GitHub: o workflow roda os testes, as migrations no Neon e o deploy na Vercel. Os passos de deploy ficam fora deste repositório. Esta versão substituiu o app AdonisJS que rodava no PC; ele ficou no histórico do git, antes do merge de 24/11/2026.
 
 ## Requisitos
 
@@ -40,7 +40,7 @@ npm run game-data:import      # dados do jogo (uns 15 s); rode de novo a cada pa
 npm run dev                   # http://localhost:3100
 ```
 
-O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e grava no banco de `DATABASE_URL_UNPOOLED`. Em produção, ele roda pelo workflow manual "Importar dados do jogo" do GitHub Actions, contra o Neon, e nunca na Vercel ([docs/deploy.md](docs/deploy.md), passo 6):
+O `game-data:import` baixa os dados do repositório da comunidade [BitCraftToolBox/BitCraft_GameData](https://github.com/BitCraftToolBox/BitCraft_GameData) e grava no banco de `DATABASE_URL_UNPOOLED`. Em produção, ele roda pelo workflow manual "Importar dados do jogo" do GitHub Actions, contra o Neon, e nunca na Vercel (veja `.github/workflows/game-data-import.yml`):
 - o que é novo entra;
 - o que saiu do jogo é marcado como removido (nada é apagado);
 - itens renomeados aparecem no resumo.

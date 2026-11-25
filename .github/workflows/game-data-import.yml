@@ -1,7 +1,7 @@
 # Game data import into Neon, by hand, on every game patch:
 # Actions → Importar dados do jogo → Run workflow. Reads
 # BitCraftToolBox/BitCraft_GameData (the latest commit, or the one given) and writes
-# through Neon's direct URL. Step by step in docs/deploy.md (step 6).
+# through Neon's direct URL. The setup steps are kept outside this repository.
 #
 # Repository secret: DATABASE_URL_UNPOOLED, the same as release.yml. With
 # it here, no Claude session and no PC needs Neon's URL.
@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Confere o segredo e o commit
         run: |
-          test -n "$DATABASE_URL_UNPOOLED" || { echo "::error::Falta o segredo DATABASE_URL_UNPOOLED (veja docs/deploy.md)."; exit 1; }
+          test -n "$DATABASE_URL_UNPOOLED" || { echo "::error::Falta o segredo DATABASE_URL_UNPOOLED."; exit 1; }
           if [ -n "$COMMIT" ] && ! [[ "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
             echo "::error::O commit tem de ser um SHA do BitCraft_GameData (7 a 40 caracteres hexadecimais)."
             exit 1
