@@ -87,8 +87,6 @@ model User {
   plansCreated    Plan[]             @relation("PlanCreatedBy")
   plansUpdated    Plan[]             @relation("PlanUpdatedBy")
   planShares      PlanShare[]
-  /// Legacy, ignored by the client: removed in the cleanup migration (issue #17)
-  followedPlayers UserGamePlayer[]   @ignore
   groupsOwned     Group[]            @relation("GroupOwner")
   groupMembers    GroupMember[]
   groupInvites    GroupInvite[]      @relation("GroupInvitedBy")
@@ -415,18 +413,15 @@ model ExtractionRecipeOutput {
 /// A named calculator state. It belongs to whoever created it (created_by_id), who
 /// can share it with other accounts (plan_shares).
 model Plan {
-  id           Int      @id @default(autoincrement())
-  name         String   @db.VarChar(80)
-  notes        String?
-  /// Unused since 25/11/2026: the inventory is always on. Ignored by the
-  /// client; removed in the cleanup migration (issue #17)
-  useInventory Boolean  @default(true) @map("use_inventory") @ignore
-  createdById  Int?     @map("created_by_id")
-  createdBy    User?    @relation("PlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById  Int?     @map("updated_by_id")
-  updatedBy    User?    @relation("PlanUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(80)
+  notes       String?
+  createdById Int?     @map("created_by_id")
+  createdBy   User?    @relation("PlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById Int?     @map("updated_by_id")
+  updatedBy   User?    @relation("PlanUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   items        PlanItem[]
   buildings    PlanBuilding[]
@@ -625,26 +620,8 @@ model GamePlayer {
 
   containers InventoryContainer[]
   accounts   User[]
-  /// Legacy, ignored by the client: removed in the cleanup migration (issue #17)
-  followers  UserGamePlayer[]     @ignore
 
   @@map("game_players")
-}
-
-/// Legacy: the characters each account followed before "one character per
-/// account" (25/11/2026). The app no longer reads it (@@ignore); removed in the
-/// cleanup migration (issue #17).
-model UserGamePlayer {
-  userId       Int        @map("user_id")
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  gamePlayerId Int        @map("game_player_id")
-  gamePlayer   GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-
-  @@id([userId, gamePlayerId])
-  @@index([gamePlayerId])
-  @@map("user_game_players")
-  @@ignore
 }
 
 model InventoryContainer {
