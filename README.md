@@ -61,12 +61,12 @@ Cada conta tem os seus planos. O dono de um plano pode compartilhá-lo com outra
 
 ## Inventário
 
-Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem token de jogador. Cada conta adiciona, em **Personagens** (`/game_players`), até 5 personagens cujo inventário quer ver; o nick é conferido na BitJita antes de ser salvo. Um personagem seguido por duas contas é lido uma vez só. O inventário, o "já tenho" da calculadora e o "Você tem" de cada item são os dos personagens da conta.
+Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem token de jogador. Cada conta informa, em **Meu personagem** (`/game_player`), o seu personagem; o nick é conferido na BitJita antes de ser salvo. Um personagem de duas contas é lido uma vez só. O inventário, a calculadora rápida e o "Você tem" de cada item usam o personagem da conta. Um plano usa também os personagens das pessoas com quem ele está compartilhado, cada um uma vez; "Usar apenas meu inventário" deixa só o seu.
 
 O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme quando ninguém usa o app):
 
-- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da conta que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta.
-- **"Sincronizar agora"**, nas mesmas páginas, para os personagens da conta. Do PC, `npm run inventory:sync` lê todos.
+- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da página que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta. Até 20 por vez, os mais antigos primeiro.
+- **"Sincronizar agora"**, nas mesmas páginas, para os personagens da página (até 20). Do PC, `npm run inventory:sync` lê todos.
 - **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET` e lê até 20 personagens que ninguém olhou na última hora.
 
 Só um sync roda por vez. Se a BitJita falhar, os dados anteriores ficam, e a página diz quem não foi lido.

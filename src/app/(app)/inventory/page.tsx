@@ -9,6 +9,7 @@ import { formatAgo } from '@/lib/format'
 import { requireUser } from '@/lib/session'
 import { lastSuccessfulSyncRun, latestSyncRun, SYNC_STATUS_LABELS } from '@/models/sync_run'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
+import { inventoryScope } from '@/services/inventory/scope'
 import { inventoryListing, type InventoryTab } from '@/services/inventory/stock'
 import { inventorySearchSchema } from '@/validators/inventory'
 import { parseSearchParams, type SearchParams } from '@/validators/search_params'
@@ -18,8 +19,7 @@ export const metadata: Metadata = { title: 'Inventário' }
 /** The first tab is the default */
 const TABS: { value: InventoryTab; label: string }[] = [
   { value: 'professions', label: 'Por profissão' },
-  { value: 'group', label: 'Grupo' },
-  { value: 'players', label: 'Por jogador' },
+  { value: 'all', label: 'Tudo' },
   { value: 'places', label: 'Por local' },
 ]
 
@@ -32,9 +32,9 @@ const hrefFor = (tab: InventoryTab, q: string) => {
 }
 
 /**
- * GET /inventory?tab=&q=: the group's inventory as of the last sync with
- * BitJita. It opens with what is saved; when that is old, the page reads
- * BitJita again in the background.
+ * GET /inventory?tab=&q=: the inventory of the account's character as of the
+ * last sync with BitJita. It opens with what is saved; when that is old, the
+ * page reads BitJita again in the background.
  */
 export default async function InventoryPage({
   searchParams,
@@ -46,19 +46,20 @@ export default async function InventoryPage({
   const tab = filters.tab ?? TABS[0].value
   const q = filters.q ?? ''
 
+  const { playerIds } = await inventoryScope(user.id)
   const [latest, lastGood, freshness, listing] = await Promise.all([
     latestSyncRun(user.id),
     lastSuccessfulSyncRun(user.id),
-    inventoryFreshness(user.id),
-    inventoryListing(user.id, tab, q),
+    inventoryFreshness(playerIds),
+    inventoryListing(playerIds, tab, q),
   ])
 
   return (
     <>
       <PageHeader
         title="Inventário"
-        description="O que os seus personagens têm no jogo, lido da API pública da BitJita. Busque um item ou veja por personagem e por local."
-        actions={<LinkButton href="/game_players">Personagens</LinkButton>}
+        description="O que o seu personagem tem no jogo, lido da API pública da BitJita. Busque um item ou veja por profissão e por local."
+        actions={<LinkButton href="/game_player">Meu personagem</LinkButton>}
       />
       <InventoryStatus
         latest={
@@ -85,7 +86,7 @@ export default async function InventoryPage({
         </>
       ) : (
         <EmptyNotice>
-          Nenhum personagem na sua lista. Adicione os seus em &quot;Personagens&quot; para ler o
+          Nenhum personagem ainda. Informe o seu em &quot;Meu personagem&quot; para ler o
           inventário.
         </EmptyNotice>
       )}

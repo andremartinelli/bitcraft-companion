@@ -6,6 +6,7 @@ import { formatNumber, formatPercent } from '@/lib/format'
 import { requireUser } from '@/lib/session'
 import { consumingRecipes, findActiveItem, producingRecipes } from '@/models/item'
 import { db } from '@/lib/db'
+import { inventoryScope } from '@/services/inventory/scope'
 import { itemStock } from '@/services/inventory/stock'
 import { itemIdSchema } from '@/validators/item'
 
@@ -33,15 +34,14 @@ export default async function ItemPage({ params }: ItemPageProps) {
   const item = await loadItem((await params).id)
   if (!item) notFound()
 
+  const { playerIds } = await inventoryScope(user.id)
   const [producers, consumers, synced] = await Promise.all([
     producingRecipes(item.id),
     consumingRecipes(item.id),
-    db.gamePlayer.count({
-      where: { followers: { some: { userId: user.id } }, lastSyncedAt: { not: null } },
-    }),
+    db.gamePlayer.count({ where: { id: { in: playerIds }, lastSyncedAt: { not: null } } }),
   ])
-  // "Você tem" once one of the account's characters was read
-  const stock = synced ? await itemStock(item.id, user.id) : null
+  // "Você tem" once the account's character was read
+  const stock = synced ? await itemStock(item.id, playerIds) : null
 
   return (
     <ItemDetails

@@ -78,7 +78,6 @@ describe('quick plans', () => {
     expect(plan!.name).toBe('Set de minério Duelist T2')
     const saved = await findPlan(plan!.id)
     expect(saved!.items.map((item) => item.quantity)).toEqual([1])
-    expect(saved!.useInventory).toBe(true)
   })
 
   test('the name has the tier', async () => {
@@ -128,7 +127,6 @@ describe('quick plans', () => {
     expect(plan!.notes).toContain('Rumbagh pelo Settlement Foundation Kit')
     const saved = await findPlan(plan!.id)
     expect(saved!.items.map((item) => item.quantity).sort((a, b) => a - b)).toEqual([10, 5000])
-    expect(saved!.useInventory).toBe(true)
   })
 
   test('no foundation when one of its items left the game', async () => {

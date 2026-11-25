@@ -268,7 +268,7 @@ describe('inventory sync', () => {
     const run = await new InventorySync(bitjitaSource()).run('manual')
 
     expect(run.status).toBe('failed')
-    expect(run.message).toContain('Nenhum personagem na lista')
+    expect(run.message).toContain('Nenhum personagem: informe o seu em Meu personagem')
   })
 
   test("one account's characters: only them, the run is theirs, each one marked as tried", async () => {
@@ -288,8 +288,11 @@ describe('inventory sync', () => {
     expect(players.map((p) => p.lastSyncedAt !== null)).toEqual([true, false])
   })
 
-  test('without a scope it reads the characters someone follows, not the others', async () => {
-    await db.userGamePlayer.deleteMany({ where: { gamePlayer: { entityId: PLAYER_TWO.entityId } } })
+  test("without a scope it reads the accounts' characters, not the others", async () => {
+    await db.user.updateMany({
+      where: { gamePlayer: { entityId: PLAYER_TWO.entityId } },
+      data: { gamePlayerId: null },
+    })
     const fake = fakeBitJita()
 
     const run = await new InventorySync(bitjitaSource(fake)).run('cron')

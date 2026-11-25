@@ -1,12 +1,13 @@
 import type { NextRequest } from 'next/server'
 import { userFromRequest } from '@/lib/session'
-import { followedPlayerIds } from '@/models/game_player'
+import { canEditPlan } from '@/models/plan'
 import { inventorySource } from '@/services/game_sync/inventory_source'
 import InventorySync, {
   SYNC_RESULTS,
   SyncAlreadyRunningError,
 } from '@/services/game_sync/inventory_sync'
-import { syncIfStale } from '@/services/game_sync/stale_sync'
+import { playersToSync, syncIfStale } from '@/services/game_sync/stale_sync'
+import { inventoryScope } from '@/services/inventory/scope'
 import { inventorySyncSchema } from '@/validators/inventory'
 
 /** BitJita answers in a few seconds; the default limit is enough, this is a ceiling */
@@ -23,9 +24,11 @@ export interface SyncResponse {
 const answer = (body: SyncResponse) => Response.json(body)
 
 /**
- * POST /api/inventory/sync: reads the account's characters on BitJita.
+ * POST /api/inventory/sync: reads on BitJita the account's character or,
+ * with `planId`, the plan's characters (services/inventory/scope), at most
+ * MAX_PLAYERS_PER_SYNC at a time, the least recently tried first.
  * "Sincronizar agora" (in the inventory, the calculator and the plans) reads
- * them all, even when recent. `onlyIfStale`: a page found the inventory old
+ * them even when recent. `onlyIfStale`: a page found the inventory old
  * (INVENTORY_STALE_MINUTES) and reads only the old ones, nothing when another
  * tab or account just did it or a sync is running; a problem stays in the
  * sync's notes. A route handler, not a server action: Next runs a tab's
@@ -37,11 +40,16 @@ export async function POST(request: NextRequest) {
   if (!user) return Response.json({ error: 'Faça login para continuar.' }, { status: 401 })
   const body = inventorySyncSchema.safeParse(await request.json().catch(() => ({})))
   if (!body.success) return Response.json({ error: 'Pedido inválido.' }, { status: 400 })
+  const { onlyIfStale, planId } = body.data
+  if (planId !== undefined && !(await canEditPlan(planId, user.id))) {
+    return Response.json({ error: 'Plano não encontrado.' }, { status: 404 })
+  }
+  const { playerIds } = await inventoryScope(user.id, planId)
 
-  if (body.data.onlyIfStale) {
+  if (onlyIfStale) {
     let synced = false
     try {
-      synced = (await syncIfStale(inventorySource(), user.id)) !== null
+      synced = (await syncIfStale(inventorySource(), user.id, playerIds)) !== null
     } catch (error) {
       if (!(error instanceof SyncAlreadyRunningError)) {
         console.error('inventory sync (auto) failed', error)
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
   try {
     const run = await new InventorySync(inventorySource()).run('manual', {
       userId: user.id,
-      playerIds: await followedPlayerIds(user.id),
+      playerIds: await playersToSync(playerIds),
     })
     const status = run.status === 'running' ? 'failed' : run.status
     return answer({ refresh: true, notice: SYNC_RESULTS[status], ok: run.status === 'ok' })

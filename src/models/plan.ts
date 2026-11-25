@@ -167,7 +167,7 @@ export type PlanWithState = NonNullable<Awaited<ReturnType<typeof findPlan>>>
 
 /** The plan as the calculator's state */
 export function toCalculatorState(
-  plan: Pick<PlanWithState, 'items' | 'buildings' | 'choices' | 'ownedItems' | 'useInventory'>
+  plan: Pick<PlanWithState, 'items' | 'buildings' | 'choices' | 'ownedItems'>
 ): CalculatorState {
   const choices: CalculatorState['choices'] = {}
   for (const choice of plan.choices) choices[choice.itemId] = choice.recipeId ?? 'raw'
@@ -182,7 +182,6 @@ export function toCalculatorState(
     })),
     choices,
     owned,
-    useInventory: plan.useInventory,
   }
 }
 
@@ -208,7 +207,6 @@ export function insertPlan({
       data: {
         name,
         notes,
-        useInventory: state.useInventory ?? true,
         createdById: userId,
         updatedById: userId,
       },
@@ -247,7 +245,6 @@ export function savePlanState(
     await tx.plan.update({
       where: { id },
       data: {
-        ...(state.useInventory !== undefined && { useInventory: state.useInventory }),
         ...(notes !== undefined && { notes }),
         updatedById: userId,
         // Also when only the rows below changed

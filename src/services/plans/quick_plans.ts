@@ -236,7 +236,6 @@ export default class QuickPlans {
         buildings: [],
         choices: {},
         owned: {},
-        useInventory: true,
       },
     })
   }
@@ -249,10 +248,7 @@ export default class QuickPlans {
    * P2025 when the plan is gone.
    */
   async add(
-    plan: Pick<
-      PlanWithState,
-      'id' | 'notes' | 'items' | 'buildings' | 'choices' | 'ownedItems' | 'useInventory'
-    >,
+    plan: Pick<PlanWithState, 'id' | 'notes' | 'items' | 'buildings' | 'choices' | 'ownedItems'>,
     key: QuickPlanKey,
     tier: number,
     style: MetalStyle,

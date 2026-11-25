@@ -69,7 +69,7 @@ export interface SyncOptions {
 export interface SyncScope {
   /** The account that asked (the button, a page); none for the cron */
   userId?: number | null
-  /** These characters; without it, every character someone follows */
+  /** These characters; without it, every account's character */
   playerIds?: number[]
 }
 
@@ -141,7 +141,7 @@ export default class InventorySync {
       unknownItems: 0,
     }
     const players = await db.gamePlayer.findMany({
-      where: scope.playerIds ? { id: { in: scope.playerIds } } : { followers: { some: {} } },
+      where: scope.playerIds ? { id: { in: scope.playerIds } } : { accounts: { some: {} } },
       orderBy: { id: 'asc' },
       select: { id: true, username: true, entityId: true },
     })
@@ -149,7 +149,7 @@ export default class InventorySync {
     if (!players.length) {
       return {
         status: 'failed',
-        message: 'Nenhum personagem na lista: adicione os seus personagens antes de sincronizar.',
+        message: 'Nenhum personagem: informe o seu em Meu personagem antes de sincronizar.',
         counts,
       }
     }

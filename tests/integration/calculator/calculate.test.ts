@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { calculate } from '@/services/calculator/calculate'
 import { emptyState } from '@/services/calculator/state_params'
 import { importTables, withSecondStrippedWoodRecipe } from '../../helpers/game_data'
-import { syncBothPlayers } from '../../helpers/inventory'
+import { addBothPlayers, syncBothPlayers } from '../../helpers/inventory'
 
 const itemId = async (kind: 'item' | 'cargo', gameId: number) =>
   (await db.item.findUniqueOrThrow({ where: { kind_gameId: { kind, gameId } } })).id
@@ -12,16 +12,16 @@ describe('calculation as the page shows it', () => {
   beforeEach(() => importTables())
 
   test('starts empty', async () => {
-    const panel = await calculate(emptyState(), 0)
+    const panel = await calculate(emptyState(), [])
     expect(panel.empty).toBe(true)
-    expect(panel.inventory).toEqual({ available: false, enabled: false, syncedAt: null })
+    expect(panel.inventory).toEqual({ available: false, syncedAt: null })
   })
 
   test('what to gather, then the steps in rounds, by profession', async () => {
     const plank = await itemId('item', 1030)
     const panel = await calculate(
       { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
-      0
+      []
     )
 
     // Round 1 gathers; nothing in stock, so the crafts (log, stripped wood,
@@ -53,7 +53,7 @@ describe('calculation as the page shows it', () => {
         choices: { [stripped]: 'raw' },
         owned: { [stripped]: 5 },
       },
-      0
+      []
     )
 
     const node = panel.trees[0].children[0]
@@ -76,21 +76,21 @@ describe('calculation as the page shows it', () => {
    */
 
   test('once synced, the inventory fills "já tenho" by default', async () => {
-    const { userId } = await syncBothPlayers()
+    const { playerIds } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
     const panel = await calculate(
       { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
-      userId
+      playerIds
     )
 
-    expect(panel.inventory).toMatchObject({ available: true, enabled: true })
+    expect(panel.inventory).toMatchObject({ available: true })
     expect([panel.trees[0].fromOwned, panel.trees[0].ownedSource]).toEqual([10, 'inventory'])
     // The trunks that went into the planks they have show in "Coletar", covered
     expect(panel.materials.map((m) => m.coveredLabel)).toContain('vocês já têm em Rough Plank')
   })
 
   test('a value typed by hand wins, even 0; the rest comes from the inventory', async () => {
-    const { userId } = await syncBothPlayers()
+    const { playerIds } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
     const stripped = await itemId('item', 1020)
     const panel = await calculate(
@@ -99,7 +99,7 @@ describe('calculation as the page shows it', () => {
         targets: [{ itemId: plank, quantity: 10 }],
         owned: { [plank]: 0, [stripped]: 3 },
       },
-      userId
+      playerIds
     )
 
     const node = panel.trees[0]
@@ -113,24 +113,20 @@ describe('calculation as the page shows it', () => {
     ])
   })
 
-  test('"Usar inventário do grupo" off: only what was typed', async () => {
-    const { userId } = await syncBothPlayers()
+  test('without characters read: only what was typed', async () => {
+    const { playerIds } = await addBothPlayers()
     const plank = await itemId('item', 1030)
     const panel = await calculate(
-      {
-        ...emptyState(),
-        targets: [{ itemId: plank, quantity: 10 }],
-        useInventory: false,
-      },
-      userId
+      { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
+      playerIds
     )
 
-    expect(panel.inventory).toMatchObject({ available: true, enabled: false })
+    expect(panel.inventory).toEqual({ available: false, syncedAt: null })
     expect([panel.trees[0].fromOwned, panel.trees[0].ownedSource]).toEqual([0, null])
   })
 
   test('"Coletar" says who has each raw material', async () => {
-    const { userId } = await syncBothPlayers()
+    const { playerIds } = await syncBothPlayers()
     const plank = await itemId('item', 1030)
     const log = await itemId('item', 1010)
     // 30 planks, ignoring the ones in stock: 60 stripped wood, 10 in stock; logs as raw material
@@ -141,7 +137,7 @@ describe('calculation as the page shows it', () => {
         owned: { [plank]: 0 },
         choices: { [log]: 'raw' },
       },
-      userId
+      playerIds
     )
 
     const logs = panel.materials.find((m) => m.item.id === log)!
@@ -157,7 +153,7 @@ describe('calculation as the page shows it', () => {
         ...emptyState(),
         buildings: [{ recipeId: house.id, quantity: 1 }],
       },
-      0
+      []
     )
 
     expect(panel.buildings.map((b) => [b.recipe.name, b.quantity, b.removed])).toEqual([
@@ -175,7 +171,7 @@ describe('calculation as the page shows it', () => {
         targets: [{ itemId: plank, quantity: 10 }],
         owned: { [stripped]: 20 },
       },
-      0
+      []
     )
 
     const done = [
@@ -197,7 +193,7 @@ describe('calculation as the page shows it', () => {
     const stepOf = (panel: Awaited<ReturnType<typeof calculate>>, id: number) =>
       panel.rounds.flatMap((round) => round.steps).find((step) => step.itemId === id)!
 
-    const panel = await calculate(state, 0)
+    const panel = await calculate(state, [])
     expect(
       stepOf(panel, stripped).recipes.map((r) => [
         r.inputsLabel,
@@ -214,7 +210,7 @@ describe('calculation as the page shows it', () => {
     expect(stepOf(panel, plank).recipes).toEqual([])
 
     const carved = stepOf(
-      await calculate({ ...state, choices: { [stripped]: carve.id } }, 0),
+      await calculate({ ...state, choices: { [stripped]: carve.id } }, []),
       stripped
     )
     expect(carved.recipes.map((r) => [r.isDefault, r.inUse])).toEqual([

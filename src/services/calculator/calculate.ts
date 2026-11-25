@@ -5,13 +5,14 @@ import { getRecipeGraph } from '@/services/calculator/recipe_graph'
 
 /**
  * A calculation as the page shows it: the recipe graph of the latest import,
- * "já tenho" filled from the viewing account's inventory (when on), the plan and its
- * presentation. The quick calculator and the plans both use it.
+ * "já tenho" filled from the inventory of the page's characters
+ * (services/inventory/scope), the plan and its presentation. The quick
+ * calculator and the plans both use it.
  */
-export async function calculate(state: CalculatorState, userId: number) {
+export async function calculate(state: CalculatorState, playerIds: number[]) {
   const [graph, { planState, sources, totals, holders, inventory }] = await Promise.all([
     getRecipeGraph(),
-    withInventory(state, userId),
+    withInventory(state, playerIds),
   ])
   return present(graph, state, plan(graph, planState), {
     sources,

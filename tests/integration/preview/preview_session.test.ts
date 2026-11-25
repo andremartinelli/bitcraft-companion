@@ -12,7 +12,11 @@ import { db } from '@/lib/db'
 import { PREVIEW_EMAIL } from '@/lib/preview'
 import { readSessionToken, SESSION_COOKIE } from '@/services/auth/session_token'
 import type { InventorySource, PlayerInfo } from '@/services/game_sync/inventory_source'
-import { playerNames, preparePreviewAccount } from '@/services/preview/preview_account'
+import {
+  playerNames,
+  PREVIEW_GROUP,
+  preparePreviewAccount,
+} from '@/services/preview/preview_account'
 import { importTables, withSetsAndTools } from '../../helpers/game_data'
 
 /** What a route handler threw: Next's 404 or redirect */
@@ -73,7 +77,7 @@ describe('/preview_session', () => {
 describe('the test account', () => {
   beforeEach(() => importTables(withSetsAndTools()))
 
-  test('follows the characters and has the same plans after every build', async () => {
+  test('its character, the others in its group, and the same plans after every build', async () => {
     expect(playerNames(' Catarrose, Veeto ,, ')).toEqual(['Catarrose', 'Veeto'])
 
     await preparePreviewAccount(['Catarrose', 'Veeto', 'Ninguem'], source)
@@ -82,20 +86,34 @@ describe('the test account', () => {
     expect(warnings).toEqual([])
     const user = await db.user.findUniqueOrThrow({
       where: { email: PREVIEW_EMAIL },
-      include: { followedPlayers: { include: { gamePlayer: true } } },
+      include: { gamePlayer: true },
     })
     expect(user.id).toBe(userId)
-    expect(user.followedPlayers.map((f) => f.gamePlayer.username).sort()).toEqual([
+    expect(user.gamePlayer?.username).toBe('Catarrose')
+    // One group, made again: the test account and Veeto's
+    const group = await db.group.findFirstOrThrow({
+      where: { ownerId: userId },
+      include: { members: { include: { user: { include: { gamePlayer: true } } } } },
+    })
+    expect(group.name).toBe(PREVIEW_GROUP)
+    expect(await db.group.count({ where: { ownerId: userId } })).toBe(1)
+    expect(group.members.map((m) => m.user.gamePlayer?.username).sort()).toEqual([
       'Catarrose',
       'Veeto',
     ])
-    const plans = await db.plan.findMany({ where: { createdById: userId }, orderBy: { id: 'asc' } })
+    const plans = await db.plan.findMany({
+      where: { createdById: userId },
+      orderBy: { id: 'asc' },
+      include: { groupShares: true },
+    })
     expect(plans.map((plan) => plan.name)).toEqual([
       'Set de couro T2',
       'Set de minério Plated T2',
       'Set de minério Duelist T2',
       expect.any(String),
     ])
+    // Shared with the group: a plan shows both characters' inventory
+    expect(plans.every((plan) => plan.groupShares[0]?.groupId === group.id)).toBe(true)
   })
 
   test('an unknown character is a warning, not an error', async () => {

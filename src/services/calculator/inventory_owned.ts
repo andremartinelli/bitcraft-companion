@@ -5,16 +5,14 @@ import { holdersByItem, stockTotals } from '@/services/inventory/stock'
 export type OwnedSource = 'manual' | 'inventory'
 
 export interface InventoryOption {
-  /** Some of the account's characters was read: the option can be offered */
+  /** Some of the characters was read: "já tenho" comes from the inventory */
   available: boolean
-  /** The option is on and there is data to use */
-  enabled: boolean
   syncedAt: Date | null
 }
 
 /**
  * "Já tenho" of each item: a value typed by hand wins, even 0; without one,
- * the total of the account's characters in the inventory.
+ * the characters' total in the inventory.
  */
 export function mergeOwned(
   manual: Record<number, number>,
@@ -36,25 +34,23 @@ export function mergeOwned(
 }
 
 /**
- * The state the planner runs on: with "Usar o inventário" on (the default
- * once a character of the account was read), the stock of the characters the
- * viewing account follows fills "já tenho". In a shared plan each account sees
- * its own. The planner stays a pure function of that state. `holders` says
- * who has each item, for the page. `syncedAt`: the oldest read among them.
+ * The state the planner runs on: the stock of the page's characters
+ * (services/inventory/scope) fills "já tenho", always once one of them was
+ * read. The planner stays a pure function of that state. `holders` says who
+ * has each item, for the page. `syncedAt`: the oldest read among them.
  */
-export async function withInventory(state: CalculatorState, userId: number) {
+export async function withInventory(state: CalculatorState, playerIds: number[]) {
   const oldest = await db.gamePlayer.findFirst({
-    where: { followers: { some: { userId } }, lastSyncedAt: { not: null } },
+    where: { id: { in: playerIds }, lastSyncedAt: { not: null } },
     orderBy: { lastSyncedAt: 'asc' },
     select: { lastSyncedAt: true },
   })
   const inventory: InventoryOption = {
     available: oldest !== null,
-    enabled: oldest !== null && state.useInventory !== false,
     syncedAt: oldest?.lastSyncedAt ?? null,
   }
-  const [totals, holders] = inventory.enabled
-    ? await Promise.all([stockTotals(userId), holdersByItem(userId)])
+  const [totals, holders] = inventory.available
+    ? await Promise.all([stockTotals(playerIds), holdersByItem(playerIds)])
     : [null, null]
   const { owned, sources } = mergeOwned(state.owned, totals)
   return { planState: { ...state, owned }, sources, totals, holders, inventory }

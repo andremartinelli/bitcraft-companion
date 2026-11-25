@@ -30,7 +30,6 @@ import {
   setChoice,
   setOwned,
   setTargetQuantity,
-  setUseInventory,
 } from '@/services/calculator/state_params'
 
 export interface CalculatorViewProps {
@@ -47,7 +46,7 @@ export interface CalculatorViewProps {
   pendingLabel?: string
   /** Under the item list: "Salvar como plano" in the quick calculator */
   actions?: ReactNode
-  /** "Sincronizar agora", which also reads BitJita when the inventory is old */
+  /** "Sincronizar agora", which also reads BitJita when the inventory is old; in a plan, "Usar apenas meu inventário" */
   inventoryControls?: ReactNode
   /** Next to the search: "Planos rápidos" in a plan */
   pickerActions?: ReactNode
@@ -57,7 +56,7 @@ export interface CalculatorViewProps {
 const quantityOf = (value: string) => (value.trim() === '' ? null : Number(value))
 
 /**
- * The calculator: what to make (items and buildings), the inventory option
+ * The calculator: what to make (items and buildings), the inventory's state
  * and the result. The same panel serves the quick calculator (state in the
  * URL) and the plans (state saved on every change).
  */
@@ -237,22 +236,11 @@ export function CalculatorView({
 
       <Flex gap="3" align="center" wrap="wrap" mb="4" minH="8">
         {panel.inventory.available && (
-          <>
-            <Checkbox.Root
-              size="sm"
-              checked={panel.useInventory}
-              onCheckedChange={({ checked }) => change(setUseInventory(state, checked === true))}
-            >
-              <Checkbox.HiddenInput />
-              <Checkbox.Control />
-              <Checkbox.Label>Usar meu inventário</Checkbox.Label>
-            </Checkbox.Root>
-            <Text textStyle="sm" color="fg.muted">
-              sincronizado{' '}
-              {formatAgo(panel.inventory.syncedAt ? new Date(panel.inventory.syncedAt) : null)} · o
-              &quot;já tenho&quot; digitado tem prioridade
-            </Text>
-          </>
+          <Text textStyle="sm" color="fg.muted">
+            Inventário sincronizado{' '}
+            {formatAgo(panel.inventory.syncedAt ? new Date(panel.inventory.syncedAt) : null)} · o
+            &quot;já tenho&quot; digitado tem prioridade
+          </Text>
         )}
         {inventoryControls}
         {actions}

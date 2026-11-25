@@ -29,7 +29,6 @@ export const calculatorStateSchema = z.object({
     .max(MAX_BUILDINGS),
   choices: z.record(itemKey, z.union([z.literal('raw'), id])),
   owned: z.record(itemKey, z.number().int().min(0).max(MAX_OWNED)),
-  useInventory: z.boolean(),
 })
 
 /** The same messages as before, by what went wrong */
@@ -55,7 +54,6 @@ export const emptyState = (): CalculatorState => ({
   buildings: [],
   choices: {},
   owned: {},
-  useInventory: true,
 })
 
 export interface ReadState {
@@ -71,14 +69,13 @@ export function validateState(input: unknown): ReadState {
     const messages = result.error.issues.map((issue) => messageFor(issue.path, issue.code))
     return { state: emptyState(), errors: [...new Set(messages)] }
   }
-  const { targets, buildings, choices, owned, useInventory } = result.data
+  const { targets, buildings, choices, owned } = result.data
   return {
     state: {
       targets,
       buildings,
       choices: Object.fromEntries(Object.entries(choices).map(([k, v]) => [Number(k), v])),
       owned: Object.fromEntries(Object.entries(owned).map(([k, v]) => [Number(k), v])),
-      useInventory,
     },
     errors: [],
   }
@@ -122,7 +119,6 @@ export function readStateFromQuery(params: Params): ReadState {
     })),
     choices: Object.fromEntries(choices.map(([k, v]) => [k, v === 'raw' ? 'raw' : num(v)])),
     owned: Object.fromEntries(owned.map(([k, v]) => [k, num(v)])),
-    useInventory: first(params.inv) !== '0',
   })
 }
 
@@ -147,8 +143,6 @@ export function stateToQuery(state: CalculatorState): string {
     'o',
     Object.entries(state.owned).map(([itemId, quantity]) => `${itemId}:${quantity}`)
   )
-  // On is the default: only "off" goes in the URL
-  if (state.useInventory === false) params.push('inv=0')
   return params.join('&')
 }
 
@@ -212,6 +206,3 @@ export function setOwned(state: CalculatorState, itemId: number, value: string):
   return { ...state, owned }
 }
 
-export function setUseInventory(state: CalculatorState, useInventory: boolean): CalculatorState {
-  return { ...state, useInventory }
-}

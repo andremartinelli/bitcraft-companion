@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   // `next dev` would write an AGENTS.md for AI agents into the checkout on
   // every run; CLAUDE.md points them to the same docs (node_modules/next/dist/docs)
   agentRules: false,
+  // "Personagens" became "Meu personagem" (one per account, 25/11/2026)
+  redirects: async () => [{ source: '/game_players', destination: '/game_player', permanent: true }],
 }
 
 export default nextConfig

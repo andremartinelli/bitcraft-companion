@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { db } from '@/lib/db'
 import { PREVIEW_EMAIL } from '@/lib/preview'
-import { followGamePlayer } from '@/models/game_player'
+import { claimGamePlayer } from '@/models/game_player'
 import { hashPassword } from '@/services/auth/password'
 import type { InventorySource } from '@/services/game_sync/inventory_source'
 import QuickPlans, { METAL_STYLES, type QuickPlanKey } from '@/services/plans/quick_plans'
@@ -21,32 +21,57 @@ export function playerNames(value: string | undefined) {
     .filter(Boolean)
 }
 
-/**
- * Creates or refreshes the test account: no known password, following the
- * named characters (found on BitJita) and with its plans made again from
- * scratch, so every preview starts the same (src/lib/preview.ts). Returns what it could not do.
- */
-export async function preparePreviewAccount(names: string[], source: InventorySource) {
-  // Random and thrown away: nobody logs in with it, only /preview_session
+export const PREVIEW_GROUP = 'Grupo de teste'
+
+/** "preview@example.com", then "preview+2@example.com" for the second character... */
+const emailFor = (index: number) =>
+  index === 0 ? PREVIEW_EMAIL : PREVIEW_EMAIL.replace('@', `+${index + 1}@`)
+
+/** An account nobody logs in with: the password is random and thrown away */
+async function upsertAccount(email: string, fullName: string) {
   const password = await hashPassword(randomBytes(32).toString('base64url'))
-  const user = await db.user.upsert({
-    where: { email: PREVIEW_EMAIL },
-    create: { email: PREVIEW_EMAIL, fullName: 'Conta de teste', password },
-    update: { password },
+  return db.user.upsert({
+    where: { email },
+    create: { email, fullName, password },
+    update: { fullName, password },
     select: { id: true },
   })
+}
+
+/**
+ * Creates or refreshes the test account, so every preview starts the same
+ * (src/lib/preview.ts): its character is the first one named (found on
+ * BitJita); each of the others is the character of another test account, in
+ * a group with it, and its plans are made again from scratch, shared with the
+ * group. A plan then shows the inventory of several people. Returns what it could not do.
+ */
+export async function preparePreviewAccount(names: string[], source: InventorySource) {
+  // Only /preview_session logs in with it
+  const user = await upsertAccount(PREVIEW_EMAIL, 'Conta de teste')
   const warnings: string[] = []
 
-  for (const name of names) {
+  await db.group.deleteMany({ where: { ownerId: user.id } })
+  const group = await db.group.create({
+    data: {
+      name: PREVIEW_GROUP,
+      ownerId: user.id,
+      members: { create: { userId: user.id, autoSharePlans: true } },
+    },
+  })
+
+  for (const [index, name] of names.entries()) {
     const found = await source.findPlayer(name).catch((error: Error) => {
       warnings.push(`BitJita falhou para ${name}: ${error.message}`)
       return undefined
     })
     if (found === null) warnings.push(`Nenhum personagem chamado "${name}" na BitJita.`)
     if (!found) continue
-    const result = await followGamePlayer(user.id, found)
-    // Already followed in an earlier build: nothing to do
-    if (!result.ok && !result.error.includes('já está')) warnings.push(result.error)
+    const account =
+      index === 0 ? user : await upsertAccount(emailFor(index), `${found.username} (teste)`)
+    await claimGamePlayer(account.id, found)
+    if (account !== user) {
+      await db.groupMember.create({ data: { groupId: group.id, userId: account.id } })
+    }
   }
 
   await db.plan.deleteMany({ where: { createdById: user.id } })
