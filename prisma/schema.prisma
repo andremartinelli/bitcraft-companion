@@ -102,6 +102,18 @@ model User {
   @@map("users")
 }
 
+/// Cadastros com nick que falharam (a BitJita não achou ou estava fora do ar).
+/// Contam no limite de contas novas por IP por dia, como as contas criadas:
+/// sem isso, cadastros com nicks inventados consultariam a BitJita sem limite.
+model SignupNickFailure {
+  id        Int      @id @default(autoincrement())
+  ip        String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([ip, createdAt])
+  @@map("signup_nick_failures")
+}
+
 model LoginAttempt {
   id        Int      @id @default(autoincrement())
   email     String   @db.VarChar(254)

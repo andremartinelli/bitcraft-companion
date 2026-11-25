@@ -126,6 +126,43 @@ describe('sign-up', () => {
       expect(await db.user.count()).toBe(0)
     })
 
+    test(`failed nicks count in the ${MAX_SIGNUPS_PER_IP} a day from one IP`, async () => {
+      const responses = recordedResponses()
+      responses['/api/players?q=Ninguem'] = { body: { players: [], total: 0 } }
+      request.bitjita = fakeBitJita(responses)
+      const attempt = (email: string, nick: string | null) =>
+        signUp({
+          email,
+          fullName: 'P',
+          password: 'oito8888',
+          gamePlayerUsername: nick,
+          ip: '198.51.100.9',
+        })
+
+      for (let i = 0; i < MAX_SIGNUPS_PER_IP - 1; i++) {
+        expect((await attempt(`p${i}@example.com`, 'Ninguem')).ok).toBe(false)
+      }
+      expect((await attempt('ok@example.com', null)).ok).toBe(true)
+
+      const calls = request.bitjita!.calls.length
+      expect(await attempt('x@example.com', 'Ninguem')).toEqual({
+        ok: false,
+        error: 'Muitos cadastros daqui hoje. Tente de novo amanhã.',
+      })
+      expect(request.bitjita!.calls).toHaveLength(calls)
+      // Another IP is fine
+      expect(
+        (
+          await signUp({
+            email: 'y@example.com',
+            fullName: 'Y',
+            password: 'oito8888',
+            ip: '198.51.100.10',
+          })
+        ).ok
+      ).toBe(true)
+    })
+
     test('a used e-mail says so before BitJita is asked', async () => {
       await redirectedTo(createAccount(EMPTY, form(valid)))
 
@@ -202,7 +239,7 @@ describe('sign-up', () => {
         password: 'oito8888',
         ip: '198.51.100.9',
       })
-    ).toEqual({ ok: false, error: 'Muitas contas novas criadas daqui hoje. Tente de novo amanhã.' })
+    ).toEqual({ ok: false, error: 'Muitos cadastros daqui hoje. Tente de novo amanhã.' })
     // Another IP, or one from yesterday, is fine
     expect(
       (

@@ -84,7 +84,7 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
   - route handlers usam `userFromRequest(request)`;
   - os dois estão em `src/lib/session.ts`.
 - Só `/login`, `/signup` e `/api/cron/*` são abertos. O cron tem a própria chave, `CRON_SECRET`.
-- O cadastro em `/signup` é aberto, com senha de no mínimo 8 caracteres e no máximo 5 contas novas por IP por dia (`src/services/auth/signup.ts`). O campo "Nick do seu personagem" é opcional: preenchido, o app o confere na BitJita depois do limite por IP e antes de criar a conta; se a BitJita não achar o nick ou estiver fora do ar, a conta não é criada e o formulário diz por quê. `npm run users:create` continua existindo.
+- O cadastro em `/signup` é aberto, com senha de no mínimo 8 caracteres e no máximo 5 contas novas por IP por dia (`src/services/auth/signup.ts`). O campo "Nick do seu personagem" é opcional: preenchido, o app o confere na BitJita depois do limite por IP e antes de criar a conta; se a BitJita não achar o nick ou estiver fora do ar, a conta não é criada e o formulário diz por quê. Cada tentativa com nick que falha conta no limite por IP como uma conta (`signup_nick_failures`, decidido em 25/11/2026), para nicks inventados não consultarem a BitJita sem limite. `npm run users:create` continua existindo.
 - Senhas usam scrypt (`src/services/auth/password.ts`). Depois de 10 erros seguidos, o e-mail fica bloqueado por 15 minutos.
 
 **Contas (decidido em 24/11/2026):**
