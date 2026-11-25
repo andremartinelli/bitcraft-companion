@@ -30,7 +30,7 @@ Development runs in Claude Code cloud sessions (claude.ai/code), in an environme
 
 ## Merging PRs
 
-`main` has a GitHub ruleset ("Main protection"): only commits with green CI ("Testes") on a branch up to date with `main` get in, and nobody can force-push or delete `main`. The merge is a squash, through GitHub auto-merge. Merging to `main` publishes nothing: production only changes with a release.
+`main` has a GitHub ruleset ("Main protection"): only commits with green CI ("Tests") on a branch up to date with `main` get in, and nobody can force-push or delete `main`. The merge is a squash, through GitHub auto-merge. Merging to `main` publishes nothing: production only changes with a release.
 
 - **When the owner says to merge a PR,** turn on auto-merge. GitHub then squash-merges (the only method enabled in the repository) once CI passes. Never turn on auto-merge or merge without that request.
   - In the cloud the proxy refuses GitHub's GraphQL, and `gh pr merge --auto` uses GraphQL. Use the cloud REST route: `gh api -X PUT repos/andremartinelli/bitcraft-companion/pulls/<n>/ccr/auto_merge -f merge_method=squash`. Without `merge_method` it asks for a merge commit and GitHub refuses. Outside the cloud: `gh pr merge <n> --auto --squash`.
