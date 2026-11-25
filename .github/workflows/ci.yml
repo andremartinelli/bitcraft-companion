@@ -1,10 +1,10 @@
-# Testes em cada pull request e em cada push no main: typecheck, lint e a
-# suíte inteira, com um Postgres só para eles. O mesmo job de testes do
-# release.yml, sem nenhum segredo e sem tocar em produção.
+# Tests on every pull request and every push to main: typecheck, lint and the
+# whole suite, with a Postgres just for them. The same tests job as
+# release.yml, with no secrets and without touching production.
 #
-# As versões daqui (Node e a imagem do Postgres) também são as do ambiente das
-# sessões do Claude Code na nuvem (scripts/workspace/cloud-setup.sh lê este
-# arquivo). Ao mudar uma, mude também no release.yml.
+# The versions here (Node and the Postgres image) are also the ones in the
+# Claude Code cloud sessions' environment (scripts/workspace/cloud-setup.sh
+# reads this file). When you change one, change release.yml too.
 name: CI
 
 on:
@@ -12,7 +12,7 @@ on:
   push:
     branches: [main]
 
-# Um push novo no mesmo PR cancela a rodada anterior
+# A new push to the same PR cancels the previous run
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -41,7 +41,7 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/test
-      # Só para assinar os cookies dos testes; não é a chave de produção
+      # Only to sign the tests' cookies; not the production key
       SESSION_SECRET: chave-dos-testes-do-ci-nao-usada-em-producao
     steps:
       - uses: actions/checkout@v5
