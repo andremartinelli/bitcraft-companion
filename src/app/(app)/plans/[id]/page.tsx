@@ -7,12 +7,14 @@ import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
 import { PlanCalculator } from '@/components/plans/plan_calculator'
 import { PlanDetails } from '@/components/plans/plan_details'
 import { PlanSharing, SharedPlanNotice } from '@/components/plans/plan_sharing'
+import { QuickPlanMenu } from '@/components/plans/quick_plan_menu'
 import { formatDate } from '@/lib/format'
 import { getCurrentUser, requireUser } from '@/lib/session'
 import { listGroups } from '@/models/group'
 import { authorName, findPlanFor, toCalculatorState } from '@/models/plan'
 import { calculate } from '@/services/calculator/calculate'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
+import { quickPlanCatalog } from '@/services/plans/quick_plans'
 import { planIdSchema } from '@/validators/plan'
 
 /** The sync on demand runs in this page's actions */
@@ -36,7 +38,8 @@ export async function generateMetadata({ params }: PlanPageProps): Promise<Metad
 
 /**
  * GET /plans/[id]: the calculator with the saved state, saving on every
- * change, with the editable name and the notes. The owner shares it with its
+ * change, with "Planos rápidos" next to its search, the editable name and
+ * the notes. The owner shares it with its
  * groups and deletes it; an account it was shared with edits it and, when it
  * came one by one, can leave it. A plan that doesn't exist, or is someone
  * else's, is a 404.
@@ -48,10 +51,11 @@ export default async function PlanPage({ params }: PlanPageProps) {
 
   const state = toCalculatorState(plan)
   const owner = plan.createdById === user.id
-  const [panel, freshness, groups] = await Promise.all([
+  const [panel, freshness, groups, quickPlans] = await Promise.all([
     calculate(state, user.id),
     inventoryFreshness(user.id),
     owner ? listGroups(user.id) : [],
+    quickPlanCatalog(),
   ])
   const author = authorName(plan.updatedBy)
   const sharedGroups = new Set(plan.groupShares.map((share) => share.groupId))
@@ -104,6 +108,9 @@ export default async function PlanPage({ params }: PlanPageProps) {
           freshness.hasPlayers && (
             <SyncControls stale={freshness.stale && state.useInventory !== false} />
           )
+        }
+        pickerActions={
+          quickPlans.length > 0 && <QuickPlanMenu planId={plan.id} catalog={quickPlans} />
         }
       />
     </>

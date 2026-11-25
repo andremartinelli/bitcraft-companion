@@ -58,6 +58,7 @@ export function PlanDetails({ planId, name, updated, notes }: PlanDetailsProps) 
           rounded="l2"
           borderStartWidth="3px"
           borderColor="teal.solid"
+          whiteSpace="pre-line"
         >
           {notes}
         </Text>

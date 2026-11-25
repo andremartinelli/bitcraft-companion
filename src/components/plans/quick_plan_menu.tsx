@@ -3,7 +3,7 @@
 import { Alert, Button, Flex, Menu, Portal, Stack, Text } from '@chakra-ui/react'
 import { useState, useTransition, type ReactNode } from 'react'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
-import { createQuickPlan } from '@/app/(app)/plans/actions'
+import { addQuickPlan, createQuickPlan } from '@/app/(app)/plans/actions'
 import type { MetalStyle, QuickPlanEntry } from '@/services/plans/quick_plans'
 
 /** An entry that opens a submenu to its right */
@@ -33,18 +33,19 @@ function Submenu({
 
 /**
  * "Planos rápidos": Planos rápidos › set › (style ›) tier. Choosing a tier
- * creates the plan and opens it. Chakra's menu does the keyboard (arrows,
- * Enter, Escape) and the hover.
+ * creates the plan and opens it or, in a plan (planId), adds the items to it.
+ * Chakra's menu does the keyboard (arrows, Enter, Escape) and the hover.
  */
-export function QuickPlanMenu({ catalog }: { catalog: QuickPlanEntry[] }) {
+export function QuickPlanMenu({ catalog, planId }: { catalog: QuickPlanEntry[]; planId?: number }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const create = (template: QuickPlanEntry['key'], tier: number, style?: MetalStyle) =>
     startTransition(async () => {
       setError(null)
-      const result = await createQuickPlan({ template, tier, style })
-      // On success it opens the new plan and there is nothing to read
+      const input = { template, tier, style }
+      const result = await (planId ? addQuickPlan(planId, input) : createQuickPlan(input))
+      // Creating opens the new plan and there is nothing to read
       if (result?.error) setError(result.error)
     })
 
@@ -65,11 +66,21 @@ export function QuickPlanMenu({ catalog }: { catalog: QuickPlanEntry[] }) {
     ))
 
   return (
-    <Stack gap="2" mb="4">
+    <Stack gap="2" mb={planId ? undefined : '4'}>
       <Flex gap="3" align="center" wrap="wrap">
         <Menu.Root>
           <Menu.Trigger asChild>
-            <Button size="sm" variant="outline" loading={pending} loadingText="Criando…">
+            <Button
+              size={planId ? 'md' : 'sm'}
+              variant="outline"
+              loading={pending}
+              loadingText={planId ? 'Adicionando…' : 'Criando…'}
+              title={
+                planId
+                  ? 'Adiciona a este plano um set, as ferramentas ou o upgrade do assentamento de um tier'
+                  : undefined
+              }
+            >
               Planos rápidos <LuChevronDown />
             </Button>
           </Menu.Trigger>
@@ -91,9 +102,11 @@ export function QuickPlanMenu({ catalog }: { catalog: QuickPlanEntry[] }) {
             </Menu.Positioner>
           </Portal>
         </Menu.Root>
-        <Text textStyle="sm" color="fg.muted">
-          um set, as ferramentas ou o upgrade do assentamento de um tier, num plano novo
-        </Text>
+        {!planId && (
+          <Text textStyle="sm" color="fg.muted">
+            um set, as ferramentas ou o upgrade do assentamento de um tier, num plano novo
+          </Text>
+        )}
       </Flex>
       {error && (
         <Alert.Root status="error" size="sm">

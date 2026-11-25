@@ -12,6 +12,7 @@ vi.mock('next/cache', () => ({ refresh: vi.fn() }))
 
 import { refresh } from 'next/cache'
 import {
+  addQuickPlan,
   createPlan,
   createPlanGroupShare,
   createPlanShare,
@@ -82,6 +83,7 @@ describe('plan actions', () => {
     expect(await redirectedTo(updatePlan(plan.id, { name: 'X' }))).toBe('/login')
     expect(await redirectedTo(destroyPlan(plan.id))).toBe('/login')
     expect(await redirectedTo(createQuickPlan({ template: 'tools', tier: 1 }))).toBe('/login')
+    expect(await redirectedTo(addQuickPlan(plan.id, { template: 'tools', tier: 1 }))).toBe('/login')
     expect((await findPlan(plan.id))!.name).toBe('Ferramentas T2')
     expect(await db.plan.count()).toBe(1)
   })
@@ -205,6 +207,22 @@ describe('plan actions', () => {
     expect(await db.plan.count()).toBe(0)
   })
 
+  test('"Planos rápidos" in a plan adds the items to it', async () => {
+    const plan = await planWithPlanks()
+
+    expect(await addQuickPlan(plan.id, { template: 'tools', tier: 1 })).toEqual(NO_ERROR)
+    expect(refresh).toHaveBeenCalledOnce()
+    const saved = await findPlan(plan.id)
+    expect([saved!.items.length, saved!.items[0].quantity, saved!.updatedById]).toEqual([
+      4,
+      10,
+      userId,
+    ])
+    expect(await addQuickPlan(plan.id, { template: 'cloth', tier: 7 })).toEqual({
+      error: 'Nenhum item desse plano rápido no T7.',
+    })
+  })
+
   describe('with another account', () => {
     let otherId: number
 
@@ -236,7 +254,11 @@ describe('plan actions', () => {
         errors: ['Este plano não existe mais. Ele pode ter sido apagado.'],
       })
       expect(await redirectedTo(destroyPlan(plan.id))).toBe('/plans')
-      expect((await findPlan(plan.id))!.name).toBe('Ferramentas T2')
+      expect(await addQuickPlan(plan.id, { template: 'tools', tier: 1 })).toEqual({
+        error: 'Este plano não existe mais. Ele pode ter sido apagado.',
+      })
+      const saved = await findPlan(plan.id)
+      expect([saved!.name, saved!.items.length]).toEqual(['Ferramentas T2', 1])
     })
 
     test('the owner shares with someone of its group; that account edits it but cannot delete it', async () => {

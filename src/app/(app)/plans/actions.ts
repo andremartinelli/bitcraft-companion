@@ -6,6 +6,7 @@ import { requireUser } from '@/lib/session'
 import {
   canEditPlan,
   deletePlan,
+  findPlanFor,
   insertPlan,
   removePlanGroupShare,
   removePlanShare,
@@ -167,4 +168,29 @@ export async function createQuickPlan(input: unknown): Promise<PlanFormState> {
   const plan = await new QuickPlans().create(template, tier, style ?? METAL_STYLES[0], user.id)
   if (!plan) return { error: `Nenhum item desse plano rápido no T${tier}.` }
   redirect(`/plans/${plan.id}`)
+}
+
+/**
+ * POST /plans/[id]/quick_plans: "Planos rápidos" in a plan puts a set, the
+ * tools or a settlement upgrade in it, summing what it already has. Then the
+ * page shows it.
+ */
+export async function addQuickPlan(id: number, input: unknown): Promise<PlanFormState> {
+  const user = await requireUser()
+  const planId = planIdSchema.safeParse(id)
+  const parsed = quickPlanSchema.safeParse(input)
+  if (!planId.success || !parsed.success) return { error: 'Esse plano rápido não existe.' }
+  // Someone else's plan answers as a deleted one, like in updatePlan
+  const plan = await findPlanFor(planId.data, user.id)
+  if (!plan) return { error: 'Este plano não existe mais. Ele pode ter sido apagado.' }
+
+  const { template, tier, style } = parsed.data
+  const saved = await saving(() =>
+    new QuickPlans().add(plan, template, tier, style ?? METAL_STYLES[0], user.id)
+  )
+  if ('error' in saved) return { error: saved.error }
+  if (!saved.result) return { error: `Nenhum item desse plano rápido no T${tier}.` }
+  if (saved.result.length) return { error: saved.result.join(' ') }
+  refresh()
+  return { error: null }
 }
