@@ -6,6 +6,26 @@ Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consul
 - Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`.
 - **Histórico:** o app Adonis antigo foi portado e saiu do repositório no merge para o `main` (24/11/2026). Para consultá-lo, veja o histórico do git antes desse merge (pasta `legacy/` no branch `claude/fork-vercel-e03995`, ou o `main` até o commit `c4a56b3`).
 
+## Sessões do Claude Code na nuvem
+
+O desenvolvimento roda em sessões do Claude Code na nuvem (claude.ai/code), num ambiente só deste repositório.
+
+- **Ao abrir a sessão,** o hook SessionStart (`.claude/settings.json` → `scripts/workspace/session-start.sh`) primeiro confere o branch. Uma sessão aberta num branch que o cache do ambiente já guarda pode começar no commit do cache, e não no último push. Se a árvore estiver sem mudanças e o branch só estiver atrás do GitHub, o hook o avança (`git merge --ff-only`) e diz isso no resumo. Se o branch tiver mudanças ou tiver divergido, o hook só avisa. Depois ele roda `scripts/workspace/cloud-start.sh`:
+  - liga o Docker e um Postgres 17 em `127.0.0.1:54320`, com os bancos `bitcraft_dev` (o app) e `bitcraft_test` (os testes de integração);
+  - roda `npm ci` se o `package-lock.json` mudou, gera o cliente do Prisma e aplica as migrations do branch nos dois bancos.
+
+  A última linha do log (`.workspace/cloud-start.log`) é o resumo. Se o hook avisar que falhou, leia o log antes de rodar o app ou os testes.
+- **O cache do ambiente** é montado por `scripts/workspace/cloud-setup.sh`: Node e Postgres nas versões da CI, `.env` só com valores locais, dependências, migrations, dados do jogo no `bitcraft_dev` e o usuário do `db:seed`. O cache guarda arquivos, não processos; por isso o hook liga tudo de novo em cada sessão.
+- **Node:** a imagem da nuvem só traz alguns Node em `/opt/nodeNN`. Quando o da CI não está entre eles, a receita o baixa do `nodejs.org` (conferido pelo `SHASUMS256.txt`) para `/opt/nodeNN`. Se o download falhar, ela usa o mais novo da imagem e avisa no resumo.
+- **Sessão com vários repositórios não roda hooks.** Rode `bash scripts/workspace/cloud-start.sh` à mão antes do app ou dos testes de integração.
+- **Login no app de dev:** `dev@example.com` / `dev-password-local` (`prisma/seed.ts`).
+- **Nada da nuvem chega à produção.** O `.env` aponta só para o Postgres local, e os scripts recusam outra URL. Não há segredo de produção na nuvem: as releases (deploy e migrations no Neon) e a importação dos dados do jogo no Neon rodam pelos workflows do GitHub Actions, disparados pelo dono do repositório.
+- **Rede:** os testes usam fixtures e não precisam de rede.
+  - O proxy do GitHub da sessão só deixa a `api.github.com` ler os repositórios anexados à sessão. A importação normal pede o commit do BitCraft_GameData a essa API e recebe 403. Por isso a receita baixa as mesmas tabelas da ponta do branch pelo `raw.githubusercontent.com` e importa da pasta (`--path`).
+  - O inventário do app de dev lê o `bitjita.com`, que precisa estar liberado na rede do ambiente. Sem ele, as páginas abrem, mas o sync falha.
+- **Docs do Next:** a versão instalada traz a documentação em `node_modules/next/dist/docs/`. Consulte lá em vez de confiar na memória. O `agentRules: false` do `next.config.ts` impede o `next dev` de gerar um `AGENTS.md` com esse mesmo aviso a cada execução.
+- **Pull requests:** trabalhe num branch e abra o PR; o merge e as releases são do dono do repositório. A CI (`.github/workflows/ci.yml`) roda typecheck, lint e testes em cada PR.
+
 ## Stack
 
 Next.js 16 (App Router, Turbopack) com TypeScript, Prisma 7 sobre Postgres (`@prisma/adapter-pg`), Chakra UI 3, Zod para validação e Vitest para testes.
@@ -60,7 +80,7 @@ Detalhes que já custaram tempo:
   - nada de timer, polling ou cron frequente que acorde o banco (ele dorme depois de 5 minutos parado);
   - o grafo de receitas da calculadora vem comprimido de `recipe_graph_snapshots`, e não das tabelas;
   - consultas que não precisam de colunas grandes usam `select`.
-- **Vercel Hobby:** sem disco persistente, cron no máximo uma vez por dia e funções de até 300 s. A importação dos dados do jogo nunca roda na Vercel: é um script rodado do PC.
+- **Vercel Hobby:** sem disco persistente, cron no máximo uma vez por dia e funções de até 300 s. A importação dos dados do jogo nunca roda na Vercel: em produção, ela roda pelo workflow manual "Importar dados do jogo" do GitHub Actions (`.github/workflows/game-data-import.yml`).
 - **Deploy:** produção só muda quando uma release é publicada no GitHub (`.github/workflows/release.yml`: testes, `prisma migrate deploy` no Neon e `vercel deploy --prod`). Push no `main` não publica (`vercel.json`). Passo a passo em `docs/deploy.md`.
 
 ## Regras do jogo (não negociáveis)
@@ -72,21 +92,17 @@ Detalhes que já custaram tempo:
 
 ## Comandos
 
-O Node não está no PATH desta máquina: use `C:\Users\Andre\tools\node-v26.13.1-win-x64` (no Git Bash, `export PATH="/c/Users/Andre/tools/node-v26.13.1-win-x64:$PATH"`). As portas 3333 e 3000 são do app antigo.
-
 ```bash
-npm run db:dev               # Postgres local de dev (prisma dev), num terminal; deixe aberto
-npm run db:test              # Postgres local dos testes, noutro terminal
 npm run dev                  # servidor de desenvolvimento em http://localhost:3100
 npm test                     # todos os testes (unit e integration)
 npm run test:unit            # só os sem banco
 npm run typecheck
 npm run lint
 npx prisma migrate dev       # cria e aplica migrations no banco de dev
-npm run game-data:import     # importa os dados do jogo (último commit do BitCraft_GameData)
+npm run game-data:import     # importa os dados do jogo no banco de dev (último commit do BitCraft_GameData)
 npm run users:create -- --email=voce@exemplo.com --name="Nome"   # cria uma conta (a senha é pedida)
 npm run inventory:sync       # lê os inventários na BitJita agora (o mesmo do botão)
 npm run db:seed              # só local: o usuário de desenvolvimento (veja prisma/seed.ts)
 ```
 
-O `prisma dev` só respeita as portas do `.env` rodando em primeiro plano (`--detach` escolhe outras).
+**Fora da nuvem (plano B):** sem Docker, o Postgres local é o `prisma dev`. Rode `npm run db:dev` e `npm run db:test`, cada um num terminal que fica aberto, com as URLs do `.env.example`. O `prisma dev` só respeita as portas do `.env` rodando em primeiro plano (`--detach` escolhe outras).

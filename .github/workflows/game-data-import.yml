@@ -1,0 +1,55 @@
+# Importação dos dados do jogo no Neon, à mão, a cada patch do jogo:
+# Actions → Importar dados do jogo → Run workflow. Lê o
+# BitCraftToolBox/BitCraft_GameData (o último commit, ou o informado) e grava
+# pela URL direta do Neon. Passo a passo em docs/deploy.md (passo 6).
+#
+# Segredo do repositório: DATABASE_URL_UNPOOLED, o mesmo do release.yml. Com
+# ele aqui, nenhuma sessão do Claude e nenhum PC precisa da URL do Neon.
+name: Importar dados do jogo
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit do BitCraft_GameData (vazio importa o último)
+        required: false
+        default: ''
+
+# A mesma fila do release.yml: um espera o outro terminar
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Importação no Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      COMMIT: ${{ inputs.commit }}
+    steps:
+      - name: Confere o segredo e o commit
+        run: |
+          test -n "$DATABASE_URL_UNPOOLED" || { echo "::error::Falta o segredo DATABASE_URL_UNPOOLED (veja docs/deploy.md)."; exit 1; }
+          if [ -n "$COMMIT" ] && ! [[ "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::O commit tem de ser um SHA do BitCraft_GameData (7 a 40 caracteres hexadecimais)."
+            exit 1
+          fi
+          # O repositório é público, e os logs também: esconde o endereço do Neon
+          node -e 'const u = new URL(process.env.DATABASE_URL_UNPOOLED); console.log(`::add-mask::${u.host}`); console.log(`::add-mask::${u.hostname}`)'
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      # O código da importação espera as tabelas desta versão. Se o Neon tiver
+      # migration pendente, o status falha: publique uma release antes.
+      - name: Migrations em dia no Neon
+        run: npx prisma migrate status
+      - name: Importação
+        run: npm run game-data:import -- ${COMMIT:+--commit=$COMMIT}

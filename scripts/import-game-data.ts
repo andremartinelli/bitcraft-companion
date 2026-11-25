@@ -2,8 +2,9 @@
  * npm run game-data:import -- [--commit=<sha>] [--path=<pasta>]
  *
  * Imports the static game data (BitCraftToolBox/BitCraft_GameData) into the
- * database of DATABASE_URL_UNPOOLED: on Neon, the direct URL. Runs from the
- * PC, never on Vercel. Safe to re-run after every patch.
+ * database of DATABASE_URL_UNPOOLED: on Neon, the direct URL. In production it
+ * runs from the "Importar dados do jogo" workflow (.github/workflows/
+ * game-data-import.yml), never on Vercel. Safe to re-run after every patch.
  */
 import { existsSync } from 'node:fs'
 import { parseArgs } from 'node:util'
