@@ -1,5 +1,6 @@
 import { Prisma } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
+import { withRecipeChoices } from '@/models/user_recipe_choice'
 import type { CalculatorState } from '@/services/calculator/production_planner'
 
 type Tx = Prisma.TransactionClient
@@ -186,8 +187,10 @@ export function toCalculatorState(
 }
 
 /**
- * A new plan with its state, in one transaction, already shared with the
- * groups where the account turned on "Compartilhar com o grupo automaticamente"
+ * A new plan with its state, in one transaction: it starts with the account's
+ * recipes (models/user_recipe_choice; the state's own choices win), already
+ * shared with the groups where it turned on "Compartilhar com o grupo
+ * automaticamente"
  */
 export function insertPlan({
   name,
@@ -210,7 +213,11 @@ export function insertPlan({
         updatedById: userId,
       },
     })
-    await writeState(tx, plan.id, state)
+    await writeState(
+      tx,
+      plan.id,
+      userId === null ? state : await withRecipeChoices(state, userId, tx)
+    )
     if (userId !== null) {
       // Locked, like in sharePlanWithGroup
       const groups = await tx.$queryRaw<{ group_id: number }[]>`

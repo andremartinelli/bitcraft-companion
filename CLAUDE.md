@@ -85,6 +85,10 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
   - quem sai ou é removido de um grupo deixa de ver os planos do grupo, e o grupo os dele. O compartilhamento um a um entre duas pessoas só acaba quando elas não têm mais nenhum grupo em comum. Os compartilhamentos por e-mail de antes dos grupos continuam, e o dono os remove no plano.
 - **Personagens:** cada conta segue até 5 (`user_game_players`). Um personagem existe uma vez só, e é lido uma vez, mesmo seguido por várias contas. Ninguém mais seguindo, ele é apagado.
 - **Inventário:** o estoque, o "já tenho" da calculadora e o "Você tem" do item são sempre os dos personagens da conta que está vendo, inclusive num plano compartilhado.
+- **Receitas (decidido em 25/11/2026, `src/models/user_recipe_choice.ts`):**
+  - nas Etapas, o item com 2 ou mais receitas tem "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), só com receitas; "Tratar como matéria-prima" fica na Árvore de produção;
+  - escolher uma receita (nas Etapas ou na árvore) muda o plano e a guarda como padrão da conta (`user_recipe_choices`), também num plano compartilhado;
+  - o plano novo nasce com os padrões de quem o cria e depois guarda as próprias escolhas: mudar o padrão não muda plano nenhum. A calculadora rápida usa os padrões onde a URL não escolheu.
 
 Detalhes que já custaram tempo:
 
