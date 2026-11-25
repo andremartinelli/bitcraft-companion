@@ -3,30 +3,32 @@ import InventorySync from '@/services/game_sync/inventory_sync'
 import { bitjitaSource, PLAYER_ONE, PLAYER_TWO } from './bitjita'
 
 /**
- * The two characters of the BitJita fixtures, followed by an account: the
- * one given, or a new one. Returns who follows them and their ids.
+ * The two characters of the BitJita fixtures: the first is the account's (the
+ * one given, or a new one), the second a partner account's. Returns both
+ * accounts and the characters' ids.
  */
 export async function addBothPlayers(userId?: number) {
-  const follower =
+  const owner =
     userId ?? (await db.user.create({ data: { email: 'seguidor@example.com', password: '-' } })).id
   const players = [
     await db.gamePlayer.create({ data: PLAYER_ONE }),
     await db.gamePlayer.create({ data: PLAYER_TWO }),
   ]
-  await db.userGamePlayer.createMany({
-    data: players.map((player) => ({ userId: follower, gamePlayerId: player.id })),
+  await db.user.update({ where: { id: owner }, data: { gamePlayerId: players[0].id } })
+  const partner = await db.user.create({
+    data: { email: 'parceiro@example.com', password: '-', gamePlayerId: players[1].id },
   })
-  return { userId: follower, playerIds: players.map((player) => player.id) }
+  return { userId: owner, partnerId: partner.id, playerIds: players.map((player) => player.id) }
 }
 
-/** Both characters, followed and synced from the recorded answers */
+/** Both characters, synced from the recorded answers */
 export async function syncBothPlayers(userId?: number) {
-  const { userId: follower, playerIds } = await addBothPlayers(userId)
+  const added = await addBothPlayers(userId)
   const run = await new InventorySync(bitjitaSource()).run('manual', {
-    userId: follower,
-    playerIds,
+    userId: added.userId,
+    playerIds: added.playerIds,
   })
-  return { run, userId: follower, playerIds }
+  return { run, ...added }
 }
 
 const itemId = async (kind: 'item' | 'cargo', gameId: number) =>

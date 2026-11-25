@@ -7,6 +7,7 @@ import { withRecipeChoices } from '@/models/user_recipe_choice'
 import { calculate } from '@/services/calculator/calculate'
 import { readStateFromQuery } from '@/services/calculator/state_params'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
+import { inventoryScope } from '@/services/inventory/scope'
 import type { SearchParams } from '@/validators/search_params'
 
 export const metadata: Metadata = { title: 'Calculadora' }
@@ -14,7 +15,8 @@ export const metadata: Metadata = { title: 'Calculadora' }
 /**
  * GET /calculator?t=157x10...: the quick calculator. The state is in the
  * URL; nothing is saved. Invalid values show their message instead of failing.
- * Items the URL chose no recipe for use the account's (Trocar receita).
+ * Items the URL chose no recipe for use the account's (Trocar receita). The
+ * inventory is the account's character.
  */
 export default async function CalculatorPage({
   searchParams,
@@ -23,10 +25,11 @@ export default async function CalculatorPage({
 }) {
   const user = await requireUser()
   const { state, errors } = readStateFromQuery(await searchParams)
+  const { playerIds } = await inventoryScope(user.id)
   const [panel, freshness] = await Promise.all([
     // The account's recipes where the URL chose none; the URL keeps only its own
-    withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, user.id)),
-    inventoryFreshness(user.id),
+    withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, playerIds)),
+    inventoryFreshness(playerIds),
   ])
   return (
     <>
@@ -38,12 +41,7 @@ export default async function CalculatorPage({
         state={state}
         panel={panel}
         errors={errors}
-        inventoryControls={
-          freshness.hasPlayers && (
-            // Reads BitJita on its own only when the calculation uses the inventory
-            <SyncControls stale={freshness.stale && state.useInventory !== false} />
-          )
-        }
+        inventoryControls={freshness.hasPlayers && <SyncControls stale={freshness.stale} />}
       />
     </>
   )

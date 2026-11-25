@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
+import { OnlyMyInventory } from '@/components/plans/only_my_inventory'
 import { PlanCalculator } from '@/components/plans/plan_calculator'
 import { PlanDetails } from '@/components/plans/plan_details'
 import { PlanSharing, SharedPlanNotice } from '@/components/plans/plan_sharing'
@@ -14,6 +15,7 @@ import { listGroups } from '@/models/group'
 import { authorName, findPlanFor, toCalculatorState } from '@/models/plan'
 import { calculate } from '@/services/calculator/calculate'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
+import { inventoryScope } from '@/services/inventory/scope'
 import { quickPlanCatalog } from '@/services/plans/quick_plans'
 import { planIdSchema } from '@/validators/plan'
 
@@ -36,7 +38,8 @@ export async function generateMetadata({ params }: PlanPageProps): Promise<Metad
 /**
  * GET /plans/[id]: the calculator with the saved state, saving on every
  * change, with "Planos rápidos" next to its search, the editable name and
- * the notes. The owner shares it with its
+ * the notes. Its inventory is the account's character and those of the
+ * plan's people (services/inventory/scope). The owner shares it with its
  * groups and deletes it; an account it was shared with edits it and, when it
  * came one by one, can leave it. A plan that doesn't exist, or is someone
  * else's, is a 404.
@@ -48,9 +51,10 @@ export default async function PlanPage({ params }: PlanPageProps) {
 
   const state = toCalculatorState(plan)
   const owner = plan.createdById === user.id
+  const scope = await inventoryScope(user.id, plan.id)
   const [panel, freshness, groups, quickPlans] = await Promise.all([
-    calculate(state, user.id),
-    inventoryFreshness(user.id),
+    calculate(state, scope.playerIds),
+    inventoryFreshness(scope.playerIds),
     owner ? listGroups(user.id) : [],
     quickPlanCatalog(),
   ])
@@ -102,9 +106,15 @@ export default async function PlanPage({ params }: PlanPageProps) {
         state={state}
         panel={panel}
         inventoryControls={
-          freshness.hasPlayers && (
-            <SyncControls stale={freshness.stale && state.useInventory !== false} />
-          )
+          // Keyed: a fragment from a server component reaches the client as a list
+          <>
+            {scope.hasOthers && (
+              <OnlyMyInventory key="only-mine" planId={plan.id} checked={scope.onlyMine} />
+            )}
+            {freshness.hasPlayers && (
+              <SyncControls key="sync" stale={freshness.stale} planId={plan.id} />
+            )}
+          </>
         }
         pickerActions={
           quickPlans.length > 0 && <QuickPlanMenu planId={plan.id} catalog={quickPlans} />

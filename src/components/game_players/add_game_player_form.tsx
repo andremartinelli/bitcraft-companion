@@ -2,17 +2,17 @@
 
 import { Button, Field, HStack, Input, Text } from '@chakra-ui/react'
 import { useActionState } from 'react'
-import { addGamePlayer, type GamePlayerFormState } from '@/app/(app)/game_players/actions'
+import { createGamePlayer, type GamePlayerFormState } from '@/app/(app)/game_player/actions'
 
 const INITIAL: GamePlayerFormState = { error: null, notice: null, username: '' }
 
-/** "Adicionar pelo nick": the nick is checked on BitJita before it is saved */
+/** The account's character by nick: checked on BitJita before it is saved */
 export function AddGamePlayerForm() {
-  const [state, action, pending] = useActionState(addGamePlayer, INITIAL)
+  const [state, action, pending] = useActionState(createGamePlayer, INITIAL)
   return (
     <form action={action}>
       <Field.Root invalid={state.error !== null} mb="5" maxW="lg">
-        <Field.Label>Adicionar pelo nick</Field.Label>
+        <Field.Label>Nick do seu personagem</Field.Label>
         <HStack gap="2" width="full">
           <Input
             name="username"
@@ -25,7 +25,7 @@ export function AddGamePlayerForm() {
             defaultValue={state.username}
           />
           <Button type="submit" size="sm" loading={pending} loadingText="Procurando…">
-            Adicionar
+            Salvar
           </Button>
         </HStack>
         {state.error && <Field.ErrorText>{state.error}</Field.ErrorText>}

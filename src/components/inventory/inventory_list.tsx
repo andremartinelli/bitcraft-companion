@@ -51,7 +51,7 @@ function StockTable({ section, tab }: { section: StockSection; tab: InventoryTab
                   </Wrap>
                 </Table.Cell>
               )}
-              {tab === 'group' && (
+              {tab === 'all' && (
                 <Table.Cell color="fg.muted" textStyle="sm">
                   {line.where.length === 1 ? '1 local' : `${line.where.length} locais`}
                 </Table.Cell>
@@ -95,7 +95,7 @@ export function InventoryList({ tab, q, sections }: InventoryListProps) {
           onChange={(event) => updateLater({ q: event.currentTarget.value.trim() })}
         />
         {pending && <Spinner size="sm" color="fg.muted" />}
-        {!empty && tab !== 'group' && (
+        {!empty && tab !== 'all' && (
           <HStack gap="1" ml="auto">
             <Button size="xs" variant="ghost" onClick={() => setAll(true)}>
               Expandir tudo
@@ -113,7 +113,7 @@ export function InventoryList({ tab, q, sections }: InventoryListProps) {
             ? `Nenhum item com "${q}" no inventário.`
             : 'Nada no inventário ainda. Clique em "Sincronizar agora".'}
         </EmptyNotice>
-      ) : tab === 'group' ? (
+      ) : tab === 'all' ? (
         sections.map((section) => <StockTable key={section.key} section={section} tab={tab} />)
       ) : (
         <Box ref={list}>

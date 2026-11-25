@@ -19,6 +19,9 @@ export const planUpdateSchema = z.object({
   state: z.unknown().optional(),
 })
 
+/** PATCH /plans/[id]/setting: "Usar apenas meu inventário" */
+export const planSettingSchema = z.object({ onlyMyInventory: z.boolean() })
+
 /** POST /quick_plans and /plans/[id]/quick_plans: which set, which tier and, for the metal set, which style */
 export const quickPlanSchema = z.object({
   template: z.enum(QUICK_PLAN_KEYS),

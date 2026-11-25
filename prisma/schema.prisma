@@ -71,15 +71,18 @@ enum SyncStatus {
 // ---------------------------------------------------------------- contas
 
 model User {
-  id        Int      @id @default(autoincrement())
-  fullName  String?  @map("full_name")
-  email     String   @unique @db.VarChar(254)
+  id           Int         @id @default(autoincrement())
+  fullName     String?     @map("full_name")
+  email        String      @unique @db.VarChar(254)
   /// Hash scrypt (node:crypto), nunca a senha
-  password  String
+  password     String
   /// De onde veio o cadastro pela página: limita as contas novas por IP
-  signupIp  String?  @map("signup_ip")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  signupIp     String?     @map("signup_ip")
+  /// O personagem da conta (Meu personagem). Duas contas podem dizer que é o mesmo
+  gamePlayerId Int?        @map("game_player_id")
+  gamePlayer   GamePlayer? @relation(fields: [gamePlayerId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   plansCreated    Plan[]             @relation("PlanCreatedBy")
   plansUpdated    Plan[]             @relation("PlanUpdatedBy")
@@ -91,8 +94,10 @@ model User {
   invitesReceived GroupInvite[]      @relation("GroupInvitee")
   syncRuns        SyncRun[]
   recipeChoices   UserRecipeChoice[]
+  planSettings    PlanUserSetting[]
 
   @@index([signupIp, createdAt])
+  @@index([gamePlayerId])
   @@map("users")
 }
 
@@ -400,6 +405,7 @@ model Plan {
   id           Int      @id @default(autoincrement())
   name         String   @db.VarChar(80)
   notes        String?
+  /// Sem uso desde 25/11/2026: o inventário está sempre ligado. Sai na migração de limpeza
   useInventory Boolean  @default(true) @map("use_inventory")
   createdById  Int?     @map("created_by_id")
   createdBy    User?    @relation("PlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -408,12 +414,13 @@ model Plan {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  items       PlanItem[]
-  buildings   PlanBuilding[]
-  choices     PlanChoice[]
-  ownedItems  PlanOwnedItem[]
-  shares      PlanShare[]
-  groupShares PlanGroupShare[]
+  items        PlanItem[]
+  buildings    PlanBuilding[]
+  choices      PlanChoice[]
+  ownedItems   PlanOwnedItem[]
+  shares       PlanShare[]
+  groupShares  PlanGroupShare[]
+  userSettings PlanUserSetting[]
 
   @@index([createdById])
   @@map("plans")
@@ -499,6 +506,21 @@ model PlanShare {
   @@map("plan_shares")
 }
 
+/// O que cada pessoa escolheu para si num plano. Não muda o que os outros veem
+model PlanUserSetting {
+  planId          Int      @map("plan_id")
+  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId          Int      @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "Usar apenas meu inventário": só o meu personagem, sem as outras pessoas do plano
+  onlyMyInventory Boolean  @default(false) @map("only_my_inventory")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([planId, userId])
+  @@index([userId])
+  @@map("plan_user_settings")
+}
+
 model PlanItem {
   id       Int  @id @default(autoincrement())
   planId   Int  @map("plan_id")
@@ -569,8 +591,8 @@ model PlanOwnedItem {
 
 // -------------------------------------------------------------- inventário
 
-/// Um personagem acompanhado, pelo entityId público da BitJita. Nenhum token.
-/// Existe uma vez só, mesmo seguido por várias contas (user_game_players).
+/// Um personagem, pelo entityId público da BitJita. Nenhum token. É o de uma
+/// conta (users.game_player_id) e existe uma vez só, mesmo que duas contas o escolham.
 model GamePlayer {
   id            Int       @id @default(autoincrement())
   username      String
@@ -588,12 +610,15 @@ model GamePlayer {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   containers InventoryContainer[]
+  accounts   User[]
   followers  UserGamePlayer[]
 
   @@map("game_players")
 }
 
-/// Os personagens que cada conta acompanha (no máximo 5 por conta)
+/// Legado: os personagens que cada conta seguia antes de "um personagem por
+/// conta" (25/11/2026). Só serve para quem seguia 2 ou mais escolher o seu em
+/// Meu personagem; sai na migração de limpeza.
 model UserGamePlayer {
   userId       Int        @map("user_id")
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)

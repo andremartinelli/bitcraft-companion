@@ -9,7 +9,6 @@ import {
   setChoice,
   setOwned,
   setTargetQuantity,
-  setUseInventory,
   stateToQuery,
   validateState,
 } from '@/services/calculator/state_params'
@@ -27,17 +26,16 @@ describe('calculator state in the URL', () => {
       buildings: [{ recipeId: 812, quantity: 2 }],
       choices: { 157: 'raw' as const, 155: 999 },
       owned: { 157: 0, 9: 40 },
-      useInventory: false,
     }
     const url = stateToQuery(state)
-    expect(url).toBe('t=157x10,388x1&b=812x2&c=155:999,157:raw&o=9:40,157:0&inv=0')
+    expect(url).toBe('t=157x10,388x1&b=812x2&c=155:999,157:raw&o=9:40,157:0')
     expect(query(url)).toEqual({ state, errors: [] })
   })
 
-  test('an empty calculator has an empty URL; the inventory is on by default', () => {
+  test('an empty calculator has an empty URL; an old "inv=0" is ignored', () => {
     expect(stateToQuery(emptyState())).toBe('')
     expect(query('')).toEqual({ state: emptyState(), errors: [] })
-    expect(query('t=157x1').state.useInventory).toBe(true)
+    expect(query('inv=0')).toEqual({ state: emptyState(), errors: [] })
   })
 
   test('invalid values come back as the old messages, with an empty state', () => {
@@ -87,7 +85,6 @@ describe('changes from the panel', () => {
     state = setOwned(state, 157, '0')
     expect(state.owned).toEqual({ 157: 0 })
     expect(setOwned(state, 157, ' ').owned).toEqual({})
-    expect(setUseInventory(state, false).useInventory).toBe(false)
   })
 })
 

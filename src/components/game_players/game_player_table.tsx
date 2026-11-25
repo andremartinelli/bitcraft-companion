@@ -2,7 +2,7 @@
 
 import { Button, CloseButton, Dialog, Portal, Table, Text } from '@chakra-ui/react'
 import { useState, useTransition } from 'react'
-import { removeGamePlayer } from '@/app/(app)/game_players/actions'
+import { destroyGamePlayer, updateGamePlayer } from '@/app/(app)/game_player/actions'
 
 export interface GamePlayerRow {
   id: number
@@ -12,6 +12,32 @@ export interface GamePlayerRow {
   /** "há 5 minutos", or "ainda não" */
   lastRead: string
   lastError: string | null
+}
+
+/** "É o meu": the account's character among the ones it followed */
+function ChooseButton({
+  player,
+  onChosen,
+}: {
+  player: GamePlayerRow
+  onChosen: (notice: string) => void
+}) {
+  const [pending, startTransition] = useTransition()
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      loading={pending}
+      onClick={() =>
+        startTransition(async () => {
+          const { notice } = await updateGamePlayer(player.id)
+          onChosen(notice)
+        })
+      }
+    >
+      É o meu
+    </Button>
+  )
 }
 
 /** "Remover", after a confirmation: its items leave the app (nothing changes in the game) */
@@ -39,8 +65,8 @@ function RemoveButton({
             </Dialog.Header>
             <Dialog.Body>
               <Text>
-                Os itens dele saem do seu inventário. Nada muda no jogo, nem para outras contas que
-                o acompanham.
+                Os itens dele saem do seu inventário e dos planos compartilhados com você. Nada
+                muda no jogo, nem para outra conta com o mesmo personagem.
               </Text>
             </Dialog.Body>
             <Dialog.Footer>
@@ -55,7 +81,7 @@ function RemoveButton({
                 loading={pending}
                 onClick={() =>
                   startTransition(async () => {
-                    const { notice } = await removeGamePlayer(player.id)
+                    const { notice } = await destroyGamePlayer()
                     onRemoved(notice)
                   })
                 }
@@ -73,11 +99,26 @@ function RemoveButton({
   )
 }
 
-/** The characters whose inventories the app reads */
-export function GamePlayerTable({ players }: { players: GamePlayerRow[] }) {
+/**
+ * The account's character, with "Remover"; or, to `choose`, the ones it
+ * followed before "um personagem por conta", each with "É o meu"
+ */
+export function GamePlayerTable({
+  players,
+  choose = false,
+}: {
+  players: GamePlayerRow[]
+  choose?: boolean
+}) {
   const [notice, setNotice] = useState<string | null>(null)
   return (
     <>
+      {choose && (
+        <Text mb="3">
+          Agora cada conta tem um personagem só. Escolha qual destes é o seu: os outros saem da sua
+          lista, e os itens deles entram nos planos pela conta de quem joga com eles.
+        </Text>
+      )}
       {notice && (
         <Text textStyle="sm" color="fg.success" mb="3" role="status">
           {notice}
@@ -109,7 +150,11 @@ export function GamePlayerTable({ players }: { players: GamePlayerRow[] }) {
                   )}
                 </Table.Cell>
                 <Table.Cell textAlign="end">
-                  <RemoveButton player={player} onRemoved={setNotice} />
+                  {choose ? (
+                    <ChooseButton player={player} onChosen={setNotice} />
+                  ) : (
+                    <RemoveButton player={player} onRemoved={setNotice} />
+                  )}
                 </Table.Cell>
               </Table.Row>
             ))}

@@ -82,7 +82,6 @@ describe('plans', () => {
       buildings: [{ recipeId: house.id, quantity: 1 }],
       choices: { [stripped]: 'raw' as const },
       owned: { [stripped]: 3 },
-      useInventory: false,
     }
 
     await savePlanState(plan.id, state, userId)
@@ -180,7 +179,7 @@ describe('plans', () => {
     )
     await importTables(tables)
 
-    const panel = await calculate(await loaded(plan.id), userId)
+    const panel = await calculate(await loaded(plan.id), [])
     expect(panel.warnings.join(' ')).toContain('não existe mais ou não produz esse item')
   })
 
@@ -190,7 +189,7 @@ describe('plans', () => {
     tables.item_desc = tables.item_desc.filter((row: { id: number }) => row.id !== 1030)
     await importTables(tables)
 
-    const panel = await calculate(await loaded(plan.id), userId)
+    const panel = await calculate(await loaded(plan.id), [])
     expect(panel.targets.map((t) => [t.item.name, t.item.removed])).toEqual([['Rough Plank', true]])
   })
 

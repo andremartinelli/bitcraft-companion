@@ -81,7 +81,7 @@ A importação no Neon roda pelo workflow [`.github/workflows/game-data-import.y
 
 ## 8. Personagens (Vocês)
 
-Cada um cria a sua conta e, em **Inventário → Personagens**, adiciona os personagens cujo inventário quer ver (até 5). Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha. Para planos em conjunto, alguém cria um grupo em **Conta**, convida os outros pelo e-mail e manda a cada um o link do convite ("Copiar link"); quem abre o link aceita. Depois, o dono do plano o compartilha pelo menu "Compartilhar com o grupo".
+Cada um cria a sua conta e, em **Inventário → Meu personagem**, informa o nick do seu personagem. Ao abrir o inventário, a primeira sincronização com a BitJita começa sozinha. Quem seguia vários personagens antes de 25/11/2026 escolhe ali qual é o seu ("É o meu"); os outros entram nos planos pela conta de quem joga com eles. Para planos em conjunto, alguém cria um grupo em **Conta**, convida os outros pelo e-mail e manda a cada um o link do convite ("Copiar link"); quem abre o link aceita. Depois, o dono do plano o compartilha pelo menu "Compartilhar com o grupo".
 
 ## 9. Juntar no `main` (feito)
 
@@ -99,7 +99,7 @@ Cada push num branch que não é o `main` gera um preview na Vercel, com um banc
 
 - **Banco:** a integração da Vercel com o Neon cria um branch do Neon `preview/<branch do git>`, cópia da produção (com os dados do jogo e as contas), e o injeta no preview (`DATABASE_URL` e `DATABASE_URL_UNPOOLED`). Essas variáveis não aparecem em Settings → Environment Variables.
 - **Build:** o `npm run build` roda o [`scripts/preview_prepare.ts`](../scripts/preview_prepare.ts). Só com `VERCEL_ENV=preview`, ele aplica as migrations do branch no banco do preview e cria ou atualiza a conta de teste. Em qualquer outro build (produção, CI, local), ele não faz nada: produção só migra pelas releases.
-- **Conta de teste:** `preview@example.com`, sem senha conhecida. Segue os personagens da variável `PREVIEW_GAME_PLAYERS` e tem os planos Set de couro, Set de minério (Plated e Duelist) e Fundação do Homestead, no primeiro tier que os dados do jogo têm. Os planos são refeitos a cada build. Um personagem que a BitJita não acha vira um aviso no log do build, sem quebrar o deploy.
+- **Conta de teste:** `preview@example.com`, sem senha conhecida. O primeiro nick da variável `PREVIEW_GAME_PLAYERS` é o personagem dela; cada um dos outros é o de uma conta extra (`preview+2@example.com`...), no "Grupo de teste" com ela. Ela tem os planos Set de couro, Set de minério (Plated e Duelist) e Fundação do Homestead, no primeiro tier que os dados do jogo têm, compartilhados com o grupo: um plano mostra o inventário de várias pessoas. O grupo e os planos são refeitos a cada build. Um personagem que a BitJita não acha vira um aviso no log do build, sem quebrar o deploy.
 - **Login automático:** sem sessão, o preview manda direto para `/preview_session`, que entra na conta de teste. `/login` e `/signup` continuam abrindo. Fora de um preview, `/preview_session` responde 404 (`tests/integration/preview/`).
 - **Limpeza:** o workflow [`.github/workflows/preview-cleanup.yml`](../.github/workflows/preview-cleanup.yml) apaga o branch do Neon quando o branch do git é apagado. A integração só apaga quando o deployment é apagado.
 
@@ -114,7 +114,7 @@ Cada push num branch que não é o `main` gera um preview na Vercel, com um banc
    | Variável | Valor |
    |---|---|
    | `SESSION_SECRET` | Uma chave nova, diferente da de produção (gere como no passo 4) |
-   | `PREVIEW_GAME_PLAYERS` | Os nicks que a conta de teste segue, separados por vírgula (até 5) |
+   | `PREVIEW_GAME_PLAYERS` | Os nicks, separados por vírgula: o primeiro é o da conta de teste, os outros os das pessoas do grupo dela |
 
 4. **Segredos do GitHub** para a limpeza, em **Settings → Secrets and variables → Actions**:
 

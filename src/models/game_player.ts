@@ -1,98 +1,133 @@
-import { Prisma } from '@/generated/prisma/client.ts'
+import type { Prisma } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
 import type { PlayerInfo } from '@/services/game_sync/inventory_source'
 
+type Tx = Prisma.TransactionClient
+
 /**
- * A game character whose inventories the app follows. Identified by the
- * public entity id from BitJita; no player token is involved. A character
- * exists once, however many accounts follow it (user_game_players), so it is
- * read from BitJita once.
+ * A game character, read from BitJita's public API by its entity id; no
+ * player token is involved. Each account has one (users.game_player_id, "Meu
+ * personagem"). A character exists once, even when two accounts say it is
+ * theirs, so it is read from BitJita once.
+ *
+ * Before 25/11/2026 an account followed up to 5 (user_game_players). Those
+ * rows stay only for an account that followed 2 or more to choose its own.
  */
 
-/** Each account follows at most this many characters: the free plans are small */
-export const MAX_PLAYERS_PER_USER = 5
+/** The account's character; null when it has none */
+export async function findAccountPlayer(userId: number) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { gamePlayer: true } })
+  return user?.gamePlayer ?? null
+}
 
-/** The characters an account follows, by name */
-export function listGamePlayers(userId: number) {
+/** Whose inventory an account sees outside a plan: its own character */
+export async function accountPlayerIds(userId: number) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { gamePlayerId: true } })
+  return user?.gamePlayerId ? [user.gamePlayerId] : []
+}
+
+/**
+ * The characters of a plan's other people: its owner and whoever it is shared
+ * with (one by one or "Todos do grupo"), each once
+ */
+export async function planPeoplePlayerIds(planId: number, userId: number) {
+  const people = await db.user.findMany({
+    where: {
+      id: { not: userId },
+      gamePlayerId: { not: null },
+      OR: [
+        { plansCreated: { some: { id: planId } } },
+        { planShares: { some: { planId } } },
+        { groupMembers: { some: { group: { planShares: { some: { planId } } } } } },
+      ],
+    },
+    select: { gamePlayerId: true },
+  })
+  return [...new Set(people.map((person) => person.gamePlayerId!))]
+}
+
+/** The characters an account followed before "um personagem por conta", to choose its own */
+export function listLegacyPlayers(userId: number) {
   return db.gamePlayer.findMany({
     where: { followers: { some: { userId } } },
     orderBy: [{ username: 'asc' }, { id: 'asc' }],
   })
 }
 
-/** The ids of the characters an account follows */
-export async function followedPlayerIds(userId: number) {
-  const rows = await db.userGamePlayer.findMany({
+/**
+ * The account's character becomes `playerId` (null: none). Its old follows go,
+ * and so does every character nobody has any more, with its places and items
+ * (cascade): it is no longer read.
+ */
+async function setAccountPlayer(tx: Tx, userId: number, playerId: number | null) {
+  const before = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { gamePlayerId: true },
+  })
+  const legacy = await tx.userGamePlayer.findMany({
     where: { userId },
     select: { gamePlayerId: true },
   })
-  return rows.map((row) => row.gamePlayerId)
+  await tx.user.update({ where: { id: userId }, data: { gamePlayerId: playerId } })
+  await tx.userGamePlayer.deleteMany({ where: { userId } })
+  const left = [before.gamePlayerId, ...legacy.map((row) => row.gamePlayerId)].filter(
+    (id): id is number => id !== null && id !== playerId
+  )
+  await tx.gamePlayer.deleteMany({
+    where: { id: { in: left }, accounts: { none: {} }, followers: { none: {} } },
+  })
 }
-
-export function followCount(userId: number) {
-  return db.userGamePlayer.count({ where: { userId } })
-}
-
-export type FollowResult = { ok: true; username: string } | { ok: false; error: string }
 
 /**
- * The account starts following a character found on BitJita. The character
- * is created the first time anyone follows it.
+ * A character found on BitJita becomes the account's. It is created the
+ * first time any account has it.
  */
-export async function followGamePlayer(userId: number, found: PlayerInfo): Promise<FollowResult> {
-  try {
-    return await db.$transaction(async (tx) => {
-      if ((await tx.userGamePlayer.count({ where: { userId } })) >= MAX_PLAYERS_PER_USER) {
-        return {
-          ok: false as const,
-          error: `Cada conta acompanha no máximo ${MAX_PLAYERS_PER_USER} personagens.`,
-        }
-      }
-      const player = await tx.gamePlayer.upsert({
-        where: { entityId: found.entityId },
-        create: {
-          username: found.username,
-          entityId: found.entityId,
-          regionId: found.regionId,
-          claims: found.claims,
-        },
-        update: {},
-      })
-      const already = await tx.userGamePlayer.findUnique({
-        where: { userId_gamePlayerId: { userId, gamePlayerId: player.id } },
-      })
-      if (already) {
-        return { ok: false as const, error: `${player.username} já está na sua lista.` }
-      }
-      await tx.userGamePlayer.create({ data: { userId, gamePlayerId: player.id } })
-      return { ok: true as const, username: player.username }
+export function claimGamePlayer(userId: number, found: PlayerInfo) {
+  return db.$transaction(async (tx) => {
+    const player = await tx.gamePlayer.upsert({
+      where: { entityId: found.entityId },
+      create: {
+        username: found.username,
+        entityId: found.entityId,
+        regionId: found.regionId,
+        claims: found.claims,
+      },
+      update: {},
     })
-  } catch (error) {
-    // Added at the same moment, in another tab
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return { ok: false, error: `${found.username} já está na sua lista.` }
-    }
-    throw error
-  }
+    await setAccountPlayer(tx, userId, player.id)
+    return player
+  })
 }
 
 /**
- * The account stops following a character. When nobody follows it any more,
- * the character goes too, with its places and items (cascade), and is no
- * longer read. Null when the account did not follow it.
+ * An account that followed several characters chooses its own among them
+ * ("É o meu"); the others leave its list. Null when it did not follow it.
  */
-export async function unfollowGamePlayer(userId: number, gamePlayerId: number) {
+export function chooseLegacyPlayer(userId: number, gamePlayerId: number) {
   return db.$transaction(async (tx) => {
     const follow = await tx.userGamePlayer.findUnique({
       where: { userId_gamePlayerId: { userId, gamePlayerId } },
       select: { gamePlayer: { select: { username: true } } },
     })
     if (!follow) return null
-    await tx.userGamePlayer.delete({
-      where: { userId_gamePlayerId: { userId, gamePlayerId } },
-    })
-    await tx.gamePlayer.deleteMany({ where: { id: gamePlayerId, followers: { none: {} } } })
+    await setAccountPlayer(tx, userId, gamePlayerId)
     return follow.gamePlayer
+  })
+}
+
+/**
+ * The account has no character any more: its items leave the app (nothing
+ * changes in the game, nor for another account that has the same character).
+ * Null when it had none.
+ */
+export function releaseGamePlayer(userId: number) {
+  return db.$transaction(async (tx) => {
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { gamePlayer: { select: { username: true } } },
+    })
+    await setAccountPlayer(tx, userId, null)
+    return user.gamePlayer
   })
 }
 

@@ -4,7 +4,7 @@ import { Button, type ButtonProps } from '@chakra-ui/react'
 import NextLink from 'next/link'
 import type { ReactNode } from 'react'
 
-/** A link that looks like a button ("Personagens", "Inventário") */
+/** A link that looks like a button ("Meu personagem", "Inventário") */
 export function LinkButton({
   href,
   variant = 'outline',

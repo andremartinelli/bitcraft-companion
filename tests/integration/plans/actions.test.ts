@@ -21,10 +21,12 @@ import {
   destroyPlanGroupShare,
   destroyPlanShare,
   updatePlan,
+  updatePlanSetting,
 } from '@/app/(app)/plans/actions'
 import { db } from '@/lib/db'
 import { insertGroup } from '@/models/group'
 import { findPlan, insertPlan, toCalculatorState } from '@/models/plan'
+import { onlyMyInventory } from '@/models/plan_user_setting'
 import { createUser } from '@/services/auth/create_user'
 import { createSessionToken } from '@/services/auth/session_token'
 import { emptyState } from '@/services/calculator/state_params'
@@ -90,7 +92,7 @@ describe('plan actions', () => {
 
   test('"Salvar como plano" creates the plan with the calculator state and opens it', async () => {
     const to = await redirectedTo(
-      createPlan(NO_ERROR, form({ name: ' Pranchas ', state: `t=${plank}x10&inv=0` }))
+      createPlan(NO_ERROR, form({ name: ' Pranchas ', state: `t=${plank}x10` }))
     )
 
     const plan = await db.plan.findFirstOrThrow({ where: { name: 'Pranchas' } })
@@ -99,7 +101,6 @@ describe('plan actions', () => {
     expect(toCalculatorState((await findPlan(plan.id))!)).toEqual({
       ...emptyState(),
       targets: [{ itemId: plank, quantity: 10 }],
-      useInventory: false,
     })
   })
 
@@ -308,5 +309,20 @@ describe('plan actions', () => {
       await destroyPlanShare(plan.id, otherId)
       expect(await db.planShare.count()).toBe(0)
     })
+  })
+
+  test('"Usar apenas meu inventário" is mine, only in a plan I can open', async () => {
+    const other = await db.user.create({ data: { email: 'b@example.com', password: '-' } })
+    const mine = await insertPlan({ name: 'Meu', state: emptyState(), userId })
+    const theirs = await insertPlan({ name: 'Dele', state: emptyState(), userId: other.id })
+
+    await updatePlanSetting(mine.id, { onlyMyInventory: true })
+    await updatePlanSetting(theirs.id, { onlyMyInventory: true })
+    await updatePlanSetting(mine.id, { onlyMyInventory: 'yes' })
+
+    expect(await onlyMyInventory(mine.id, userId)).toBe(true)
+    expect(await onlyMyInventory(mine.id, other.id)).toBe(false)
+    expect(await db.planUserSetting.count({ where: { planId: theirs.id } })).toBe(0)
+    expect(vi.mocked(refresh)).toHaveBeenCalled()
   })
 })

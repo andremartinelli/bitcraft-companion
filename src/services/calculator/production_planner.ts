@@ -14,11 +14,6 @@ export interface CalculatorState {
   choices: Record<number, number | 'raw'>
   /** itemId -> quantity already owned, as typed (0 means "ignore the inventory") */
   owned: Record<number, number>
-  /**
-   * "Usar inventário do grupo". The planner itself ignores it: callers merge
-   * the inventory into `owned` first (see inventory_owned.ts).
-   */
-  useInventory?: boolean
 }
 
 export type NodeReason = 'raw' | 'gathered' | 'no_recipe' | 'owned' | 'cycle' | 'depth'

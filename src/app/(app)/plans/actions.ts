@@ -16,10 +16,17 @@ import {
   sharePlanWithGroup,
   updatePlanName,
 } from '@/models/plan'
+import { saveOnlyMyInventory } from '@/models/plan_user_setting'
 import { readStateFromQuery, validateState } from '@/services/calculator/state_params'
 import QuickPlans, { METAL_STYLES } from '@/services/plans/quick_plans'
 import { idSchema } from '@/validators/group'
-import { planIdSchema, planNameSchema, planUpdateSchema, quickPlanSchema } from '@/validators/plan'
+import {
+  planIdSchema,
+  planNameSchema,
+  planSettingSchema,
+  planUpdateSchema,
+  quickPlanSchema,
+} from '@/validators/plan'
 
 export interface PlanFormState {
   error: string | null
@@ -97,6 +104,20 @@ export async function updatePlan(id: number, input: unknown): Promise<PlanUpdate
   if ('error' in saved) return { errors: [saved.error] }
   refresh()
   return { errors: [] }
+}
+
+/**
+ * PATCH /plans/[id]/setting: what the account chose for itself in the plan
+ * ("Usar apenas meu inventário"); the plan's other people see no change
+ */
+export async function updatePlanSetting(id: number, input: unknown) {
+  const user = await requireUser()
+  const planId = planIdSchema.safeParse(id)
+  const setting = planSettingSchema.safeParse(input)
+  if (planId.success && setting.success && (await canEditPlan(planId.data, user.id))) {
+    await saveOnlyMyInventory(planId.data, user.id, setting.data.onlyMyInventory)
+  }
+  refresh()
 }
 
 /** DELETE /plans/[id], after the confirmation: only the owner's; back to the list */

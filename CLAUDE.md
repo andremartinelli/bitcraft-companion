@@ -1,6 +1,6 @@
 # BitCraft Companion
 
-Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário dos personagens que cada conta segue, lido da API pública da BitJita. Roda de graça na Vercel, com o banco no Neon (Postgres).
+Companion app para o BitCraft Online 1.0, com cadastro aberto. Serve para consultar receitas e itens, calcular custos (calculadora e planos) e acompanhar o inventário do personagem de cada conta e das pessoas dos seus planos, lido da API pública da BitJita. Roda de graça na Vercel, com o banco no Neon (Postgres).
 
 - Design aprovado: `docs/design/2026-11-24-vercel.md`. Os anteriores (`2026-11-21-*`) descrevem o app Adonis.
 - Protótipo de referência (visual e comportamento): `docs/reference/bitcraft-receitas.html`.
@@ -64,7 +64,7 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 
 | Rails | Aqui |
 |---|---|
-| `resources` RESTful | Pastas em `src/app/(app)/` com URLs de recurso (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_players`). Mutações em server actions, num `actions.ts` por recurso, com os nomes das ações do Rails (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) só para o que não é ação de formulário: busca enquanto se digita, o cron e a sincronização com a BitJita. O Next roda as actions de uma aba uma de cada vez, então uma action de vários segundos segura as outras e a página parece travada. |
+| `resources` RESTful | Pastas em `src/app/(app)/` com URLs de recurso (`/plans`, `/plans/[id]`, `/recipes`, `/items/[id]`, `/game_player`). Mutações em server actions, num `actions.ts` por recurso, com os nomes das ações do Rails (`createPlan`, `updatePlan`, `destroyPlan`). Route handlers (`src/app/api/`) só para o que não é ação de formulário: busca enquanto se digita, o cron e a sincronização com a BitJita. O Next roda as actions de uma aba uma de cada vez, então uma action de vários segundos segura as outras e a página parece travada. |
 | Controllers magros | Páginas (server components) e actions só leem a entrada, validam, chamam e renderizam ou redirecionam. Regras ficam em `src/models/` ou `src/services/`. |
 | Service objects / POROs | `src/services/<area>/<nome>.ts`, uma classe ou um módulo por caso de uso. |
 | Models | O Prisma não tem classes: as consultas e regras de cada tabela ficam em `src/models/<model>.ts`. Os dados do jogo sempre filtram os removidos com `active` (`removedAt: null`). |
@@ -96,8 +96,12 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
   - no plano, o menu "Compartilhar com o grupo" tem, por grupo, "Todos do grupo" (`plan_group_shares`, vale também para quem entrar depois) e as pessoas uma a uma (`plan_shares`, só com quem está num grupo com o dono);
   - "Compartilhar com o grupo automaticamente" é por conta e grupo (`group_members.auto_share_plans`): o plano novo já nasce com "Todos do grupo";
   - quem sai ou é removido de um grupo deixa de ver os planos do grupo, e o grupo os dele. O compartilhamento um a um entre duas pessoas só acaba quando elas não têm mais nenhum grupo em comum. Os compartilhamentos por e-mail de antes dos grupos continuam, e o dono os remove no plano.
-- **Personagens:** cada conta segue até 5 (`user_game_players`). Um personagem existe uma vez só, e é lido uma vez, mesmo seguido por várias contas. Ninguém mais seguindo, ele é apagado.
-- **Inventário:** o estoque, o "já tenho" da calculadora e o "Você tem" do item são sempre os dos personagens da conta que está vendo, inclusive num plano compartilhado.
+- **Personagem (decidido em 25/11/2026, `src/models/game_player.ts`):** cada conta tem um, o próprio (`users.game_player_id`, página Meu personagem em `/game_player`). Um personagem existe uma vez só, e é lido uma vez, mesmo que duas contas digam que é o delas. Sem nenhuma conta, ele é apagado.
+  - Antes, cada conta seguia até 5 (`user_game_players`). Essas linhas só servem para quem seguia 2 ou mais escolher o seu ("É o meu"); quem seguia 1 já saiu da migração com ele. A tabela e a coluna sem uso `plans.use_inventory` saem numa migração de limpeza.
+- **Inventário (decidido em 25/11/2026, `src/services/inventory/scope.ts`):** sempre ligado; o "já tenho" digitado vale mais.
+  - fora de um plano (calculadora rápida, página Inventário, "Você tem" do item): só o personagem da conta;
+  - num plano: o meu personagem e os das pessoas do plano (o dono e quem o recebeu, uma a uma ou "Todos do grupo"), cada personagem uma vez;
+  - "Usar apenas meu inventário" deixa só o meu. Cada pessoa marca para si, por plano (`plan_user_settings`), e não muda o que os outros veem.
 - **Receitas (decidido em 25/11/2026, `src/models/user_recipe_choice.ts`):**
   - nas Etapas, o item com 2 ou mais receitas tem "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), só com receitas; "Tratar como matéria-prima" fica na Árvore de produção;
   - escolher uma receita (nas Etapas ou na árvore) muda o plano e a guarda como padrão da conta (`user_recipe_choices`), também num plano compartilhado;
@@ -110,7 +114,7 @@ Detalhes que já custaram tempo:
 - **Datas:** a Vercel roda em UTC. Formate com `src/lib/format.ts`, que usa o fuso `America/Sao_Paulo`.
 - **Ícones dos itens:** o nome vem dos dados do jogo (`items.icon_asset_name`) e a imagem, da BitJita; só `src/lib/item_icon.ts` sabe o endereço. Alguns ícones não existem lá: o `ItemIcon` os esconde, inclusive os que falham antes da hidratação.
 - **Busca de texto:** o Postgres diferencia maiúsculas no `LIKE`. Use `ILIKE` (ou `mode: 'insensitive'`) com o escape de `%` e `_` (`namesMatch` e `containsWord` em `src/lib/search.ts`).
-- **Sync do inventário:** por personagem, pelo `last_attempt_at`. Sob demanda (uma página que mostra o inventário chama `POST /api/inventory/sync` com `onlyIfStale`, que lê os personagens da conta não tentados no último minuto), pelo botão (a mesma rota, os da conta) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`: até 20 personagens não lidos na última hora). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
+- **Sync do inventário:** por personagem, pelo `last_attempt_at`, até 20 por vez (`MAX_PLAYERS_PER_SYNC`), os tentados há mais tempo primeiro. Sob demanda (uma página que mostra o inventário chama `POST /api/inventory/sync` com `onlyIfStale`, que lê os personagens da página não tentados no último minuto; num plano, com `planId`, os do plano), pelo botão (a mesma rota) e por um cron diário (`/api/cron/inventory-sync`, com `CRON_SECRET`: personagens não lidos na última hora). Nunca um timer. A trava entre instâncias é o índice parcial `sync_runs_one_running`: um segundo `running` dá P2002.
 - **`prisma dev`:** se o banco local passar a fechar as conexões ("Server has closed the connection"), pare e suba de novo (`npx prisma dev stop bitcraft-dev`, depois `npm run db:dev`). Os dados ficam no disco.
 
 ## Limites do plano grátis (não negociáveis)

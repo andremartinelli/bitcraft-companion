@@ -59,7 +59,7 @@ const slug = (text: string) =>
 export interface PresentOptions {
   sources?: Record<number, OwnedSource>
   inventoryTotals?: Map<number, number> | null
-  /** Who has each item, when the inventory is on */
+  /** Who has each item, when there is inventory */
   holders?: Map<number, ItemHolder[]> | null
   inventory?: InventoryOption
 }
@@ -80,7 +80,7 @@ export interface PresentedNode {
   owned: number | null
   /** Where the quantity taken from "já tenho" came from */
   ownedSource: OwnedSource | null
-  /** The group's total in the inventory, when the option is on */
+  /** The total in the inventory, when there is one */
   inventoryQuantity: number | null
   children: PresentedNode[]
 }
@@ -458,9 +458,7 @@ export function present(
       value: String(value),
     })),
     owned: Object.entries(state.owned).map(([itemId, quantity]) => ({ itemId, quantity })),
-    /** The user's choice (the hidden field); `inventory.enabled` says whether it applies */
-    useInventory: state.useInventory !== false,
-    inventory: extras.inventory ?? { available: false, enabled: false, syncedAt: null },
+    inventory: extras.inventory ?? { available: false, syncedAt: null },
   }
 }
 

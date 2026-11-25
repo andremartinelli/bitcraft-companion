@@ -12,9 +12,12 @@ vi.mock('@/services/game_sync/inventory_source', async (importOriginal) => {
 import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/inventory/sync/route'
 import { db } from '@/lib/db'
+import { insertPlan } from '@/models/plan'
+import { saveOnlyMyInventory } from '@/models/plan_user_setting'
 import { createUser } from '@/services/auth/create_user'
 import { createSessionToken } from '@/services/auth/session_token'
-import { everyPathAnswers, fakeBitJita } from '../../helpers/bitjita'
+import { emptyState } from '@/services/calculator/state_params'
+import { everyPathAnswers, fakeBitJita, PLAYER_ONE, PLAYER_TWO } from '../../helpers/bitjita'
 import { importTables } from '../../helpers/game_data'
 import { addBothPlayers, syncBothPlayers } from '../../helpers/inventory'
 
@@ -48,6 +51,8 @@ describe('POST /api/inventory/sync', () => {
   }
   const syncNow = async () => (await sync()).body
   const syncIfStale = async () => (await sync({ onlyIfStale: true })).body
+  const read = (entityId: string) =>
+    bitjita.fake!.calls.some((call) => call.path.includes(entityId))
 
   test('asks for the login first', async () => {
     token = null
@@ -63,13 +68,38 @@ describe('POST /api/inventory/sync', () => {
     expect(bitjita.fake!.calls).toHaveLength(0)
   })
 
-  test('"Sincronizar agora" reads my characters, without the claim chests', async () => {
+  test('"Sincronizar agora" reads my character, without the claim chests', async () => {
     await addBothPlayers(userId)
 
     expect(await syncNow()).toEqual({ refresh: true, notice: 'Sincronização concluída.', ok: true })
+    expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, false])
     expect(bitjita.fake!.calls.some((call) => call.path.startsWith('/api/claims/'))).toBe(false)
     const run = await db.syncRun.findFirstOrThrow()
     expect([run.trigger, run.userId]).toEqual(['manual', userId])
+  })
+
+  test('in a plan: also the characters of the people it is shared with', async () => {
+    const { partnerId } = await addBothPlayers(userId)
+    const plan = await insertPlan({ name: 'Juntos', state: emptyState(), userId: partnerId })
+    await db.planShare.create({ data: { planId: plan.id, userId } })
+
+    expect((await sync({ planId: plan.id })).body.ok).toBe(true)
+    expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, true])
+
+    // "Usar apenas meu inventário": only mine
+    await saveOnlyMyInventory(plan.id, userId, true)
+    bitjita.fake = fakeBitJita()
+    await sync({ planId: plan.id })
+    expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, false])
+  })
+
+  test("a plan I can't open is not found, and nothing is read", async () => {
+    const { partnerId } = await addBothPlayers(userId)
+    const plan = await insertPlan({ name: 'Dele', state: emptyState(), userId: partnerId })
+
+    expect((await sync({ planId: plan.id })).status).toBe(404)
+    expect((await sync({ planId: plan.id, onlyIfStale: true })).status).toBe(404)
+    expect(bitjita.fake!.calls).toHaveLength(0)
   })
 
   test("another account's characters are not mine to read", async () => {
