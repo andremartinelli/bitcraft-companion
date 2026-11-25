@@ -14,7 +14,7 @@ O app antigo não tem planos nem personagens salvos (conferido em 24/11/2026), e
 2. se passarem, aplica as migrations no Neon (`prisma migrate deploy`);
 3. publica em produção na Vercel (`vercel deploy --prod`).
 
-Se os testes falharem, nada vai para o ar. Push no `main` não publica (o `vercel.json` desliga o deploy automático dele); push em outros branches gera um preview, que só abre para quem está logado na sua conta da Vercel. O mesmo workflow também roda à mão, em **Actions → Release → Run workflow**.
+Se os testes falharem, nada vai para o ar. Push no `main` não publica (o `vercel.json` desliga o deploy automático dele); push em outros branches gera um preview, que só abre para quem está logado na sua conta da Vercel (veja [Previews](#previews)). O mesmo workflow também roda à mão, em **Actions → Release → Run workflow**.
 
 Para publicar uma versão: no GitHub, **Releases → Draft a new release**, crie uma tag nova (`v0.1.0`, `v0.2.0`…), escolha o branch e clique em **Publish release**. O andamento aparece em **Actions**.
 
@@ -92,3 +92,37 @@ Em 24/11/2026, com o app no ar e os dados do jogo importados, o `legacy/` saiu (
 O app antigo passou a sincronizar a cada minuto (24/11/2026), e a versão nova segue isso: `INVENTORY_STALE_MINUTES` é 1 por padrão. Como na Vercel não existe processo contínuo (e um timer manteria o banco do Neon sempre acordado), a sincronização acontece quando alguém abre uma página que mostra o inventário e algum personagem da conta não é lido há mais de um minuto, além do botão e do cron diário.
 
 Cada personagem são umas 4 chamadas à BitJita e alguns segundos em segundo plano, com a página já aberta e o aviso "Sincronizando com a BitJita…". O banco já está acordado nessa hora, então o custo no Neon é pequeno. Para consultar a BitJita menos vezes, crie a variável na Vercel com um valor maior (por exemplo, 15) e publique uma release.
+
+## Previews
+
+Cada push num branch que não é o `main` gera um preview na Vercel, com um banco próprio e login automático numa conta de teste (decidido em 25/11/2026).
+
+- **Banco:** a integração da Vercel com o Neon cria um branch do Neon `preview/<branch do git>`, cópia da produção (com os dados do jogo e as contas), e o injeta no preview (`DATABASE_URL` e `DATABASE_URL_UNPOOLED`). Essas variáveis não aparecem em Settings → Environment Variables.
+- **Build:** o `npm run build` roda o [`scripts/preview_prepare.ts`](../scripts/preview_prepare.ts). Só com `VERCEL_ENV=preview`, ele aplica as migrations do branch no banco do preview e cria ou atualiza a conta de teste. Em qualquer outro build (produção, CI, local), ele não faz nada: produção só migra pelas releases.
+- **Conta de teste:** `preview@example.com`, sem senha conhecida. Segue os personagens da variável `PREVIEW_GAME_PLAYERS` e tem os planos Set de couro, Set de minério (Plated e Duelist) e Fundação do Homestead, no primeiro tier que os dados do jogo têm. Os planos são refeitos a cada build. Um personagem que a BitJita não acha vira um aviso no log do build, sem quebrar o deploy.
+- **Login automático:** sem sessão, o preview manda direto para `/preview_session`, que entra na conta de teste. `/login` e `/signup` continuam abrindo. Fora de um preview, `/preview_session` responde 404 (`tests/integration/preview/`).
+- **Limpeza:** o workflow [`.github/workflows/preview-cleanup.yml`](../.github/workflows/preview-cleanup.yml) apaga o branch do Neon quando o branch do git é apagado. A integração só apaga quando o deployment é apagado.
+
+**Limites do plano Free do Neon:** 10 branches por projeto, contando a produção, e as CU-horas dos previews saem da mesma cota de 100 da produção. Ao estourar, o banco todo é suspenso, produção incluída. No 11º branch, o deploy do preview falha ("Resource provisioning failed") até a limpeza rodar.
+
+### O que configurar (Você, uma vez)
+
+1. **Branches de preview no Neon:** na Vercel, **Storage → o banco Neon → Projects**, no **⋮** da linha `bitcraft-companion` → **Manage**: marque **Preview** em Environments e, em **Advanced Options**, ligue **Preview** em "Create database branch for deployment" (feito em 25/11/2026).
+2. **Compute dos branches:** no console do Neon, em **Settings → Compute**, deixe o compute padrão dos branches novos em **0,25 CU** e o "scale to zero" em 5 minutos.
+3. **Variáveis na Vercel,** em **Settings → Environment Variables**, marcando só **Preview**:
+
+   | Variável | Valor |
+   |---|---|
+   | `SESSION_SECRET` | Uma chave nova, diferente da de produção (gere como no passo 4) |
+   | `PREVIEW_GAME_PLAYERS` | Os nicks que a conta de teste segue, separados por vírgula (até 5) |
+
+4. **Segredos do GitHub** para a limpeza, em **Settings → Secrets and variables → Actions**:
+
+   | Segredo | Valor |
+   |---|---|
+   | `NEON_API_KEY` | Uma chave da API em [console.neon.tech/app/settings/api-keys](https://console.neon.tech/app/settings/api-keys) |
+   | `NEON_PROJECT_ID` | O id do projeto, em **Settings → General** no console do Neon |
+
+5. **Apagar o branch no merge:** no GitHub, **Settings → General → Pull Requests**, ligue "Automatically delete head branches". Assim a limpeza roda sozinha a cada merge.
+
+O GitHub só roda a limpeza com o workflow que está no `main`: ela começa a funcionar depois do merge deste PR. Para apagar de uma vez os bancos de branches que já não existem: **Actions → Limpar bancos dos previews → Run workflow**.

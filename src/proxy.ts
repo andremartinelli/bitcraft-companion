@@ -1,8 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { readSessionToken, SESSION_COOKIE } from '@/services/auth/session_token'
+import { isPreview } from '@/lib/preview'
 
-/** Open without a session: the login, the sign-up and the cron (it has its own key) */
-const PUBLIC_PATHS = [/^\/login$/, /^\/signup$/, /^\/api\/cron\//]
+/**
+ * Open without a session: the login, the sign-up, the cron (it has its own
+ * key) and the preview login (it answers 404 outside a Vercel preview)
+ */
+const PUBLIC_PATHS = [/^\/login$/, /^\/signup$/, /^\/api\/cron\//, /^\/preview_session$/]
 
 /**
  * The app is public on the internet: every request needs a valid session
@@ -20,7 +24,8 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ error: 'Faça login para continuar.' }, { status: 401 })
   }
-  const login = new URL('/login', request.url)
+  // A Vercel preview goes straight into its test account (src/app/preview_session)
+  const login = new URL(isPreview() ? '/preview_session' : '/login', request.url)
   if (pathname !== '/') login.searchParams.set('next', `${pathname}${search}`)
   return NextResponse.redirect(login)
 }

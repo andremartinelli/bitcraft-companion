@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { beforeAll, describe, expect, test } from 'vitest'
+import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import { localPath } from '@/lib/session'
 import { proxy } from '@/proxy'
 import { createSessionToken, SESSION_COOKIE } from '@/services/auth/session_token'
@@ -45,6 +45,29 @@ describe('proxy', () => {
     for (const path of ['/login', '/login?next=/plans', '/signup', '/api/cron/inventory-sync']) {
       const response = await proxy(request(path))
       expect(response.headers.get('x-middleware-next')).toBe('1')
+    }
+  })
+})
+
+describe('in a Vercel preview', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  test('a page without a session goes straight into the test account', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview')
+    const response = await proxy(request('/recipes?q=plank'))
+
+    const location = new URL(response.headers.get('location')!)
+    expect(location.pathname).toBe('/preview_session')
+    expect(location.searchParams.get('next')).toBe('/recipes?q=plank')
+    // The login and the sign-up still open
+    expect((await proxy(request('/login'))).headers.get('x-middleware-next')).toBe('1')
+  })
+
+  test('production and dev keep the login', async () => {
+    for (const env of ['production', 'development', '']) {
+      vi.stubEnv('VERCEL_ENV', env)
+      const response = await proxy(request('/recipes'))
+      expect(new URL(response.headers.get('location')!).pathname).toBe('/login')
     }
   })
 })
