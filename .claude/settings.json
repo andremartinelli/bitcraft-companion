@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "ask": [
+      "mcp__github__merge_pull_request",
+      "mcp__github__enable_pr_auto_merge",
+      "Bash(*gh pr merge*)",
+      "Bash(*gh api*merge*)",
+      "Bash(*gh api*Merge*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

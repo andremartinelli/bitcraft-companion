@@ -2,7 +2,9 @@ import type { RecipeGraph } from '@/services/calculator/recipe_graph'
 import type { GraphItem, GraphRecipe } from '@/services/calculator/recipe_graph'
 import type { InventoryOption, OwnedSource } from '@/services/calculator/inventory_owned'
 import {
+  defaultProducer,
   previousTierInput,
+  producersOf,
   type CalculatorState,
   type NodeReason,
   type PlanNode,
@@ -183,6 +185,52 @@ export function present(
     return `← ${inputs}${yields ? ` · rende ${yields}` : ''}`
   }
 
+  /**
+   * "Trocar receita": every recipe that makes the item, the default one first,
+   * when there is more than one. What goes into one craft, how many come out,
+   * and where. Nothing for a done step: there is nothing to make.
+   */
+  const recipesOf = (s: PlanStep) => {
+    const producers = producersOf(graph, s.itemId)
+    if (s.done || producers.length < 2) return []
+    const fallback = defaultProducer(graph, s.itemId)?.recipeId
+    return producers
+      .sort((a, b) => Number(b.recipeId === fallback) - Number(a.recipeId === fallback))
+      .flatMap((producer) => {
+        const recipe = graph.recipes.get(producer.recipeId)
+        if (!recipe) return []
+        const approx = producer.deterministic ? '' : '≈ '
+        const where = recipe.stationName
+          ? `${recipe.stationName} T${recipe.stationTier}`
+          : recipe.toolName
+            ? `${recipe.toolName} T${recipe.toolTier}`
+            : 'sem estação'
+        return [
+          {
+            id: recipe.id,
+            name: recipe.name,
+            /** "1 Basic Embergrain Plant" */
+            inputsLabel:
+              recipe.inputs
+                .map((i) => `${numberFormat.format(i.quantity)} ${item(i.itemId).name}`)
+                .join(' + ') || 'nada',
+            /** "rende 3": per craft */
+            yieldLabel: `rende ${approx}${numberFormat.format(producer.yield)}`,
+            /** "Farming Station T1 · Nv 3 · 100 ações" */
+            whereLabel: [
+              where,
+              recipe.skillLevel ? `Nv ${recipe.skillLevel}` : null,
+              `${numberFormat.format(recipe.actionsRequired)} ações`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            isDefault: recipe.id === fallback,
+            inUse: recipe.id === s.recipeId,
+          },
+        ]
+      })
+  }
+
   const step = (s: PlanStep) => {
     const waitingOn = s.waitingOn.map((w) => ({ ...w, item: item(w.itemId) }))
     const recipe = graph.recipes.get(s.recipeId)
@@ -193,6 +241,7 @@ export function present(
       ...s,
       item: item(s.itemId),
       recipe: graph.recipes.get(s.recipeId) ?? null,
+      recipes: recipesOf(s),
       wholeCrafts: wholeCrafts(s.crafts),
       wholeReadyCrafts: wholeCrafts(s.readyCrafts),
       // A done step has nothing left to make: not "ready", complete

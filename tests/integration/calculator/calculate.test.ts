@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
 import { calculate } from '@/services/calculator/calculate'
 import { emptyState } from '@/services/calculator/state_params'
-import { importTables } from '../../helpers/game_data'
+import { importTables, withSecondStrippedWoodRecipe } from '../../helpers/game_data'
 import { syncBothPlayers } from '../../helpers/inventory'
 
 const itemId = async (kind: 'item' | 'cargo', gameId: number) =>
@@ -165,5 +165,43 @@ describe('calculation as the page shows it', () => {
     ])
     expect(panel.buildRound?.round).toBe(panel.rounds.at(-1)!.round + 1)
     expect(panel.buildRound?.entries[0].waitingLabel).toContain('Rough Plank')
+  })
+  test('"Trocar receita": a step made in more than one way lists them, the default first', async () => {
+    await importTables(withSecondStrippedWoodRecipe())
+    const plank = await itemId('item', 1030)
+    const stripped = await itemId('item', 1020)
+    const carve = await db.recipe.findUniqueOrThrow({
+      where: { kind_gameId: { kind: 'crafting', gameId: 106 } },
+    })
+    const state = { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] }
+    const stepOf = (panel: Awaited<ReturnType<typeof calculate>>, id: number) =>
+      panel.rounds.flatMap((round) => round.steps).find((step) => step.itemId === id)!
+
+    const panel = await calculate(state, 0)
+    expect(
+      stepOf(panel, stripped).recipes.map((r) => [
+        r.inputsLabel,
+        r.yieldLabel,
+        r.whereLabel,
+        r.isDefault,
+        r.inUse,
+      ])
+    ).toEqual([
+      ['1 Rough Wood Log', 'rende 1', 'Carpentry Station T1 · Nv 1 · 30 ações', true, true],
+      ['3 Rough Wood Log', 'rende 2', 'Carpentry Station T1 · Nv 1 · 50 ações', false, false],
+    ])
+    // Made one way only: nothing to pick
+    expect(stepOf(panel, plank).recipes).toEqual([])
+
+    const carved = stepOf(
+      await calculate({ ...state, choices: { [stripped]: carve.id } }, 0),
+      stripped
+    )
+    expect(carved.recipes.map((r) => [r.isDefault, r.inUse])).toEqual([
+      [true, false],
+      [false, true],
+    ])
+    // 20 stripped wood, 2 a craft
+    expect(carved.crafts).toBe(10)
   })
 })
