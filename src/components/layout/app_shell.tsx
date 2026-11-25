@@ -1,10 +1,17 @@
 'use client'
 
-import { Box, Button, Code, Container, Flex, HStack, Link, Text } from '@chakra-ui/react'
+import { Badge, Box, Button, Code, Container, Flex, HStack, Link, Text } from '@chakra-ui/react'
 import NextLink from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { LuBookOpen, LuCalculator, LuClipboardList, LuLogOut, LuPackage } from 'react-icons/lu'
+import {
+  LuBookOpen,
+  LuCalculator,
+  LuClipboardList,
+  LuLogOut,
+  LuPackage,
+  LuSettings,
+} from 'react-icons/lu'
 import { destroySession } from '@/app/login/actions'
 import { ColorModeButton } from '@/components/ui/color_mode_button'
 
@@ -21,11 +28,13 @@ interface AppShellProps {
   gameDataDate: string | null
   /** Who is logged in: the name, or the e-mail */
   userName: string
+  /** Group invites waiting for the account, shown on "Conta" */
+  inviteCount: number
   children: ReactNode
 }
 
 /** Header, menu and the page */
-export function AppShell({ gameDataDate, userName, children }: AppShellProps) {
+export function AppShell({ gameDataDate, userName, inviteCount, children }: AppShellProps) {
   const pathname = usePathname()
 
   return (
@@ -50,6 +59,24 @@ export function AppShell({ gameDataDate, userName, children }: AppShellProps) {
               <Text textStyle="sm" fontWeight="medium" hideBelow="md">
                 {userName}
               </Text>
+              <Button asChild size="sm" variant="ghost">
+                <NextLink
+                  href="/account"
+                  aria-label={
+                    inviteCount
+                      ? `Conta: ${inviteCount} ${inviteCount === 1 ? 'convite' : 'convites'} de grupo`
+                      : undefined
+                  }
+                >
+                  <LuSettings aria-hidden />
+                  Conta
+                  {inviteCount > 0 && (
+                    <Badge colorPalette="blue" variant="solid" size="sm" aria-hidden>
+                      {inviteCount}
+                    </Badge>
+                  )}
+                </NextLink>
+              </Button>
               <form action={destroySession}>
                 <Button type="submit" size="sm" variant="outline">
                   <LuLogOut aria-hidden />

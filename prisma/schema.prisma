@@ -85,6 +85,9 @@ model User {
   plansUpdated    Plan[]           @relation("PlanUpdatedBy")
   planShares      PlanShare[]
   followedPlayers UserGamePlayer[]
+  groupsOwned     Group[]          @relation("GroupOwner")
+  groupMembers    GroupMember[]
+  groupInvites    GroupInvite[]    @relation("GroupInvitedBy")
   syncRuns        SyncRun[]
 
   @@index([signupIp, createdAt])
@@ -399,14 +402,76 @@ model Plan {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  items      PlanItem[]
-  buildings  PlanBuilding[]
-  choices    PlanChoice[]
-  ownedItems PlanOwnedItem[]
-  shares     PlanShare[]
+  items       PlanItem[]
+  buildings   PlanBuilding[]
+  choices     PlanChoice[]
+  ownedItems  PlanOwnedItem[]
+  shares      PlanShare[]
+  groupShares PlanGroupShare[]
 
   @@index([createdById])
   @@map("plans")
+}
+
+/// "Todos do grupo" no plano: quem está no grupo vê e edita, inclusive quem entrar depois
+model PlanGroupShare {
+  planId    Int      @map("plan_id")
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  groupId   Int      @map("group_id")
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([planId, groupId])
+  @@index([groupId])
+  @@map("plan_group_shares")
+}
+
+/// Contas que compartilham planos entre si. Só quem criou convida e remove pessoas
+model Group {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(60)
+  ownerId   Int      @map("owner_id")
+  owner     User     @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  members    GroupMember[]
+  invites    GroupInvite[]
+  planShares PlanGroupShare[]
+
+  @@index([ownerId])
+  @@map("groups")
+}
+
+/// Uma conta no grupo, o dono também. Uma conta pode estar em vários grupos
+model GroupMember {
+  groupId        Int      @map("group_id")
+  group          Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId         Int      @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Os planos novos dessa conta já nascem compartilhados com o grupo
+  autoSharePlans Boolean  @default(false) @map("auto_share_plans")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([groupId, userId])
+  @@index([userId])
+  @@map("group_members")
+}
+
+/// Um convite por e-mail, que espera a pessoa (com conta ou não) aceitar ou recusar
+model GroupInvite {
+  id          Int      @id @default(autoincrement())
+  groupId     Int      @map("group_id")
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  /// Em minúsculas, como o e-mail das contas
+  email       String   @db.VarChar(254)
+  invitedById Int?     @map("invited_by_id")
+  invitedBy   User?    @relation("GroupInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([groupId, email])
+  @@index([email])
+  @@map("group_invites")
 }
 
 /// Uma conta com quem o dono compartilhou o plano: ela vê e edita, não apaga

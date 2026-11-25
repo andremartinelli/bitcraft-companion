@@ -5,8 +5,10 @@ import {
   canEditPlan,
   deletePlan,
   findPlanFor,
+  removePlanGroupShare,
   removePlanShare,
   sharePlan,
+  sharePlanWithGroup,
   findPlan,
   insertPlan,
   listPlans,
@@ -15,6 +17,7 @@ import {
   toCalculatorState,
   updatePlanName,
 } from '@/models/plan'
+import { insertGroup } from '@/models/group'
 import { createUser } from '@/services/auth/create_user'
 import { calculate } from '@/services/calculator/calculate'
 import { emptyState } from '@/services/calculator/state_params'
@@ -214,15 +217,22 @@ describe('plans', () => {
       expect(await findPlan(plan.id)).not.toBeNull()
     })
 
-    test('shared by e-mail: the other account sees and changes it, but does not delete it', async () => {
-      const plan = await planWithPlanks()
-
-      expect(await sharePlan(plan.id, userId, ' ANDRE@example.com ')).toEqual({
-        ok: true,
-        name: 'André',
+    /** A group of the owner with these accounts in it */
+    const groupWith = async (ownerId: number, ...memberIds: number[]) => {
+      const group = await insertGroup(ownerId, 'Clã')
+      await db.groupMember.createMany({
+        data: memberIds.map((id) => ({ groupId: group.id, userId: id })),
       })
+      return group
+    }
+
+    test('one by one: the other account sees and changes it, but does not delete it', async () => {
+      const plan = await planWithPlanks()
+      await groupWith(userId, otherId)
+
+      expect(await sharePlan(plan.id, userId, otherId)).toBe(true)
       // Sharing twice changes nothing
-      expect((await sharePlan(plan.id, userId, 'andre@example.com')).ok).toBe(true)
+      expect(await sharePlan(plan.id, userId, otherId)).toBe(true)
 
       const [listed] = await listPlans(otherId)
       expect([listed.id, listed.createdById, authorName(listed.createdBy)]).toEqual([
@@ -230,34 +240,83 @@ describe('plans', () => {
         userId,
         'Vitor',
       ])
+      expect(listed._count.shares).toBe(1)
       expect(await canEditPlan(plan.id, otherId)).toBe(true)
       const opened = await findPlanFor(plan.id, otherId)
       expect(opened!.shares.map((share) => share.userId)).toEqual([otherId])
       expect((await deletePlan(plan.id, otherId)).count).toBe(0)
     })
 
-    test('only the owner shares; not with itself, nor with an e-mail without an account', async () => {
+    test('only the owner shares, only with someone of a group it is in, never with itself', async () => {
       const plan = await planWithPlanks()
+      const third = await createUser({ email: 'c@example.com', password: 'a-long-enough-password' })
+      const othersGroup = await groupWith(otherId, third.id)
 
-      expect(await sharePlan(plan.id, otherId, 'vitor@example.com')).toEqual({
-        ok: false,
-        error: 'Só quem criou o plano pode compartilhá-lo.',
+      // No group in common yet
+      expect(await sharePlan(plan.id, userId, otherId)).toBe(false)
+      expect(await sharePlanWithGroup(plan.id, userId, othersGroup.id)).toBe(false)
+      await groupWith(userId, otherId)
+      // André is in the group, but the plan is not his
+      expect(await sharePlan(plan.id, otherId, userId)).toBe(false)
+      expect(await sharePlan(plan.id, userId, userId)).toBe(false)
+      // The third account is in a group with André, not with the owner
+      expect(await sharePlan(plan.id, userId, third.id)).toBe(false)
+      expect(await db.planShare.count()).toBe(0)
+      expect(await db.planGroupShare.count()).toBe(0)
+    })
+
+    test('"Todos do grupo" reaches whoever is in the group, also whoever joins later', async () => {
+      const plan = await planWithPlanks()
+      const group = await groupWith(userId, otherId)
+
+      expect(await sharePlanWithGroup(plan.id, otherId, group.id)).toBe(false)
+      expect(await sharePlanWithGroup(plan.id, userId, group.id)).toBe(true)
+      expect(await canEditPlan(plan.id, otherId)).toBe(true)
+      const opened = await findPlanFor(plan.id, otherId)
+      expect(opened!.groupShares.map((share) => [share.group.name, share.group.members])).toEqual([
+        ['Clã', [{ userId: otherId }]],
+      ])
+      expect((await listPlans(otherId))[0]._count.groupShares).toBe(1)
+
+      const later = await createUser({ email: 'c@example.com', password: 'a-long-enough-password' })
+      expect(await canEditPlan(plan.id, later.id)).toBe(false)
+      await db.groupMember.create({ data: { groupId: group.id, userId: later.id } })
+      expect(await canEditPlan(plan.id, later.id)).toBe(true)
+
+      // Only the owner unchecks it
+      expect(await removePlanGroupShare(plan.id, otherId, group.id)).toBe(false)
+      expect(await removePlanGroupShare(plan.id, userId, group.id)).toBe(true)
+      expect(await listPlans(otherId)).toEqual([])
+    })
+
+    test('a new plan starts shared with the groups where the owner turned it on', async () => {
+      const clan = await groupWith(userId, otherId)
+      await groupWith(userId, otherId)
+      await db.groupMember.update({
+        where: { groupId_userId: { groupId: clan.id, userId } },
+        data: { autoSharePlans: true },
       })
-      expect(await sharePlan(plan.id, userId, 'vitor@example.com')).toEqual({
-        ok: false,
-        error: 'O plano já é seu.',
+
+      const plan = await insertPlan({ name: 'Ferramentas', state: emptyState(), userId })
+      expect(await db.planGroupShare.findMany({ select: { planId: true, groupId: true } })).toEqual(
+        [{ planId: plan.id, groupId: clan.id }]
+      )
+      // André turned it on in the same group, but the plan is Vitor's: only Vitor's choice counts
+      await db.groupMember.updateMany({
+        where: { userId: otherId },
+        data: { autoSharePlans: true },
       })
-      expect(await sharePlan(plan.id, userId, 'ninguem@example.com')).toEqual({
-        ok: false,
-        error: 'Nenhuma conta com esse e-mail.',
-      })
+      await db.groupMember.updateMany({ where: { userId }, data: { autoSharePlans: false } })
+      await insertPlan({ name: 'Outro', state: emptyState(), userId })
+      expect(await db.planGroupShare.count()).toBe(1)
     })
 
     test('the owner takes an account out; an account can leave; nobody else can', async () => {
       const plan = await planWithPlanks()
       const third = await createUser({ email: 'c@example.com', password: 'a-long-enough-password' })
-      await sharePlan(plan.id, userId, 'andre@example.com')
-      await sharePlan(plan.id, userId, 'c@example.com')
+      await groupWith(userId, otherId, third.id)
+      await sharePlan(plan.id, userId, otherId)
+      await sharePlan(plan.id, userId, third.id)
 
       // The third account cannot take André out
       expect(await removePlanShare(plan.id, third.id, otherId)).toBe(false)
@@ -270,10 +329,13 @@ describe('plans', () => {
 
     test('deleting the plan takes its shares along', async () => {
       const plan = await planWithPlanks()
-      await sharePlan(plan.id, userId, 'andre@example.com')
+      const group = await groupWith(userId, otherId)
+      await sharePlan(plan.id, userId, otherId)
+      await sharePlanWithGroup(plan.id, userId, group.id)
 
       await deletePlan(plan.id, userId)
       expect(await db.planShare.count()).toBe(0)
+      expect(await db.planGroupShare.count()).toBe(0)
     })
   })
 })

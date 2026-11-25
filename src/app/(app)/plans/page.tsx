@@ -21,7 +21,11 @@ export default async function PlansPage() {
 
   const rows = plans.map((plan) => {
     const author = authorName(plan.updatedBy)
-    const shares = plan._count.shares
+    const { shares, groupShares } = plan._count
+    const audience = [
+      groupShares && (groupShares === 1 ? 'o grupo' : `${groupShares} grupos`),
+      shares && `${shares} ${shares === 1 ? 'conta' : 'contas'}`,
+    ].filter(Boolean)
     return {
       id: plan.id,
       name: plan.name,
@@ -30,8 +34,8 @@ export default async function PlansPage() {
       sharing:
         plan.createdById !== user.id
           ? `de ${authorName(plan.createdBy) ?? 'outra conta'}`
-          : shares
-            ? `compartilhado com ${shares} ${shares === 1 ? 'conta' : 'contas'}`
+          : audience.length
+            ? `compartilhado com ${audience.join(' e ')}`
             : null,
     }
   })

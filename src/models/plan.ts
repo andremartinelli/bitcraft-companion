@@ -6,10 +6,12 @@ type Tx = Prisma.TransactionClient
 
 /**
  * A saved calculator state with a name. It belongs to the account that
- * created it (created_by_id), which can share it with other accounts
- * (plan_shares): they see and change it, only the owner deletes it. Its
- * targets, buildings, choices and "já tenho" live in plan_items,
- * plan_buildings, plan_choices and plan_owned_items.
+ * created it (created_by_id), which shares it with its groups (models/group):
+ * with a whole group (plan_group_shares, "Todos do grupo", which also reaches
+ * whoever joins later) or one person at a time (plan_shares). They see and
+ * change it, only the owner deletes it. Its targets, buildings, choices and
+ * "já tenho" live in plan_items, plan_buildings, plan_choices and
+ * plan_owned_items.
  */
 
 const author = { select: { fullName: true, email: true } } as const
@@ -18,9 +20,13 @@ const author = { select: { fullName: true, email: true } } as const
 export const authorName = (user: { fullName: string | null; email: string } | null) =>
   user ? (user.fullName ?? user.email) : null
 
-/** Plans an account can open: its own and the ones shared with it */
+/** Plans an account can open: its own, the ones shared with it and with its groups */
 const visibleTo = (userId: number) => ({
-  OR: [{ createdById: userId }, { shares: { some: { userId } } }],
+  OR: [
+    { createdById: userId },
+    { shares: { some: { userId } } },
+    { groupShares: { some: { group: { members: { some: { userId } } } } } },
+  ],
 })
 
 /** The Planos page: the latest change first, with who made it and how many things it has */
@@ -34,7 +40,7 @@ export function listPlans(userId: number) {
       createdById: true,
       createdBy: author,
       updatedBy: author,
-      _count: { select: { items: true, buildings: true, shares: true } },
+      _count: { select: { items: true, buildings: true, shares: true, groupShares: true } },
     },
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
   })
@@ -55,8 +61,9 @@ export function findPlan(id: number) {
 }
 
 /**
- * A plan an account can open, with who owns it and who it is shared with;
- * null when there is none or it is someone else's
+ * A plan an account can open, with who owns it and who it is shared with
+ * (and, per group, whether the account is in it); null when there is none or
+ * it is someone else's
  */
 export function findPlanFor(id: number, userId: number) {
   return db.plan.findFirst({
@@ -72,6 +79,14 @@ export function findPlanFor(id: number, userId: number) {
         orderBy: { createdAt: 'asc' },
         select: { userId: true, user: author },
       },
+      groupShares: {
+        select: {
+          groupId: true,
+          group: {
+            select: { name: true, members: { where: { userId }, select: { userId: true } } },
+          },
+        },
+      },
     },
   })
 }
@@ -81,31 +96,49 @@ export async function canEditPlan(id: number, userId: number) {
   return (await db.plan.count({ where: { id, ...visibleTo(userId) } })) > 0
 }
 
-export type ShareResult = { ok: true; name: string } | { ok: false; error: string }
-
-/** The owner shares the plan with the account of an e-mail */
-export async function sharePlan(
-  planId: number,
-  ownerId: number,
-  email: string
-): Promise<ShareResult> {
-  const plan = await db.plan.findFirst({
-    where: { id: planId, createdById: ownerId },
-    select: { id: true },
-  })
-  if (!plan) return { ok: false, error: 'Só quem criou o plano pode compartilhá-lo.' }
-  const user = await db.user.findUnique({
-    where: { email: email.trim().toLowerCase() },
-    select: { id: true, fullName: true, email: true },
-  })
-  if (!user) return { ok: false, error: 'Nenhuma conta com esse e-mail.' }
-  if (user.id === ownerId) return { ok: false, error: 'O plano já é seu.' }
+/**
+ * The owner shares the plan with one account of a group it is in. False when
+ * it is not the owner's plan, or they have no group in common.
+ */
+export async function sharePlan(planId: number, ownerId: number, userId: number) {
+  if (userId === ownerId) return false
+  const [owned, together] = await Promise.all([
+    db.plan.count({ where: { id: planId, createdById: ownerId } }),
+    db.groupMember.count({ where: { userId: ownerId, group: { members: { some: { userId } } } } }),
+  ])
+  if (!owned || !together) return false
   await db.planShare.upsert({
-    where: { planId_userId: { planId, userId: user.id } },
-    create: { planId, userId: user.id },
+    where: { planId_userId: { planId, userId } },
+    create: { planId, userId },
     update: {},
   })
-  return { ok: true, name: authorName(user)! }
+  return true
+}
+
+/**
+ * The owner shares the plan with a whole group it is in ("Todos do grupo"),
+ * which also reaches whoever joins later. False when it can't.
+ */
+export async function sharePlanWithGroup(planId: number, ownerId: number, groupId: number) {
+  const [owned, member] = await Promise.all([
+    db.plan.count({ where: { id: planId, createdById: ownerId } }),
+    db.groupMember.count({ where: { groupId, userId: ownerId } }),
+  ])
+  if (!owned || !member) return false
+  await db.planGroupShare.upsert({
+    where: { planId_groupId: { planId, groupId } },
+    create: { planId, groupId },
+    update: {},
+  })
+  return true
+}
+
+/** The owner stops sharing the plan with a whole group. False when there was nothing to do */
+export async function removePlanGroupShare(planId: number, ownerId: number, groupId: number) {
+  const { count } = await db.planGroupShare.deleteMany({
+    where: { planId, groupId, plan: { createdById: ownerId } },
+  })
+  return count > 0
 }
 
 /**
@@ -143,7 +176,10 @@ export function toCalculatorState(
   }
 }
 
-/** A new plan with its state, in one transaction */
+/**
+ * A new plan with its state, in one transaction, already shared with the
+ * groups where the account turned on "Compartilhar com o grupo automaticamente"
+ */
 export function insertPlan({
   name,
   notes = null,
@@ -166,6 +202,15 @@ export function insertPlan({
       },
     })
     await writeState(tx, plan.id, state)
+    if (userId !== null) {
+      const groups = await tx.groupMember.findMany({
+        where: { userId, autoSharePlans: true },
+        select: { groupId: true },
+      })
+      await tx.planGroupShare.createMany({
+        data: groups.map(({ groupId }) => ({ planId: plan.id, groupId })),
+      })
+    }
     return plan
   })
 }

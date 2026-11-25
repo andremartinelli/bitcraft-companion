@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /** E-mails are stored and compared in lowercase */
-const email = () =>
+export const email = () =>
   z
     .string()
     .trim()

@@ -25,12 +25,3 @@ export const quickPlanSchema = z.object({
   tier: z.number().int().min(1).max(10),
   style: z.enum(METAL_STYLES).optional(),
 })
-
-/** POST /plans/[id]/shares: the e-mail of the account to share with */
-export const planShareSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .pipe(z.email({ error: 'Informe um e-mail válido.' }).max(254)),
-})

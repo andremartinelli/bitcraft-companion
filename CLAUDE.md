@@ -76,7 +76,13 @@ O projeto segue as convenções do Rails. Na dúvida, faça como o Rails faria.
 
 **Contas (decidido em 24/11/2026):**
 
-- **Planos:** cada plano é de quem o criou (`created_by_id`). O dono compartilha por e-mail (`plan_shares`): quem recebe vê e edita, só o dono apaga. Toda consulta de plano passa por `findPlanFor`, `canEditPlan` ou `listPlans(userId)`.
+- **Planos:** cada plano é de quem o criou (`created_by_id`). O dono compartilha com os seus grupos: quem recebe vê e edita, só o dono apaga. Toda consulta de plano passa por `findPlanFor`, `canEditPlan` ou `listPlans(userId)`.
+- **Grupos (decidido em 25/11/2026, `src/models/group.ts`):**
+  - qualquer conta cria grupos e pode estar em vários; cada grupo tem até 50 pessoas, contando os convites pendentes;
+  - só quem criou convida (por qualquer e-mail, com conta ou não) e remove pessoas; quem é convidado aceita ou recusa na página Conta (`/account`). O app não manda e-mail;
+  - no plano, o menu "Compartilhar com o grupo" tem, por grupo, "Todos do grupo" (`plan_group_shares`, vale também para quem entrar depois) e as pessoas uma a uma (`plan_shares`, só com quem está num grupo com o dono);
+  - "Compartilhar com o grupo automaticamente" é por conta e grupo (`group_members.auto_share_plans`): o plano novo já nasce com "Todos do grupo";
+  - quem sai ou é removido de um grupo deixa de ver os planos do grupo, e o grupo os dele. O compartilhamento um a um entre duas pessoas só acaba quando elas não têm mais nenhum grupo em comum. Os compartilhamentos por e-mail de antes dos grupos continuam, e o dono os remove no plano.
 - **Personagens:** cada conta segue até 5 (`user_game_players`). Um personagem existe uma vez só, e é lido uma vez, mesmo seguido por várias contas. Ninguém mais seguindo, ele é apagado.
 - **Inventário:** o estoque, o "já tenho" da calculadora e o "Você tem" do item são sempre os dos personagens da conta que está vendo, inclusive num plano compartilhado.
 
