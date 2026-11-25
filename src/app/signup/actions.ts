@@ -11,12 +11,14 @@ export interface SignupState {
   /** Typed back into the form after an error; never the password */
   fullName: string
   email: string
+  gamePlayerUsername: string
 }
 
 /**
  * POST /signup: anyone can create an account (limited per IP). The new
- * account starts logged in, with no plans and no characters, and goes to
- * `next` (only a path of this site, like an invite's link) or to Planos.
+ * account starts logged in, with no plans and, when the nick was given and
+ * BitJita found it, with its character. It goes to `next` (only a path of
+ * this site, like an invite's link) or to Planos.
  */
 export async function createAccount(
   _previous: SignupState,
@@ -24,17 +26,18 @@ export async function createAccount(
 ): Promise<SignupState> {
   const fullName = String(formData.get('fullName') ?? '')
   const email = String(formData.get('email') ?? '')
+  const gamePlayerUsername = String(formData.get('gamePlayerUsername') ?? '')
+  const typed = { fullName, email, gamePlayerUsername }
   const parsed = signupSchema.safeParse({
-    fullName,
-    email,
+    ...typed,
     password: formData.get('password'),
     passwordConfirmation: formData.get('passwordConfirmation'),
   })
-  if (!parsed.success) return { error: parsed.error.issues[0].message, fullName, email }
+  if (!parsed.success) return { error: parsed.error.issues[0].message, ...typed }
 
   const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() || null
   const result = await signUp({ ...parsed.data, ip })
-  if (!result.ok) return { error: result.error, fullName, email }
+  if (!result.ok) return { error: result.error, ...typed }
 
   await startSession(result.user.id)
   redirect(localPath(formData.get('next')) ?? '/plans')

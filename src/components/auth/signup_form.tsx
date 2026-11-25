@@ -17,9 +17,9 @@ import { useActionState } from 'react'
 import { createAccount, type SignupState } from '@/app/signup/actions'
 import { PASSWORD_MIN } from '@/validators/user'
 
-const INITIAL: SignupState = { error: null, fullName: '', email: '' }
+const INITIAL: SignupState = { error: null, fullName: '', email: '', gamePlayerUsername: '' }
 
-/** Name, e-mail and the password twice. `next`: the page to go to afterwards */
+/** Name, e-mail, the password twice and, optionally, the character's nick. `next`: the page to go to afterwards */
 export function SignupForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState(createAccount, INITIAL)
 
@@ -29,7 +29,7 @@ export function SignupForm({ next }: { next: string }) {
         <Card.Header>
           <Heading size="xl">Criar conta</Heading>
           <Text color="fg.muted">
-            Cada conta tem os seus planos e os personagens cujo inventário quer ver.
+            Cada conta tem os seus planos e o seu personagem, cujo inventário entra nos cálculos.
           </Text>
         </Card.Header>
         <Card.Body>
@@ -76,6 +76,22 @@ export function SignupForm({ next }: { next: string }) {
                   minLength={PASSWORD_MIN}
                   maxLength={128}
                 />
+              </Field.Root>
+              <Field.Root>
+                <Field.Label>
+                  Nick do seu personagem
+                  <Field.RequiredIndicator fallback="(opcional)" color="fg.muted" ms="1" />
+                </Field.Label>
+                <Input
+                  name="gamePlayerUsername"
+                  autoComplete="off"
+                  maxLength={40}
+                  defaultValue={state.gamePlayerUsername}
+                />
+                <Field.HelperText>
+                  Exatamente como no jogo. Conferimos na BitJita; dá para escolher depois em Meu
+                  personagem.
+                </Field.HelperText>
               </Field.Root>
               <Button type="submit" loading={pending} loadingText="Criando…">
                 Criar conta

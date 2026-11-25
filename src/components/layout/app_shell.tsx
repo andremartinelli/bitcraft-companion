@@ -11,6 +11,7 @@ import {
   LuLogOut,
   LuPackage,
   LuSettings,
+  LuTriangleAlert,
 } from 'react-icons/lu'
 import { destroySession } from '@/app/login/actions'
 import { ColorModeButton } from '@/components/ui/color_mode_button'
@@ -30,11 +31,19 @@ interface AppShellProps {
   userName: string
   /** Group invites waiting for the account, shown on "Conta" */
   inviteCount: number
+  /** Without one, "Inventário" shows a warning: choose it in Meu personagem */
+  hasCharacter: boolean
   children: ReactNode
 }
 
 /** Header, menu and the page */
-export function AppShell({ gameDataDate, userName, inviteCount, children }: AppShellProps) {
+export function AppShell({
+  gameDataDate,
+  userName,
+  inviteCount,
+  hasCharacter,
+  children,
+}: AppShellProps) {
   const pathname = usePathname()
 
   return (
@@ -90,6 +99,7 @@ export function AppShell({ gameDataDate, userName, inviteCount, children }: AppS
           <HStack as="nav" gap="1" aria-label="Menu" overflowX="auto">
             {NAV.map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const warn = item.href === '/inventory' && !hasCharacter
               return (
                 <Link
                   key={item.href}
@@ -103,9 +113,19 @@ export function AppShell({ gameDataDate, userName, inviteCount, children }: AppS
                   borderColor={active ? 'colorPalette.solid' : 'transparent'}
                   _hover={{ color: 'fg', textDecoration: 'none' }}
                 >
-                  <NextLink href={item.href} aria-current={active ? 'page' : undefined}>
+                  <NextLink
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={warn ? `${item.label}: você não tem personagem` : undefined}
+                    title={warn ? 'Você não tem personagem. Escolha em Meu personagem' : undefined}
+                  >
                     <item.icon aria-hidden />
                     {item.label}
+                    {warn && (
+                      <Box as="span" color="fg.warning" display="inline-flex">
+                        <LuTriangleAlert aria-hidden />
+                      </Box>
+                    )}
                   </NextLink>
                 </Link>
               )

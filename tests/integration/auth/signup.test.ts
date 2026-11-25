@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import type { FakeBitJita } from '../../helpers/bitjita'
 
-// The request's IP and cookies, as the sign-up action reads them
+// The request's IP and cookies, as the sign-up action reads them, and the BitJita it asks the nick
 const request = vi.hoisted(() => ({
   ip: '203.0.113.7' as string | null,
   cookies: new Map<string, string>(),
+  bitjita: null as FakeBitJita | null,
 }))
 vi.mock('next/headers', () => ({
   headers: async () =>
@@ -16,14 +18,22 @@ vi.mock('next/headers', () => ({
   }),
 }))
 
+vi.mock('@/services/game_sync/inventory_source', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/services/game_sync/inventory_source')>()
+  const { bitjitaSource } = await import('../../helpers/bitjita')
+  return { ...original, inventorySource: () => bitjitaSource(request.bitjita!) }
+})
+
 import { createAccount } from '@/app/signup/actions'
 import { db } from '@/lib/db'
 import { verifyPassword } from '@/services/auth/password'
 import { readSessionToken, SESSION_COOKIE } from '@/services/auth/session_token'
 import { MAX_SIGNUPS_PER_IP, signUp } from '@/services/auth/signup'
 import { signupSchema } from '@/validators/user'
+import { fakeBitJita, PLAYER_ONE, recordedResponses } from '../../helpers/bitjita'
+import { importTables } from '../../helpers/game_data'
 
-const EMPTY = { error: null, fullName: '', email: '' }
+const EMPTY = { error: null, fullName: '', email: '', gamePlayerUsername: '' }
 
 const form = (fields: Record<string, string>) => {
   const data = new FormData()
@@ -53,6 +63,7 @@ describe('sign-up', () => {
   beforeEach(() => {
     request.ip = '203.0.113.7'
     request.cookies.clear()
+    request.bitjita = fakeBitJita()
   })
 
   test('anyone creates an account, starts logged in and goes to the plans', async () => {
@@ -62,6 +73,125 @@ describe('sign-up', () => {
     expect([user.fullName, user.signupIp]).toEqual(['Vitor', '203.0.113.7'])
     expect(await verifyPassword('oito8888', user.password)).toBe(true)
     expect(await readSessionToken(request.cookies.get(SESSION_COOKIE))).toBe(user.id)
+    // No nick: no character, and BitJita is not asked
+    expect(user.gamePlayerId).toBeNull()
+    expect(request.bitjita!.calls).toHaveLength(0)
+  })
+
+  describe("with the character's nick", () => {
+    beforeEach(() => importTables())
+
+    test('BitJita finds it: the account starts with it and keeps the way back to the invite', async () => {
+      const next = '/invites/abc'
+      expect(
+        await redirectedTo(
+          createAccount(EMPTY, form({ ...valid, gamePlayerUsername: ' Nimbus ', next }))
+        )
+      ).toBe(next)
+
+      const user = await db.user.findUniqueOrThrow({
+        where: { email: 'vitor@example.com' },
+        select: { gamePlayer: { select: { username: true, entityId: true } } },
+      })
+      expect(user.gamePlayer).toEqual(PLAYER_ONE)
+    })
+
+    test('a nick BitJita does not know: no account, and what was typed comes back', async () => {
+      const responses = recordedResponses()
+      responses['/api/players?q=Ninguem'] = { body: { players: [], total: 0 } }
+      request.bitjita = fakeBitJita(responses)
+
+      expect(await createAccount(EMPTY, form({ ...valid, gamePlayerUsername: 'Ninguem' }))).toEqual(
+        {
+          error: 'Nenhum personagem chamado "Ninguem" na BitJita.',
+          fullName: 'Vitor',
+          email: 'Vitor@Example.com',
+          gamePlayerUsername: 'Ninguem',
+        }
+      )
+      expect(await db.user.count()).toBe(0)
+      expect(request.cookies.size).toBe(0)
+
+      // Erasing the nick creates the account, without a character
+      await redirectedTo(createAccount(EMPTY, form({ ...valid, gamePlayerUsername: '  ' })))
+      expect((await db.user.findFirstOrThrow()).gamePlayerId).toBeNull()
+    })
+
+    test('BitJita down: no account, and the form says so', async () => {
+      request.bitjita = fakeBitJita({ '/api/players?q=Nimbus': { status: 503, body: {} } })
+
+      const result = await createAccount(EMPTY, form({ ...valid, gamePlayerUsername: 'Nimbus' }))
+      expect(result.error).toContain('Não foi possível consultar a BitJita agora')
+      expect(result.gamePlayerUsername).toBe('Nimbus')
+      expect(await db.user.count()).toBe(0)
+    })
+
+    test(`failed nicks count in the ${MAX_SIGNUPS_PER_IP} a day from one IP`, async () => {
+      const responses = recordedResponses()
+      responses['/api/players?q=Ninguem'] = { body: { players: [], total: 0 } }
+      request.bitjita = fakeBitJita(responses)
+      const attempt = (email: string, nick: string | null) =>
+        signUp({
+          email,
+          fullName: 'P',
+          password: 'oito8888',
+          gamePlayerUsername: nick,
+          ip: '198.51.100.9',
+        })
+
+      for (let i = 0; i < MAX_SIGNUPS_PER_IP - 1; i++) {
+        expect((await attempt(`p${i}@example.com`, 'Ninguem')).ok).toBe(false)
+      }
+      expect((await attempt('ok@example.com', null)).ok).toBe(true)
+
+      const calls = request.bitjita!.calls.length
+      expect(await attempt('x@example.com', 'Ninguem')).toEqual({
+        ok: false,
+        error: 'Muitos cadastros daqui hoje. Tente de novo amanhã.',
+      })
+      expect(request.bitjita!.calls).toHaveLength(calls)
+      // Another IP is fine
+      expect(
+        (
+          await signUp({
+            email: 'y@example.com',
+            fullName: 'Y',
+            password: 'oito8888',
+            ip: '198.51.100.10',
+          })
+        ).ok
+      ).toBe(true)
+    })
+
+    test('a used e-mail says so before BitJita is asked', async () => {
+      await redirectedTo(createAccount(EMPTY, form(valid)))
+
+      expect(
+        (await createAccount(EMPTY, form({ ...valid, gamePlayerUsername: 'Nimbus' }))).error
+      ).toBe('Já existe uma conta com o e-mail vitor@example.com.')
+      expect(request.bitjita!.calls).toHaveLength(0)
+    })
+
+    test('the IP limit comes first: BitJita is not asked', async () => {
+      for (let i = 0; i < MAX_SIGNUPS_PER_IP; i++) {
+        await signUp({
+          email: `p${i}@example.com`,
+          fullName: 'P',
+          password: 'oito8888',
+          ip: '198.51.100.9',
+        })
+      }
+
+      const result = await signUp({
+        email: 'x@example.com',
+        fullName: 'X',
+        password: 'oito8888',
+        gamePlayerUsername: 'Nimbus',
+        ip: '198.51.100.9',
+      })
+      expect(result.ok).toBe(false)
+      expect(request.bitjita!.calls).toHaveLength(0)
+    })
   })
 
   test('8 characters are enough; fewer, a mismatch or a used e-mail are refused', async () => {
@@ -74,6 +204,7 @@ describe('sign-up', () => {
       error: 'A senha precisa ter pelo menos 8 caracteres.',
       fullName: 'Vitor',
       email: 'Vitor@Example.com',
+      gamePlayerUsername: '',
     })
     expect(
       (await createAccount(EMPTY, form({ ...valid, passwordConfirmation: 'outra888' }))).error
@@ -108,7 +239,7 @@ describe('sign-up', () => {
         password: 'oito8888',
         ip: '198.51.100.9',
       })
-    ).toEqual({ ok: false, error: 'Muitas contas novas criadas daqui hoje. Tente de novo amanhã.' })
+    ).toEqual({ ok: false, error: 'Muitos cadastros daqui hoje. Tente de novo amanhã.' })
     // Another IP, or one from yesterday, is fine
     expect(
       (

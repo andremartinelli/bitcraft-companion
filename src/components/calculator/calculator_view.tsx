@@ -47,7 +47,7 @@ export interface CalculatorViewProps {
   pendingLabel?: string
   /** Under the item list: "Salvar como plano" in the quick calculator */
   actions?: ReactNode
-  /** "Sincronizar agora", which also reads BitJita when the inventory is old; in a plan, "Usar apenas meu inventário" */
+  /** "Sincronizar agora", which also reads BitJita when the inventory is old; in a plan, "Usar apenas meu inventário"; without a character, the warning to choose one */
   inventoryControls?: ReactNode
   /** Next to the search: "Planos rápidos" in a plan */
   pickerActions?: ReactNode

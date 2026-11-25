@@ -20,11 +20,7 @@ vi.mock('@/services/game_sync/inventory_source', async (importOriginal) => {
 })
 
 import { refresh } from 'next/cache'
-import {
-  createGamePlayer,
-  destroyGamePlayer,
-  updateGamePlayer,
-} from '@/app/(app)/game_player/actions'
+import { createGamePlayer, destroyGamePlayer } from '@/app/(app)/game_player/actions'
 import { db } from '@/lib/db'
 import { claimGamePlayer } from '@/models/game_player'
 import { createUser } from '@/services/auth/create_user'
@@ -68,7 +64,6 @@ describe('Meu personagem (game_player actions)', () => {
     const login = expect.objectContaining({ digest: expect.stringContaining(';/login;') })
 
     await expect(createGamePlayer(EMPTY, form({ username: 'Nimbus' }))).rejects.toEqual(login)
-    await expect(updateGamePlayer(1)).rejects.toEqual(login)
     await expect(destroyGamePlayer()).rejects.toEqual(login)
     expect(request.bitjita!.calls).toHaveLength(0)
   })
@@ -160,47 +155,5 @@ describe('Meu personagem (game_player actions)', () => {
     expect(
       await db.inventoryContainer.count({ where: { gamePlayerId: playerIds[0] } })
     ).toBeGreaterThan(0)
-  })
-
-  describe('an account that followed several before "um personagem por conta"', () => {
-    let one: number
-    let two: number
-
-    beforeEach(async () => {
-      for (const player of [PLAYER_ONE, PLAYER_TWO]) {
-        await db.gamePlayer.create({ data: { ...player, followers: { create: { userId } } } })
-      }
-      ;[one, two] = (await db.gamePlayer.findMany({ orderBy: { id: 'asc' } })).map((p) => p.id)
-    })
-
-    test('chooses its own: the others leave its list, and the app', async () => {
-      expect(await updateGamePlayer(two)).toEqual({ notice: 'Quartz é o seu personagem.' })
-
-      expect(await mine()).toBe(two)
-      expect(await db.userGamePlayer.count()).toBe(0)
-      expect(await db.gamePlayer.count({ where: { id: one } })).toBe(0)
-      expect(await updateGamePlayer(one)).toEqual({
-        notice: 'Esse personagem já não estava na sua lista.',
-      })
-    })
-
-    test('a character it did not follow is not its to choose', async () => {
-      const other = await db.gamePlayer.create({ data: { username: 'X', entityId: '9' } })
-
-      expect((await updateGamePlayer(other.id)).notice).toBe(
-        'Esse personagem já não estava na sua lista.'
-      )
-      expect(await mine()).toBeNull()
-      expect(await db.userGamePlayer.count()).toBe(2)
-    })
-
-    test('one followed by another account too stays when it chooses another', async () => {
-      const other = await db.user.create({ data: { email: 'b@example.com', password: '-' } })
-      await db.userGamePlayer.create({ data: { userId: other.id, gamePlayerId: one } })
-
-      await updateGamePlayer(two)
-
-      expect(await db.gamePlayer.count({ where: { id: one } })).toBe(1)
-    })
   })
 })

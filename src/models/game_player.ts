@@ -9,9 +9,6 @@ type Tx = Prisma.TransactionClient
  * player token is involved. Each account has one (users.game_player_id, "Meu
  * personagem"). A character exists once, even when two accounts say it is
  * theirs, so it is read from BitJita once.
- *
- * Before 25/11/2026 an account followed up to 5 (user_game_players). Those
- * rows stay only for an account that followed 2 or more to choose its own.
  */
 
 /** The account's character; null when it has none */
@@ -46,17 +43,9 @@ export async function planPeoplePlayerIds(planId: number, userId: number) {
   return [...new Set(people.map((person) => person.gamePlayerId!))]
 }
 
-/** The characters an account followed before "um personagem por conta", to choose its own */
-export function listLegacyPlayers(userId: number) {
-  return db.gamePlayer.findMany({
-    where: { followers: { some: { userId } } },
-    orderBy: [{ username: 'asc' }, { id: 'asc' }],
-  })
-}
-
 /**
- * The account's character becomes `playerId` (null: none). Its old follows go,
- * and so does every character nobody has any more, with its places and items
+ * The account's character becomes `playerId` (null: none). The one it had
+ * before goes when nobody has it any more, with its places and items
  * (cascade): it is no longer read.
  */
 async function setAccountPlayer(tx: Tx, userId: number, playerId: number | null) {
@@ -64,18 +53,9 @@ async function setAccountPlayer(tx: Tx, userId: number, playerId: number | null)
     where: { id: userId },
     select: { gamePlayerId: true },
   })
-  const legacy = await tx.userGamePlayer.findMany({
-    where: { userId },
-    select: { gamePlayerId: true },
-  })
   await tx.user.update({ where: { id: userId }, data: { gamePlayerId: playerId } })
-  await tx.userGamePlayer.deleteMany({ where: { userId } })
-  const left = [before.gamePlayerId, ...legacy.map((row) => row.gamePlayerId)].filter(
-    (id): id is number => id !== null && id !== playerId
-  )
-  await tx.gamePlayer.deleteMany({
-    where: { id: { in: left }, accounts: { none: {} }, followers: { none: {} } },
-  })
+  if (before.gamePlayerId === null || before.gamePlayerId === playerId) return
+  await tx.gamePlayer.deleteMany({ where: { id: before.gamePlayerId, accounts: { none: {} } } })
 }
 
 /**
@@ -83,36 +63,23 @@ async function setAccountPlayer(tx: Tx, userId: number, playerId: number | null)
  * first time any account has it.
  */
 export function claimGamePlayer(userId: number, found: PlayerInfo) {
-  return db.$transaction(async (tx) => {
-    const player = await tx.gamePlayer.upsert({
-      where: { entityId: found.entityId },
-      create: {
-        username: found.username,
-        entityId: found.entityId,
-        regionId: found.regionId,
-        claims: found.claims,
-      },
-      update: {},
-    })
-    await setAccountPlayer(tx, userId, player.id)
-    return player
-  })
+  return db.$transaction((tx) => claimGamePlayerIn(tx, userId, found))
 }
 
-/**
- * An account that followed several characters chooses its own among them
- * ("É o meu"); the others leave its list. Null when it did not follow it.
- */
-export function chooseLegacyPlayer(userId: number, gamePlayerId: number) {
-  return db.$transaction(async (tx) => {
-    const follow = await tx.userGamePlayer.findUnique({
-      where: { userId_gamePlayerId: { userId, gamePlayerId } },
-      select: { gamePlayer: { select: { username: true } } },
-    })
-    if (!follow) return null
-    await setAccountPlayer(tx, userId, gamePlayerId)
-    return follow.gamePlayer
+/** claimGamePlayer inside a transaction that also does something else (the sign-up) */
+export async function claimGamePlayerIn(tx: Tx, userId: number, found: PlayerInfo) {
+  const player = await tx.gamePlayer.upsert({
+    where: { entityId: found.entityId },
+    create: {
+      username: found.username,
+      entityId: found.entityId,
+      regionId: found.regionId,
+      claims: found.claims,
+    },
+    update: {},
   })
+  await setAccountPlayer(tx, userId, player.id)
+  return player
 }
 
 /**
