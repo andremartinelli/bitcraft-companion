@@ -15,3 +15,6 @@ export const groupNameSchema = z
 
 /** POST /groups/[id]/invites: any e-mail, with an account or not yet */
 export const groupInviteSchema = z.object({ email: email() })
+
+/** /invites/[token]: the secret of an invite's link */
+export const inviteTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)

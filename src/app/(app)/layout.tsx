@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 /** Every page of the app needs a session (the proxy checks it first) */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser()
-  const [gameData, invites] = await Promise.all([latestFinishedImport(), countInvites(user.email)])
+  const [gameData, invites] = await Promise.all([latestFinishedImport(), countInvites(user.id)])
   const gameDataDate = gameData ? formatDate(gameData.sourceDate ?? gameData.finishedAt) : null
   return (
     <AppShell

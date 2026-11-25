@@ -31,7 +31,9 @@ export function CreateGroupForm() {
           {state.error ? (
             <Field.ErrorText>{state.error}</Field.ErrorText>
           ) : (
-            <Field.HelperText>Depois, convide as pessoas pelo e-mail.</Field.HelperText>
+            <Field.HelperText>
+              Depois, convide as pessoas: cada convite gera um link para você mandar.
+            </Field.HelperText>
           )}
         </Field.Root>
       </form>

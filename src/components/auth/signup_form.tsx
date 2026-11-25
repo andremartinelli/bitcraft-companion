@@ -19,8 +19,8 @@ import { PASSWORD_MIN } from '@/validators/user'
 
 const INITIAL: SignupState = { error: null, fullName: '', email: '' }
 
-/** Name, e-mail and the password twice */
-export function SignupForm() {
+/** Name, e-mail and the password twice. `next`: the page to go to afterwards */
+export function SignupForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState(createAccount, INITIAL)
 
   return (
@@ -34,6 +34,7 @@ export function SignupForm() {
         </Card.Header>
         <Card.Body>
           <form action={action}>
+            <input type="hidden" name="next" value={next} />
             <Stack gap="4">
               {state.error && (
                 <Alert.Root status="error" size="sm">
@@ -86,7 +87,9 @@ export function SignupForm() {
           <Text textStyle="sm" color="fg.muted">
             Já tem conta?{' '}
             <Link asChild color="colorPalette.fg" fontWeight="medium">
-              <NextLink href="/login">Entrar</NextLink>
+              <NextLink href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}>
+                Entrar
+              </NextLink>
             </Link>
           </Text>
         </Card.Footer>

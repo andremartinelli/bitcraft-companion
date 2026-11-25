@@ -63,7 +63,9 @@ export function LoginForm({ next }: { next: string }) {
           <Text textStyle="sm" color="fg.muted">
             Ainda não tem conta?{' '}
             <Link asChild color="colorPalette.fg" fontWeight="medium">
-              <NextLink href="/signup">Criar conta</NextLink>
+              <NextLink href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}>
+                Criar conta
+              </NextLink>
             </Link>
           </Text>
         </Card.Footer>

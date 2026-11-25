@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: 'Conta' }
 /** GET /account: the invites waiting for the account, its groups and "Criar grupo" */
 export default async function AccountPage() {
   const user = await requireUser()
-  const [groups, invites] = await Promise.all([listGroups(user.id), listInvites(user.email)])
+  const [groups, invites] = await Promise.all([listGroups(user.id), listInvites(user.id)])
 
   return (
     <>
@@ -24,7 +24,7 @@ export default async function AccountPage() {
       {invites.length > 0 && (
         <GroupInvites
           invites={invites.map((invite) => ({
-            id: invite.id,
+            token: invite.token,
             groupName: invite.group.name,
             ownerName: authorName(invite.group.owner)!,
           }))}

@@ -88,6 +88,7 @@ model User {
   groupsOwned     Group[]          @relation("GroupOwner")
   groupMembers    GroupMember[]
   groupInvites    GroupInvite[]    @relation("GroupInvitedBy")
+  invitesReceived GroupInvite[]    @relation("GroupInvitee")
   syncRuns        SyncRun[]
 
   @@index([signupIp, createdAt])
@@ -458,19 +459,25 @@ model GroupMember {
   @@map("group_members")
 }
 
-/// Um convite por e-mail, que espera a pessoa (com conta ou não) aceitar ou recusar
+/// Um convite: um link (token) que o dono manda para a pessoa. O app não confirma e-mails,
+/// por isso o convite só aparece na página Conta de uma conta que já tinha esse e-mail ao convidar
 model GroupInvite {
   id          Int      @id @default(autoincrement())
   groupId     Int      @map("group_id")
   group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  /// Em minúsculas, como o e-mail das contas
+  /// Em minúsculas, como o e-mail das contas: só identifica o convite para o dono
   email       String   @db.VarChar(254)
+  /// O segredo do link /invites/[token]: quem tem o link aceita
+  token       String   @unique @db.VarChar(64)
+  /// A conta que já tinha o e-mail ao convidar: vê o convite na página Conta
+  userId      Int?     @map("user_id")
+  user        User?    @relation("GroupInvitee", fields: [userId], references: [id], onDelete: Cascade)
   invitedById Int?     @map("invited_by_id")
   invitedBy   User?    @relation("GroupInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@unique([groupId, email])
-  @@index([email])
+  @@index([userId])
   @@map("group_invites")
 }
 

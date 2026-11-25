@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { Prisma } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
 
@@ -5,9 +6,12 @@ type Tx = Prisma.TransactionClient
 
 /**
  * Accounts that share plans with each other. Any account creates groups and
- * can be in several. Only the owner invites people, by e-mail (with an
- * account or not yet), and removes them; the person accepts or declines on
- * the Conta page. Leaving a group stops the sharing that came through it.
+ * can be in several. Only the owner invites people and removes them. An
+ * invite is a link (/invites/[token]) the owner sends: whoever opens it
+ * accepts or declines. The app doesn't confirm e-mails, so the invite also
+ * shows on the Conta page only of an account that already had that e-mail
+ * when invited: signing up with an invited e-mail gives no access. Leaving a
+ * group stops the sharing that came through it.
  */
 
 /** People per group, pending invites included */
@@ -35,7 +39,10 @@ export async function listGroups(userId: number) {
         orderBy: { createdAt: 'asc' },
         select: { userId: true, autoSharePlans: true, user: person },
       },
-      invites: { orderBy: { createdAt: 'asc' }, select: { id: true, email: true } },
+      invites: {
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, email: true, token: true },
+      },
     },
   })
   return groups.map((group) => ({
@@ -65,9 +72,12 @@ export function insertGroup(ownerId: number, name: string) {
   })
 }
 
-export type InviteResult = { ok: true } | { ok: false; error: string }
+export type InviteResult = { ok: true; token: string } | { ok: false; error: string }
 
-/** The owner invites an e-mail; the invite waits for that account, even one not created yet */
+/**
+ * The owner invites an e-mail and gets the invite's link to send. An account
+ * that already has the e-mail also sees it on the Conta page.
+ */
 export function inviteToGroup(groupId: number, ownerId: number, email: string) {
   const address = email.trim().toLowerCase()
   return db.$transaction(async (tx): Promise<InviteResult> => {
@@ -92,56 +102,83 @@ export function inviteToGroup(groupId: number, ownerId: number, email: string) {
         error: `O grupo chegou ao limite de ${MAX_GROUP_PEOPLE} pessoas, contando os convites.`,
       }
     }
-    await tx.groupInvite.create({ data: { groupId, email: address, invitedById: ownerId } })
-    return { ok: true }
+    const invitee = await tx.user.findUnique({ where: { email: address }, select: { id: true } })
+    const { token } = await tx.groupInvite.create({
+      data: {
+        groupId,
+        email: address,
+        token: randomBytes(24).toString('base64url'),
+        userId: invitee?.id ?? null,
+        invitedById: ownerId,
+      },
+    })
+    return { ok: true, token }
   })
 }
 
-/** The invites waiting for an account, oldest first */
-export function listInvites(email: string) {
+/** The invites on an account's Conta page, oldest first */
+export function listInvites(userId: number) {
   return db.groupInvite.findMany({
-    where: { email },
+    where: { userId },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, group: { select: { name: true, owner: person } } },
+    select: { token: true, group: { select: { name: true, owner: person } } },
   })
 }
 
-/** How many invites wait for an account: the number on the Conta button */
-export function countInvites(email: string) {
-  return db.groupInvite.count({ where: { email } })
+/** How many invites wait on an account's Conta page: the number on the Conta button */
+export function countInvites(userId: number) {
+  return db.groupInvite.count({ where: { userId } })
 }
 
-type Account = { id: number; email: string }
+/** The invite of a link, and whether the account opening it is already in the group */
+export function findInvite(token: string, userId: number) {
+  return db.groupInvite.findUnique({
+    where: { token },
+    select: {
+      token: true,
+      group: {
+        select: {
+          name: true,
+          owner: person,
+          members: { where: { userId }, select: { userId: true } },
+        },
+      },
+    },
+  })
+}
 
-/** The account joins the group of an invite made to its e-mail. False when there was none */
-export function acceptInvite(inviteId: number, user: Account) {
+/** The account with the link joins the group. False when the invite is gone */
+export function acceptInvite(token: string, userId: number) {
   return db.$transaction(async (tx) => {
-    const invite = await tx.groupInvite.findFirst({
-      where: { id: inviteId, email: user.email },
-      select: { groupId: true },
+    const invite = await tx.groupInvite.findUnique({
+      where: { token },
+      select: { id: true, groupId: true },
     })
     if (!invite) return false
     // The group's row, like in inviteToGroup: an invite at the same time counts the people after this
     await tx.group.update({ where: { id: invite.groupId }, data: { updatedAt: new Date() } })
     // Two accepts at once: only the one that deletes it goes on
-    const { count } = await tx.groupInvite.deleteMany({ where: { id: inviteId } })
+    const { count } = await tx.groupInvite.deleteMany({ where: { id: invite.id } })
     if (!count) return false
     await tx.groupMember.upsert({
-      where: { groupId_userId: { groupId: invite.groupId, userId: user.id } },
-      create: { groupId: invite.groupId, userId: user.id },
+      where: { groupId_userId: { groupId: invite.groupId, userId } },
+      create: { groupId: invite.groupId, userId },
       update: {},
     })
     return true
   })
 }
 
-/**
- * The account declines an invite to its e-mail, or the owner cancels one of
- * its group. False when there was nothing to do.
- */
-export async function removeInvite(inviteId: number, user: Account) {
+/** Whoever has the link declines it. False when it was gone */
+export async function declineInvite(token: string) {
+  const { count } = await db.groupInvite.deleteMany({ where: { token } })
+  return count > 0
+}
+
+/** The owner cancels an invite of its group. False when there was nothing to do */
+export async function cancelInvite(inviteId: number, ownerId: number) {
   const { count } = await db.groupInvite.deleteMany({
-    where: { id: inviteId, OR: [{ email: user.email }, { group: { ownerId: user.id } }] },
+    where: { id: inviteId, group: { ownerId } },
   })
   return count > 0
 }

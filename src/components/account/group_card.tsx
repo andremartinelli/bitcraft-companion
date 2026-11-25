@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   CloseButton,
+  Code,
   Dialog,
   Field,
   Flex,
@@ -27,6 +28,7 @@ import {
   updateGroupMember,
   type GroupFormState,
 } from '@/app/(app)/account/actions'
+import { CopyInviteLink, inviteUrl } from '@/components/account/copy_invite_link'
 
 export interface GroupCardData {
   id: number
@@ -37,7 +39,7 @@ export interface GroupCardData {
   autoSharePlans: boolean
   members: { userId: number; name: string; you: boolean; owner: boolean }[]
   /** Only for the owner */
-  invites: { id: number; email: string }[]
+  invites: { id: number; email: string; token: string }[]
   maxPeople: number
 }
 
@@ -49,7 +51,7 @@ interface Confirmation {
   run: () => Promise<void>
 }
 
-const INITIAL: GroupFormState = { error: null, notice: null, value: '' }
+const INITIAL: GroupFormState = { error: null, notice: null, token: null, value: '' }
 
 /** The owner invites an e-mail */
 function InviteForm({ groupId, usage }: { groupId: number; usage: string }) {
@@ -78,10 +80,20 @@ function InviteForm({ groupId, usage }: { groupId: number; usage: string }) {
           <Field.HelperText>{usage}</Field.HelperText>
         )}
       </Field.Root>
-      {state.notice && (
-        <Text textStyle="sm" color="fg.success" role="status" mt="1">
-          {state.notice}
-        </Text>
+      {state.notice && state.token && (
+        <Stack gap="1" mt="2" role="status">
+          <Text textStyle="sm" color="fg.success">
+            {state.notice}
+          </Text>
+          <HStack gap="2" wrap="wrap">
+            <Code wordBreak="break-all">{inviteUrl(state.token)}</Code>
+            <CopyInviteLink token={state.token} variant="outline" />
+          </HStack>
+          <Text textStyle="xs" color="fg.muted">
+            Quem abrir o link entra no grupo, então mande só para essa pessoa. Se ela já tiver conta
+            com esse e-mail, o convite também aparece na página Conta dela.
+          </Text>
+        </Stack>
       )}
     </form>
   )
@@ -207,6 +219,7 @@ export function GroupCard({ group }: { group: GroupCardData }) {
             {group.invites.map((invite) => (
               <Tag.Root key={invite.id} size="lg" variant="outline">
                 <Tag.Label>{invite.email}</Tag.Label>
+                <CopyInviteLink token={invite.token} size="2xs" ml="1" />
                 <Tag.EndElement>
                   <Tag.CloseTrigger
                     aria-label={`Cancelar o convite de ${invite.email}`}

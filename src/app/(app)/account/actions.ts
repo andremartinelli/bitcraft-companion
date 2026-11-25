@@ -1,21 +1,25 @@
 'use server'
 
 import { refresh } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/session'
 import {
   acceptInvite,
+  cancelInvite,
+  declineInvite,
   deleteGroup,
   insertGroup,
   inviteToGroup,
-  removeInvite,
   removeMember,
   setAutoShare,
 } from '@/models/group'
-import { groupInviteSchema, groupNameSchema, idSchema } from '@/validators/group'
+import { groupInviteSchema, groupNameSchema, idSchema, inviteTokenSchema } from '@/validators/group'
 
 export interface GroupFormState {
   error: string | null
   notice?: string | null
+  /** The token of the invite just made, for its link */
+  token?: string | null
   /** Typed back into the field after an error */
   value: string
 }
@@ -44,8 +48,8 @@ export async function destroyGroup(id: number) {
 }
 
 /**
- * POST /groups/[id]/invites: the owner invites an e-mail. The app sends no
- * e-mail: the invite shows up on the person's Conta page.
+ * POST /groups/[id]/invites: the owner invites an e-mail and gets the link
+ * to send. The app sends no e-mail.
  */
 export async function createGroupInvite(
   id: number,
@@ -64,24 +68,33 @@ export async function createGroupInvite(
   refresh()
   return {
     error: null,
-    notice: `Convite feito para ${parsed.data.email}. Avise a pessoa: ela aceita na página Conta.`,
+    notice: `Convite criado. Mande este link para ${parsed.data.email}:`,
+    token: result.token,
     value: '',
   }
 }
 
-/** POST /invites/[id]/accept: the account joins the group */
-export async function acceptGroupInvite(id: number) {
+/** POST /invites/[token]/accept: whoever has the link joins the group; then the Conta page */
+export async function acceptGroupInvite(token: string) {
   const user = await requireUser()
-  const inviteId = idSchema.safeParse(id)
-  if (inviteId.success) await acceptInvite(inviteId.data, user)
-  refresh()
+  const parsed = inviteTokenSchema.safeParse(token)
+  if (parsed.success) await acceptInvite(parsed.data, user.id)
+  redirect('/account')
 }
 
-/** DELETE /invites/[id]: the account declines it, or the owner cancels it */
+/** POST /invites/[token]/decline: whoever has the link declines it; then the Conta page */
+export async function declineGroupInvite(token: string) {
+  await requireUser()
+  const parsed = inviteTokenSchema.safeParse(token)
+  if (parsed.success) await declineInvite(parsed.data)
+  redirect('/account')
+}
+
+/** DELETE /invites/[id]: the owner cancels an invite of its group */
 export async function destroyGroupInvite(id: number) {
   const user = await requireUser()
   const inviteId = idSchema.safeParse(id)
-  if (inviteId.success) await removeInvite(inviteId.data, user)
+  if (inviteId.success) await cancelInvite(inviteId.data, user.id)
   refresh()
 }
 

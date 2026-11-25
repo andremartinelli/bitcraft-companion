@@ -18,7 +18,6 @@ import {
   updateGroupMember,
 } from '@/app/(app)/account/actions'
 import { db } from '@/lib/db'
-import { listInvites } from '@/models/group'
 import { createUser } from '@/services/auth/create_user'
 import { createSessionToken } from '@/services/auth/session_token'
 
@@ -29,6 +28,17 @@ const form = (fields: Record<string, string>) => {
 }
 
 const EMPTY = { error: null, value: '' }
+
+/** Where an action sent the browser (it throws Next's redirect) */
+async function redirectedTo(action: Promise<unknown>) {
+  const error = await action.then(
+    () => null,
+    (e: unknown) => e
+  )
+  const digest = String((error as { digest?: string } | null)?.digest ?? '')
+  if (!digest.startsWith('NEXT_REDIRECT')) throw new Error(`no redirect: ${String(error)}`)
+  return digest.split(';')[2]
+}
 
 describe('account actions', () => {
   let vitorId: number
@@ -67,14 +77,18 @@ describe('account actions', () => {
     expect((await createGroupInvite(group.id, EMPTY, form({ email: 'nope' }))).error).toBe(
       'Informe um e-mail válido.'
     )
-    expect(await createGroupInvite(group.id, EMPTY, form({ email: 'ANDRE@example.com' }))).toEqual({
+    const invited = await createGroupInvite(group.id, EMPTY, form({ email: 'ANDRE@example.com' }))
+    expect(invited).toEqual({
       error: null,
-      notice: 'Convite feito para andre@example.com. Avise a pessoa: ela aceita na página Conta.',
+      notice: 'Convite criado. Mande este link para andre@example.com:',
+      token: expect.any(String),
       value: '',
     })
 
     await as(andreId)
-    await acceptGroupInvite((await listInvites('andre@example.com'))[0].id)
+    expect(await redirectedTo(acceptGroupInvite('not-the-token'))).toBe('/account')
+    expect(await db.groupMember.count()).toBe(1)
+    expect(await redirectedTo(acceptGroupInvite(invited.token!))).toBe('/account')
     await updateGroupMember(group.id, true)
     expect(
       await db.groupMember.findMany({

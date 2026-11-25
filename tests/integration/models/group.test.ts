@@ -2,15 +2,17 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
 import {
   acceptInvite,
+  cancelInvite,
   countInvites,
+  declineInvite,
   deleteGroup,
+  findInvite,
   insertGroup,
   inviteToGroup,
   listGroups,
   listInvites,
   MAX_GROUP_PEOPLE,
   MAX_GROUPS_OWNED,
-  removeInvite,
   removeMember,
   setAutoShare,
 } from '@/models/group'
@@ -25,6 +27,13 @@ const account = async (email: string, fullName?: string) => {
 
 const planOf = (userId: number) => insertPlan({ name: 'Plano', state: emptyState(), userId })
 
+/** The token of the link of a new invite */
+const linkFor = async (groupId: number, ownerId: number, email: string) => {
+  const result = await inviteToGroup(groupId, ownerId, email)
+  if (!result.ok) throw new Error(result.error)
+  return result.token
+}
+
 describe('groups', () => {
   let vitor: { id: number; email: string }
   let andre: { id: number; email: string }
@@ -37,21 +46,23 @@ describe('groups', () => {
   /** Vitor's group with André in it, through the invite */
   const clan = async (name = 'Clã') => {
     const group = (await insertGroup(vitor.id, name)).group!
-    await inviteToGroup(group.id, vitor.id, andre.email)
-    await acceptInvite((await listInvites(andre.email)).at(-1)!.id, andre)
+    await acceptInvite(await linkFor(group.id, vitor.id, andre.email), andre.id)
     return group
   }
 
   test('the owner is in the group it creates; pending invites only show to the owner', async () => {
     const group = (await insertGroup(vitor.id, 'Clã')).group!
-    expect(await inviteToGroup(group.id, vitor.id, ' ANDRE@example.com ')).toEqual({ ok: true })
-    expect(await inviteToGroup(group.id, vitor.id, 'ana@example.com')).toEqual({ ok: true })
+    expect(await inviteToGroup(group.id, vitor.id, ' ANDRE@example.com ')).toEqual({
+      ok: true,
+      token: expect.stringMatching(/^[A-Za-z0-9_-]{32}$/),
+    })
+    await linkFor(group.id, vitor.id, 'ana@example.com')
 
     const [mine] = await listGroups(vitor.id)
     expect(mine.members.map((m) => [m.userId, m.user.fullName])).toEqual([[vitor.id, 'Vitor']])
     expect(mine.invites.map((i) => i.email)).toEqual(['andre@example.com', 'ana@example.com'])
 
-    await acceptInvite((await listInvites(andre.email))[0].id, andre)
+    await acceptInvite(mine.invites[0].token, andre.id)
     const [his] = await listGroups(andre.id)
     expect(his.members.map((m) => m.userId)).toEqual([vitor.id, andre.id])
     expect(his.invites).toEqual([])
@@ -78,7 +89,7 @@ describe('groups', () => {
   test(`a group holds up to ${MAX_GROUP_PEOPLE} people, pending invites included`, async () => {
     const group = await clan()
     for (let n = 3; n <= MAX_GROUP_PEOPLE; n++) {
-      expect(await inviteToGroup(group.id, vitor.id, `p${n}@example.com`)).toEqual({ ok: true })
+      expect((await inviteToGroup(group.id, vitor.id, `p${n}@example.com`)).ok).toBe(true)
     }
     expect(await inviteToGroup(group.id, vitor.id, 'one-more@example.com')).toEqual({
       ok: false,
@@ -86,29 +97,50 @@ describe('groups', () => {
     })
   })
 
-  test('an invite waits for an e-mail without an account, and the account accepts it later', async () => {
+  test('signing up with an invited e-mail gives nothing; whoever has the link joins', async () => {
     const group = (await insertGroup(vitor.id, 'Clã')).group!
-    await inviteToGroup(group.id, vitor.id, 'ana@example.com')
+    const token = await linkFor(group.id, vitor.id, 'ana@example.com')
 
-    const ana = await account('ana@example.com')
-    expect(await countInvites(ana.email)).toBe(1)
-    const [invite] = await listInvites(ana.email)
-    expect([invite.group.name, invite.group.owner.fullName]).toEqual(['Clã', 'Vitor'])
+    // Someone else signs up with that e-mail first: no invite for them
+    const squatter = await account('ana@example.com')
+    expect(await countInvites(squatter.id)).toBe(0)
+    expect(await listInvites(squatter.id)).toEqual([])
 
-    // Not someone else's invite, and only once
-    expect(await acceptInvite(invite.id, andre)).toBe(false)
-    expect(await acceptInvite(invite.id, ana)).toBe(true)
-    expect(await acceptInvite(invite.id, ana)).toBe(false)
-    expect(await countInvites(ana.email)).toBe(0)
+    // The real Ana opens the link, with an account of another e-mail
+    const ana = await account('ana.real@example.com')
+    const invite = await findInvite(token, ana.id)
+    expect([invite!.group.name, invite!.group.owner.fullName, invite!.group.members]).toEqual([
+      'Clã',
+      'Vitor',
+      [],
+    ])
+    expect(await acceptInvite('not-the-token', ana.id)).toBe(false)
+    expect(await acceptInvite(token, ana.id)).toBe(true)
+    expect(await acceptInvite(token, ana.id)).toBe(false)
+    expect(await findInvite(token, ana.id)).toBeNull()
     expect((await listGroups(ana.id)).map((g) => g.id)).toEqual([group.id])
+    expect(await listGroups(squatter.id)).toEqual([])
+  })
+
+  test('an account that already had the e-mail also sees the invite on Conta', async () => {
+    const group = (await insertGroup(vitor.id, 'Clã')).group!
+    const token = await linkFor(group.id, vitor.id, andre.email)
+
+    expect(await countInvites(andre.id)).toBe(1)
+    const [invite] = await listInvites(andre.id)
+    expect([invite.token, invite.group.name, invite.group.owner.fullName]).toEqual([
+      token,
+      'Clã',
+      'Vitor',
+    ])
+    expect((await findInvite(token, vitor.id))!.group.members).toEqual([{ userId: vitor.id }])
   })
 
   test('an account can be in several groups', async () => {
     await clan('Clã')
     const friends = (await insertGroup(andre.id, 'Amigos')).group!
     expect((await listGroups(andre.id)).map((g) => g.name)).toEqual(['Amigos', 'Clã'])
-    await inviteToGroup(friends.id, andre.id, vitor.email)
-    await acceptInvite((await listInvites(vitor.email))[0].id, vitor)
+    await acceptInvite(await linkFor(friends.id, andre.id, vitor.email), vitor.id)
     expect((await listGroups(vitor.id)).map((g) => g.name)).toEqual(['Amigos', 'Clã'])
   })
 
@@ -125,18 +157,18 @@ describe('groups', () => {
     expect((await insertGroup(andre.id, 'Amigos')).error).toBeNull()
   })
 
-  test('the invited account declines, the owner cancels, nobody else can', async () => {
+  test('whoever has the link declines it; only the owner cancels one', async () => {
     const group = (await insertGroup(vitor.id, 'Clã')).group!
-    await inviteToGroup(group.id, vitor.id, andre.email)
-    await inviteToGroup(group.id, vitor.id, 'ana@example.com')
-    const [forAndre] = await listInvites(andre.email)
-    const [forAna] = await listInvites('ana@example.com')
+    const forAndre = await linkFor(group.id, vitor.id, andre.email)
+    await linkFor(group.id, vitor.id, 'ana@example.com')
+    const forAna = (await listGroups(vitor.id))[0].invites[1]
 
-    expect(await removeInvite(forAna.id, andre)).toBe(false)
-    expect(await removeInvite(forAndre.id, andre)).toBe(true)
-    expect(await removeInvite(forAna.id, vitor)).toBe(true)
+    expect(await declineInvite('not-the-token')).toBe(false)
+    expect(await declineInvite(forAndre)).toBe(true)
+    expect(await cancelInvite(forAna.id, andre.id)).toBe(false)
+    expect(await cancelInvite(forAna.id, vitor.id)).toBe(true)
     expect(await db.groupInvite.count()).toBe(0)
-    expect((await listGroups(andre.id)).length).toBe(0)
+    expect(await listGroups(andre.id)).toEqual([])
   })
 
   test('"Compartilhar com o grupo automaticamente" is per account and group', async () => {
@@ -156,8 +188,7 @@ describe('groups', () => {
     test('the owner removes someone, an account leaves; the owner does not leave', async () => {
       const group = await clan()
       const ana = await account('ana@example.com')
-      await inviteToGroup(group.id, vitor.id, ana.email)
-      await acceptInvite((await listInvites(ana.email))[0].id, ana)
+      await acceptInvite(await linkFor(group.id, vitor.id, ana.email), ana.id)
 
       expect(await removeMember(group.id, andre.id, ana.id)).toBe(false)
       expect(await removeMember(group.id, vitor.id, vitor.id)).toBe(false)
@@ -189,8 +220,7 @@ describe('groups', () => {
     test('one by one sharing stays while the two still have another group in common', async () => {
       const group = await clan('Clã')
       const friends = (await insertGroup(andre.id, 'Amigos')).group!
-      await inviteToGroup(friends.id, andre.id, vitor.email)
-      await acceptInvite((await listInvites(vitor.email))[0].id, vitor)
+      await acceptInvite(await linkFor(friends.id, andre.id, vitor.email), vitor.id)
       const plan = await planOf(vitor.id)
       await sharePlan(plan.id, vitor.id, andre.id)
 
