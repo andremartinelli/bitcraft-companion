@@ -9,6 +9,7 @@ import { PlanDetails } from '@/components/plans/plan_details'
 import { PlanSharing, SharedPlanNotice } from '@/components/plans/plan_sharing'
 import { formatDate } from '@/lib/format'
 import { getCurrentUser, requireUser } from '@/lib/session'
+import { listGroups } from '@/models/group'
 import { authorName, findPlanFor, toCalculatorState } from '@/models/plan'
 import { calculate } from '@/services/calculator/calculate'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
@@ -35,9 +36,10 @@ export async function generateMetadata({ params }: PlanPageProps): Promise<Metad
 
 /**
  * GET /plans/[id]: the calculator with the saved state, saving on every
- * change, with the editable name and the notes. The owner shares and deletes
- * it; an account it was shared with edits it and can leave it. A plan that
- * doesn't exist, or is someone else's, is a 404.
+ * change, with the editable name and the notes. The owner shares it with its
+ * groups and deletes it; an account it was shared with edits it and, when it
+ * came one by one, can leave it. A plan that doesn't exist, or is someone
+ * else's, is a 404.
  */
 export default async function PlanPage({ params }: PlanPageProps) {
   const user = await requireUser()
@@ -45,12 +47,15 @@ export default async function PlanPage({ params }: PlanPageProps) {
   if (!plan) notFound()
 
   const state = toCalculatorState(plan)
-  const [panel, freshness] = await Promise.all([
+  const owner = plan.createdById === user.id
+  const [panel, freshness, groups] = await Promise.all([
     calculate(state, user.id),
     inventoryFreshness(user.id),
+    owner ? listGroups(user.id) : [],
   ])
   const author = authorName(plan.updatedBy)
-  const owner = plan.createdById === user.id
+  const sharedGroups = new Set(plan.groupShares.map((share) => share.groupId))
+  const groupPeople = new Set(groups.flatMap((group) => group.members.map((m) => m.userId)))
 
   return (
     <>
@@ -62,16 +67,27 @@ export default async function PlanPage({ params }: PlanPageProps) {
       {owner ? (
         <PlanSharing
           planId={plan.id}
-          members={plan.shares.map((share) => ({
-            userId: share.userId,
-            name: authorName(share.user)!,
+          groups={groups.map((group) => ({
+            id: group.id,
+            name: group.name,
+            shared: sharedGroups.has(group.id),
+            members: group.members
+              .filter((member) => member.userId !== user.id)
+              .map((member) => ({ userId: member.userId, name: authorName(member.user)! })),
           }))}
+          sharedWith={plan.shares.map((share) => share.userId)}
+          outside={plan.shares
+            .filter((share) => !groupPeople.has(share.userId))
+            .map((share) => ({ userId: share.userId, name: authorName(share.user)! }))}
         />
       ) : (
         <SharedPlanNotice
           planId={plan.id}
           userId={user.id}
           ownerName={authorName(plan.createdBy) ?? 'outra conta'}
+          groupNames={plan.groupShares
+            .filter((share) => share.group.members.length > 0)
+            .map((share) => share.group.name)}
         />
       )}
       <PlanDetails

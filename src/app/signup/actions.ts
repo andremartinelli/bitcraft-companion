@@ -2,7 +2,7 @@
 
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { startSession } from '@/lib/session'
+import { localPath, startSession } from '@/lib/session'
 import { signUp } from '@/services/auth/signup'
 import { signupSchema } from '@/validators/user'
 
@@ -15,7 +15,8 @@ export interface SignupState {
 
 /**
  * POST /signup: anyone can create an account (limited per IP). The new
- * account starts logged in, with no plans and no characters.
+ * account starts logged in, with no plans and no characters, and goes to
+ * `next` (only a path of this site, like an invite's link) or to Planos.
  */
 export async function createAccount(
   _previous: SignupState,
@@ -36,5 +37,5 @@ export async function createAccount(
   if (!result.ok) return { error: result.error, fullName, email }
 
   await startSession(result.user.id)
-  redirect('/plans')
+  redirect(localPath(formData.get('next')) ?? '/plans')
 }

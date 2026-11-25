@@ -7,21 +7,18 @@ import {
   canEditPlan,
   deletePlan,
   insertPlan,
+  removePlanGroupShare,
   removePlanShare,
   saveErrorMessage,
   savePlanState,
   sharePlan,
+  sharePlanWithGroup,
   updatePlanName,
 } from '@/models/plan'
 import { readStateFromQuery, validateState } from '@/services/calculator/state_params'
 import QuickPlans, { METAL_STYLES } from '@/services/plans/quick_plans'
-import {
-  planIdSchema,
-  planNameSchema,
-  planShareSchema,
-  planUpdateSchema,
-  quickPlanSchema,
-} from '@/validators/plan'
+import { idSchema } from '@/validators/group'
+import { planIdSchema, planNameSchema, planUpdateSchema, quickPlanSchema } from '@/validators/plan'
 
 export interface PlanFormState {
   error: string | null
@@ -109,33 +106,37 @@ export async function destroyPlan(id: number) {
   redirect('/plans')
 }
 
-export interface ShareFormState {
-  error: string | null
-  notice: string | null
-  /** Typed back into the field after an error */
-  email: string
+/**
+ * POST /plans/[id]/shares: the owner shares the plan with one account of a
+ * group it is in, which then sees and changes it
+ */
+export async function createPlanShare(id: number, userId: number) {
+  const user = await requireUser()
+  const planId = planIdSchema.safeParse(id)
+  const memberId = idSchema.safeParse(userId)
+  if (planId.success && memberId.success) await sharePlan(planId.data, user.id, memberId.data)
+  refresh()
 }
 
 /**
- * POST /plans/[id]/shares: the owner shares the plan with the account of an
- * e-mail, which then sees and changes it.
+ * POST /plans/[id]/group_shares: "Todos do grupo", the owner shares the plan
+ * with a whole group it is in, also with whoever joins later
  */
-export async function createPlanShare(
-  id: number,
-  _previous: ShareFormState,
-  formData: FormData
-): Promise<ShareFormState> {
+export async function createPlanGroupShare(id: number, groupId: number) {
   const user = await requireUser()
-  const email = String(formData.get('email') ?? '')
   const planId = planIdSchema.safeParse(id)
-  const parsed = planShareSchema.safeParse({ email })
-  if (!planId.success) return { error: 'Esse plano não existe.', notice: null, email }
-  if (!parsed.success) return { error: parsed.error.issues[0].message, notice: null, email }
-
-  const result = await sharePlan(planId.data, user.id, parsed.data.email)
-  if (!result.ok) return { error: result.error, notice: null, email }
+  const group = idSchema.safeParse(groupId)
+  if (planId.success && group.success) await sharePlanWithGroup(planId.data, user.id, group.data)
   refresh()
-  return { error: null, notice: `Compartilhado com ${result.name}.`, email: '' }
+}
+
+/** DELETE /plans/[id]/group_shares/[groupId]: the owner unchecks "Todos do grupo" */
+export async function destroyPlanGroupShare(id: number, groupId: number) {
+  const user = await requireUser()
+  const planId = planIdSchema.safeParse(id)
+  const group = idSchema.safeParse(groupId)
+  if (planId.success && group.success) await removePlanGroupShare(planId.data, user.id, group.data)
+  refresh()
 }
 
 /**
@@ -145,7 +146,7 @@ export async function createPlanShare(
 export async function destroyPlanShare(id: number, userId: number) {
   const user = await requireUser()
   const planId = planIdSchema.safeParse(id)
-  const memberId = planIdSchema.safeParse(userId)
+  const memberId = idSchema.safeParse(userId)
   if (planId.success && memberId.success) {
     await removePlanShare(planId.data, user.id, memberId.data)
   }
