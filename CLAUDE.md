@@ -122,7 +122,7 @@ Details that already cost time:
 
 ## Free plan limits (non-negotiable)
 
-- **Neon:** 100 CU-hours of compute, 1 GB and 5 GB of transfer per month. When a limit is exceeded, the database is suspended until the next cycle and the app goes down. Therefore:
+- **Neon:** the free plan caps compute hours, storage and transfer per month (exact numbers in the owner's private notes). When a limit is exceeded, the database is suspended until the next cycle and the app goes down. Therefore:
   - no timer, polling or frequent cron that wakes the database (it sleeps after 5 idle minutes);
   - the calculator's recipe graph comes compressed from `recipe_graph_snapshots`, not from the tables;
   - queries that do not need large columns use `select`.
