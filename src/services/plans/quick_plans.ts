@@ -1,7 +1,9 @@
 import { db } from '@/lib/db'
 import { formatNumber } from '@/lib/format'
+import { latestFinishedImport } from '@/models/game_data_import'
+import { insertPlan, savePlanState, toCalculatorState, type PlanWithState } from '@/models/plan'
 import { HIDDEN_VERBS } from '@/models/recipe'
-import { insertPlan } from '@/models/plan'
+import { validateState } from '@/services/calculator/state_params'
 
 export const QUICK_PLAN_KEYS = ['leather', 'cloth', 'metal', 'tools', 'homestead'] as const
 export type QuickPlanKey = (typeof QUICK_PLAN_KEYS)[number]
@@ -239,6 +241,48 @@ export default class QuickPlans {
     })
   }
 
+  /**
+   * "Planos rápidos" in a plan: adds the items, summing the quantity of the
+   * ones it has, and the settlement step's note at the end of its notes
+   * (once). Null when the tier has none; otherwise the messages when the
+   * plan would go over the calculator's limits, empty once it saved. Throws
+   * P2025 when the plan is gone.
+   */
+  async add(
+    plan: Pick<
+      PlanWithState,
+      'id' | 'notes' | 'items' | 'buildings' | 'choices' | 'ownedItems' | 'useInventory'
+    >,
+    key: QuickPlanKey,
+    tier: number,
+    style: MetalStyle,
+    userId: number | null
+  ): Promise<string[] | null> {
+    const items = await this.items(key, tier, style)
+    if (!items.length) return null
+
+    const current = toCalculatorState(plan)
+    const quantities = new Map(current.targets.map((t) => [t.itemId, t.quantity]))
+    for (const item of items)
+      quantities.set(item.id, (quantities.get(item.id) ?? 0) + item.quantity)
+    const { state, errors } = validateState({
+      ...current,
+      targets: [...quantities].map(([itemId, quantity]) => ({ itemId, quantity })),
+    })
+    if (errors.length) return errors
+
+    const note =
+      key === SETTLEMENT.key
+        ? (await this.#settlementSteps()).find((step) => step.tier === tier)!.notes
+        : null
+    const notes =
+      note && !plan.notes?.includes(note)
+        ? [plan.notes, note].filter(Boolean).join('\n\n')
+        : undefined
+    await savePlanState(plan.id, state, userId, notes)
+    return []
+  }
+
   /** The foundation (T1), then the Homestead researches by tier */
   #settlementSteps() {
     this.#steps ??= Promise.all([this.#foundation(), this.#homesteadTechs()]).then(
@@ -356,6 +400,32 @@ export default class QuickPlans {
       )
     return this.#results
   }
+}
+
+const globalForCatalog = globalThis as unknown as {
+  quickPlanCatalog?: { key: string; catalog: Promise<QuickPlanEntry[]> }
+}
+
+/**
+ * The catalog of the latest finished import, kept per instance until another
+ * import finishes, like the recipe graph: a plan's page draws it again on
+ * every change, and reading it takes thousands of rows
+ */
+export function quickPlanCatalog(): Promise<QuickPlanEntry[]> {
+  return latestFinishedImport().then((latest) => {
+    const key = latest ? `${latest.id}:${latest.finishedAt?.toISOString()}` : 'none'
+    if (globalForCatalog.quickPlanCatalog?.key !== key) {
+      const catalog = new QuickPlans().catalog()
+      globalForCatalog.quickPlanCatalog = { key, catalog }
+      // A failed read is not kept: the next request tries again
+      catalog.catch(() => {
+        if (globalForCatalog.quickPlanCatalog?.catalog === catalog) {
+          globalForCatalog.quickPlanCatalog = undefined
+        }
+      })
+    }
+    return globalForCatalog.quickPlanCatalog!.catalog
+  })
 }
 
 function tierOption(tier: number, material: string, count: number): QuickPlanTier {

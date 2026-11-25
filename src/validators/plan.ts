@@ -19,7 +19,7 @@ export const planUpdateSchema = z.object({
   state: z.unknown().optional(),
 })
 
-/** POST /quick_plans: which set, which tier and, for the metal set, which style */
+/** POST /quick_plans and /plans/[id]/quick_plans: which set, which tier and, for the metal set, which style */
 export const quickPlanSchema = z.object({
   template: z.enum(QUICK_PLAN_KEYS),
   tier: z.number().int().min(1).max(10),

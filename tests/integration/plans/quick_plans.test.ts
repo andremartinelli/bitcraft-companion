@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
-import { findPlan } from '@/models/plan'
+import { findPlan, insertPlan } from '@/models/plan'
+import { emptyState } from '@/services/calculator/state_params'
 import QuickPlans from '@/services/plans/quick_plans'
 import { importTables, withSetsAndTools } from '../../helpers/game_data'
 
@@ -138,5 +139,70 @@ describe('quick plans', () => {
       catalog.find((entry) => entry.key === 'homestead')!.tiers.map((tier) => tier.tier)
     ).toEqual([3, 4])
     expect(await new QuickPlans().create('homestead', 1, 'Plated', null)).toBeNull()
+  })
+
+  describe('added to a plan', () => {
+    const planWith = async (targets: { itemId: number; quantity: number }[], notes?: string) =>
+      (await findPlan(
+        (
+          await insertPlan({
+            name: 'Meu plano',
+            notes,
+            userId: null,
+            state: { ...emptyState(), targets },
+          })
+        ).id
+      ))!
+    const lines = async (planId: number) =>
+      (
+        await db.planItem.findMany({
+          where: { planId },
+          orderBy: { position: 'asc' },
+          select: { quantity: true, item: { select: { name: true } } },
+        })
+      ).map((line) => `${line.quantity}× ${line.item.name}`)
+
+    test('sums what the plan has; the new items go at the end', async () => {
+      const [axe] = await new QuickPlans().items('tools', 1)
+      const plank = await db.item.findFirstOrThrow({ where: { name: 'Simple Plank' } })
+      const plan = await planWith([
+        { itemId: plank.id, quantity: 3 },
+        { itemId: axe.id, quantity: 2 },
+      ])
+
+      expect(await new QuickPlans().add(plan, 'tools', 1, 'Plated', null)).toEqual([])
+      expect(await lines(plan.id)).toEqual([
+        '3× Simple Plank',
+        '3× Cooking Pot',
+        '1× Ferralith Axe',
+        '1× Ferralith Pickaxe',
+      ])
+    })
+
+    test("the settlement's note goes at the end of the notes, once", async () => {
+      const plan = await planWith([], 'Para o clã')
+
+      await new QuickPlans().add(plan, 'homestead', 4, 'Plated', null)
+      const once = await findPlan(plan.id)
+      await new QuickPlans().add(once!, 'homestead', 4, 'Plated', null)
+
+      const saved = await findPlan(plan.id)
+      expect(saved!.notes).toBe(
+        'Para o clã\n\nPesquisa "Tier 4 Homestead" do assentamento. Além dos itens, ela custa 1.690 de suprimentos do assentamento.'
+      )
+      expect(await lines(plan.id)).toEqual(['1700× Rough Wood Scraps', '10× Simple Plank'])
+    })
+
+    test('over the limits or with no items, nothing changes', async () => {
+      const coin = await db.item.findFirstOrThrow({ where: { gameId: 1, kind: 'item' } })
+      const plan = await planWith([{ itemId: coin.id, quantity: 99_000 }])
+
+      expect(await new QuickPlans().add(plan, 'homestead', 1, 'Plated', null)).toEqual([
+        'A quantidade precisa ser um número inteiro entre 1 e 100.000.',
+      ])
+      expect(await new QuickPlans().add(plan, 'cloth', 5, 'Plated', null)).toBeNull()
+      expect(await lines(plan.id)).toEqual(['99000× Hex Coin'])
+      expect((await findPlan(plan.id))!.notes).toBeNull()
+    })
   })
 })
