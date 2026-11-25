@@ -12,7 +12,7 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: { path: 'prisma/migrations' },
   datasource: {
-    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? '',
+    url: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || '',
     // Local only: `prisma migrate dev` diffs against this throwaway database
     shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL || undefined,
   },

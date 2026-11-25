@@ -102,6 +102,7 @@ Detalhes que já custaram tempo:
   - o grafo de receitas da calculadora vem comprimido de `recipe_graph_snapshots`, e não das tabelas;
   - consultas que não precisam de colunas grandes usam `select`.
 - **Vercel Hobby:** sem disco persistente, cron no máximo uma vez por dia e funções de até 300 s. A importação dos dados do jogo nunca roda na Vercel: em produção, ela roda pelo workflow manual "Importar dados do jogo" do GitHub Actions (`.github/workflows/game-data-import.yml`).
+- **Previews:** cada preview da Vercel tem um branch próprio do Neon e entra direto numa conta de teste (`src/lib/preview.ts`, `scripts/preview_prepare.ts`). Só com `VERCEL_ENV=preview`: em produção e no dev, `/preview_session` dá 404. Passo a passo em `docs/deploy.md` (Previews).
 - **Deploy:** produção só muda quando uma release é publicada no GitHub (`.github/workflows/release.yml`: testes, `prisma migrate deploy` no Neon e `vercel deploy --prod`). Push no `main` não publica (`vercel.json`). Passo a passo em `docs/deploy.md`.
 
 ## Regras do jogo (não negociáveis)
