@@ -25,7 +25,11 @@ export function PageHeader({ title, icon, description, actions }: PageHeaderProp
         </Flex>
         {description && <Text color="fg.muted">{description}</Text>}
       </Stack>
-      {actions}
+      {actions && (
+        <Flex gap="2" align="center" wrap="wrap">
+          {actions}
+        </Flex>
+      )}
     </Flex>
   )
 }

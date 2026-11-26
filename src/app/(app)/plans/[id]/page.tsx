@@ -2,11 +2,10 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import { NoCharacterNotice } from '@/components/game_players/no_character_notice'
+import { InventoryMenu } from '@/components/inventory/inventory_menu'
 import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
-import { OnlyMyInventory } from '@/components/plans/only_my_inventory'
-import { PlanClaims } from '@/components/plans/plan_claims'
 import { PlanCalculator } from '@/components/plans/plan_calculator'
 import { PlanDetails } from '@/components/plans/plan_details'
 import { PlanSharing, SharedPlanNotice } from '@/components/plans/plan_sharing'
@@ -18,6 +17,7 @@ import { authorName, findPlanFor, toCalculatorState } from '@/models/plan'
 import { calculate } from '@/services/calculator/calculate'
 import { inventoryFreshness } from '@/services/game_sync/stale_sync'
 import { inventoryScope } from '@/services/inventory/scope'
+import { updatePlanSetting } from '@/app/(app)/plans/actions'
 import { quickPlanCatalog } from '@/services/plans/quick_plans'
 import { planIdSchema } from '@/validators/plan'
 
@@ -111,11 +111,13 @@ export default async function PlanPage({ params }: PlanPageProps) {
           // Keyed: a fragment from a server component reaches the client as a list
           <>
             {!scope.hasMine && <NoCharacterNotice key="no-character" />}
-            {scope.hasOthers && (
-              <OnlyMyInventory key="only-mine" planId={plan.id} checked={scope.onlyMine} />
-            )}
-            {scope.planClaims.length > 0 && (
-              <PlanClaims key="claims" planId={plan.id} claims={scope.planClaims} />
+            {scope.people.length + scope.claims.length > 1 && (
+              <InventoryMenu
+                key="inventories"
+                people={scope.people}
+                claims={scope.claims}
+                save={updatePlanSetting.bind(null, plan.id)}
+              />
             )}
             {freshness.hasPlayers && (
               <SyncControls key="sync" stale={freshness.stale} planId={plan.id} />

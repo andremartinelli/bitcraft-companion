@@ -16,9 +16,9 @@ import {
   sharePlanWithGroup,
   updatePlanName,
 } from '@/models/plan'
-import { saveOnlyMyInventory, savePlanClaim } from '@/models/plan_user_setting'
+import { savePlanInventoryChoice } from '@/models/plan_user_setting'
 import { readStateFromQuery, validateState } from '@/services/calculator/state_params'
-import { inventoryScope } from '@/services/inventory/scope'
+import { inMenu, inventoryScope } from '@/services/inventory/scope'
 import QuickPlans, { METAL_STYLES } from '@/services/plans/quick_plans'
 import { idSchema } from '@/validators/group'
 import {
@@ -108,24 +108,18 @@ export async function updatePlan(id: number, input: unknown): Promise<PlanUpdate
 }
 
 /**
- * PATCH /plans/[id]/setting: what the account chose for itself in the plan
- * ("Usar apenas meu inventário", the claims it uses); the plan's other people
- * see no change
+ * PATCH /plans/[id]/setting: what the account chose for itself in the plan's
+ * "Inventários" menu (the characters and claims it uses); the plan's other
+ * people see no change
  */
 export async function updatePlanSetting(id: number, input: unknown) {
   const user = await requireUser()
   const planId = planIdSchema.safeParse(id)
   const setting = planSettingSchema.safeParse(input)
   if (planId.success && setting.success && (await canEditPlan(planId.data, user.id))) {
-    const { data } = setting
-    if ('onlyMyInventory' in data) {
-      await saveOnlyMyInventory(planId.data, user.id, data.onlyMyInventory)
-    } else {
-      // Only a claim of the plan's "Claims" menu
-      const { planClaims } = await inventoryScope(user.id, planId.data)
-      if (planClaims.some((claim) => claim.entityId === data.claimEntityId)) {
-        await savePlanClaim(planId.data, user.id, data.claimEntityId, data.used)
-      }
+    // Only a character or claim of the plan's menu
+    if (inMenu(await inventoryScope(user.id, planId.data), setting.data)) {
+      await savePlanInventoryChoice(planId.data, user.id, setting.data)
     }
   }
   refresh()

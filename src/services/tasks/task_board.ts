@@ -1,7 +1,7 @@
-import { findAccountPlayer } from '@/models/game_player'
+import { accountPlayerIds, findAccountPlayer } from '@/models/game_player'
 import { playerTasks, tasksAtTiers, travelers, unlockedTaskTiers } from '@/models/traveler_task'
 import { levelTier } from '@/services/game_data/transform'
-import { inventoryScope } from '@/services/inventory/scope'
+import { taskInventoryScope } from '@/services/inventory/scope'
 import type { ItemHolder } from '@/services/inventory/professions'
 import { holdersByItem, stockTotals } from '@/services/inventory/stock'
 import { levelFromXp } from '@/services/tasks/skill_level'
@@ -9,8 +9,9 @@ import { levelFromXp } from '@/services/tasks/skill_level'
 /**
  * The "Tasks" page (decided 26/11/2026): per traveler, the tasks the
  * account's character has now and the ones that can come at its tier in the
- * traveler's skill (up to its level), each item with how many the account has (its character and
- * counted claims, like the rest of the app outside a plan).
+ * traveler's skill (up to its level), each item with how many the account has
+ * in the inventories it ticks in "Inventários" (services/inventory/scope:
+ * taskInventoryScope).
  *
  * The tier is the one the character's quests unlocked, not its level's: "The
  * Best Ingredients (I)" (Cooking 20) unlocks Heimlich's T2, and so on up to
@@ -54,6 +55,15 @@ export interface TravelerBoard {
   possible: BoardTask[]
 }
 
+/**
+ * The characters the Tasks page reads on BitJita: the account's own (its tasks
+ * and quests), even when left out of "você tem", and the ones ticked there
+ */
+export async function taskSyncPlayerIds(userId: number) {
+  const [mine, scope] = await Promise.all([accountPlayerIds(userId), taskInventoryScope(userId)])
+  return [...new Set([...mine, ...scope.playerIds])]
+}
+
 export async function taskBoard(userId: number) {
   const player = await findAccountPlayer(userId)
   if (!player) return null
@@ -70,11 +80,14 @@ export async function taskBoard(userId: number) {
       tierFromQuests: fromQuests !== undefined,
     }
   })
-  if (!all.length) return { syncedAt: player.lastSyncedAt, travelers: [] }
-  const [current, possible, [totals, holders]] = await Promise.all([
+  // Whose inventory "você tem" counts: the account's "Inventários" menu
+  const scope = await taskInventoryScope(userId)
+  if (!all.length) return { syncedAt: player.lastSyncedAt, travelers: [], scope }
+  const [current, possible, totals, holders] = await Promise.all([
     playerTasks(player.id),
     tasksAtTiers(all.map(({ skillId, tier, level }) => ({ skillId, tier, level }))),
-    inventoryScope(userId).then((scope) => Promise.all([stockTotals(scope), holdersByItem(scope)])),
+    stockTotals(scope),
+    holdersByItem(scope),
   ])
 
   type Task = (typeof possible)[number]
@@ -104,5 +117,5 @@ export async function taskBoard(userId: number) {
       .filter((task) => task.skillId === traveler.skillId)
       .map((task) => toBoard(task)),
   }))
-  return { syncedAt: player.lastSyncedAt, travelers: travelersBoard }
+  return { syncedAt: player.lastSyncedAt, travelers: travelersBoard, scope }
 }

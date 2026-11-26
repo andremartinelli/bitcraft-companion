@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
 import { insertGroup } from '@/models/group'
 import { insertPlan } from '@/models/plan'
-import { saveOnlyMyInventory, savePlanClaim } from '@/models/plan_user_setting'
+import { savePlanInventoryChoice } from '@/models/plan_user_setting'
+import { saveTaskInventoryChoice } from '@/models/task_inventory_setting'
 import { emptyState } from '@/services/calculator/state_params'
-import { inventoryScope } from '@/services/inventory/scope'
+import { inventoryScope, taskInventoryScope } from '@/services/inventory/scope'
 
 let next = 0
 /** An account with its own character (`player`: an id to share one), a member of claim "c<n>" */
@@ -40,10 +41,9 @@ describe('whose inventory a page uses', () => {
       playerIds: [me.player],
       claimIds: [],
       excludedBuildingIds: [],
-      planClaims: [],
+      people: [],
+      claims: [],
       hasMine: true,
-      hasOthers: false,
-      onlyMine: false,
     })
     const none = await inventoryScope((await account(null)).id)
     expect([none.playerIds, none.hasMine]).toEqual([[], false])
@@ -55,10 +55,9 @@ describe('whose inventory a page uses', () => {
       playerIds: [me.player],
       claimIds: [],
       excludedBuildingIds: [],
-      planClaims: [],
+      people: [{ gamePlayerId: me.player, name: expect.any(String), mine: true, used: true }],
+      claims: [],
       hasMine: true,
-      hasOthers: false,
-      onlyMine: false,
     })
   })
 
@@ -72,7 +71,7 @@ describe('whose inventory a page uses', () => {
     const scope = await inventoryScope(me.id, plan.id)
     expect(scope.playerIds.sort()).toEqual([me.player, owner.player, other.player].sort())
     expect(scope.playerIds).not.toContain(outsider.player)
-    expect(scope.hasOthers).toBe(true)
+    expect(scope.people.filter((person) => !person.mine)).toHaveLength(2)
   })
 
   test('"Todos do grupo": every member, also whoever joins later', async () => {
@@ -105,27 +104,30 @@ describe('whose inventory a page uses', () => {
     const plan = await newPlan(me.id)
     await db.planShare.create({ data: { planId: plan.id, userId: twin.id } })
 
-    expect((await inventoryScope(me.id, plan.id)).hasOthers).toBe(false)
+    expect((await inventoryScope(me.id, plan.id)).people).toEqual([
+      { gamePlayerId: me.player, name: expect.any(String), mine: true, used: true },
+    ])
   })
 
-  test('"Usar apenas meu inventário": mine only, for me only', async () => {
+  test('"Inventários": each account leaves characters out for itself, its own too', async () => {
     const other = await account()
     const plan = await newPlan(me.id)
     await db.planShare.create({ data: { planId: plan.id, userId: other.id } })
-    await saveOnlyMyInventory(plan.id, me.id, true)
+    await savePlanInventoryChoice(plan.id, me.id, { gamePlayerId: other.player!, used: false })
 
-    expect(await inventoryScope(me.id, plan.id)).toEqual({
-      playerIds: [me.player],
-      claimIds: [],
-      excludedBuildingIds: [],
-      planClaims: [],
-      hasMine: true,
-      hasOthers: true,
-      onlyMine: true,
-    })
+    const scope = await inventoryScope(me.id, plan.id)
+    expect(scope.playerIds).toEqual([me.player])
+    expect(scope.people.map((person) => [person.mine, person.used])).toEqual([
+      [true, true],
+      [false, false],
+    ])
     expect((await inventoryScope(other.id, plan.id)).playerIds.sort()).toEqual(
       [me.player, other.player].sort()
     )
+
+    await savePlanInventoryChoice(plan.id, me.id, { gamePlayerId: me.player!, used: false })
+    await savePlanInventoryChoice(plan.id, me.id, { gamePlayerId: other.player!, used: true })
+    expect((await inventoryScope(me.id, plan.id)).playerIds).toEqual([other.player])
   })
 
   test('without a character of my own, the plan still shows the others', async () => {
@@ -178,11 +180,13 @@ describe('whose inventory a page uses', () => {
 
       const scope = await inventoryScope(me.id, plan.id)
       expect(scope.claimIds.sort()).toEqual([mine, theirs].sort())
-      expect(scope.planClaims.every((claim) => claim.used)).toBe(true)
-      // Outside the plan, only mine
-      expect((await inventoryScope(me.id)).planClaims).toEqual([])
-      await saveOnlyMyInventory(plan.id, me.id, true)
-      expect((await inventoryScope(me.id, plan.id)).claimIds).toEqual([mine])
+      expect(scope.claims.every((claim) => claim.used)).toBe(true)
+      // Outside the plan, only mine, and no menu
+      expect((await inventoryScope(me.id)).claimIds).toEqual([mine])
+      expect((await inventoryScope(me.id)).claims).toEqual([])
+      // Leaving a person out leaves their claims in: each one is its own choice
+      await savePlanInventoryChoice(plan.id, me.id, { gamePlayerId: other.player!, used: false })
+      expect((await inventoryScope(me.id, plan.id)).claimIds.sort()).toEqual([mine, theirs].sort())
     })
 
     test('in a plan, each account leaves out claims for itself', async () => {
@@ -192,15 +196,68 @@ describe('whose inventory a page uses', () => {
       const mine = await counts(me.id)
       const theirs = await counts(other.id)
 
-      await savePlanClaim(plan.id, me.id, theirs, false)
+      await savePlanInventoryChoice(plan.id, me.id, { claimEntityId: theirs, used: false })
 
       const scope = await inventoryScope(me.id, plan.id)
       expect(scope.claimIds).toEqual([mine])
-      expect(scope.planClaims.find((claim) => claim.entityId === theirs)?.used).toBe(false)
+      expect(scope.claims.find((claim) => claim.entityId === theirs)?.used).toBe(false)
       // The other account still uses both
       expect((await inventoryScope(other.id, plan.id)).claimIds.sort()).toEqual(
         [mine, theirs].sort()
       )
+    })
+  })
+
+  describe('the Tasks page', () => {
+    const inGroup = async (owner: number, ...people: number[]) => {
+      const { group } = await insertGroup(owner, `G${owner}`)
+      await db.groupMember.createMany({
+        data: people.map((userId) => ({ groupId: group!.id, userId })),
+      })
+    }
+    const counts = async (userId: number) => {
+      const user = await db.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { gamePlayer: { select: { claims: true } } },
+      })
+      const [claim] = user.gamePlayer!.claims as { entityId: string }[]
+      await db.countedClaim.create({ data: { userId, claimEntityId: claim.entityId } })
+      return claim.entityId
+    }
+
+    test('by default: my character and my claims; people of my groups are listed, unticked', async () => {
+      const [member, outsider] = [await account(), await account()]
+      await inGroup(me.id, member.id)
+      const mine = await counts(me.id)
+      await counts(member.id)
+
+      const scope = await taskInventoryScope(me.id)
+      expect([scope.playerIds, scope.claimIds]).toEqual([[me.player], [mine]])
+      expect(scope.people.map((person) => [person.gamePlayerId, person.used])).toEqual([
+        [me.player, true],
+        [member.player, false],
+      ])
+      expect(scope.people.map((person) => person.gamePlayerId)).not.toContain(outsider.player)
+      // Only my claims: a person's claims don't come along
+      expect(scope.claims.map((claim) => claim.entityId)).toEqual([mine])
+    })
+
+    test("a person of another account's group counts when ticked, and stops when they leave", async () => {
+      const [owner, member] = [await account(), await account()]
+      await inGroup(owner.id, me.id, member.id)
+      await saveTaskInventoryChoice(me.id, { gamePlayerId: member.player!, used: true }, false)
+      await saveTaskInventoryChoice(me.id, { gamePlayerId: me.player!, used: false }, true)
+
+      expect((await taskInventoryScope(me.id)).playerIds).toEqual([member.player])
+      await db.groupMember.deleteMany({ where: { userId: member.id } })
+      expect((await taskInventoryScope(me.id)).playerIds).toEqual([])
+    })
+
+    test('each claim of mine can be left out', async () => {
+      const mine = await counts(me.id)
+      await saveTaskInventoryChoice(me.id, { claimEntityId: mine, used: false }, false)
+      const scope = await taskInventoryScope(me.id)
+      expect([scope.claimIds, scope.claims[0].used]).toEqual([[], false])
     })
   })
 })

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { inventoryChoiceSchema } from '@/validators/inventory'
 import { METAL_STYLES, QUICK_PLAN_KEYS } from '@/services/plans/quick_plans'
 
 /** /plans/[id] and the actions: a positive whole number, or the page is a 404 */
@@ -19,14 +20,8 @@ export const planUpdateSchema = z.object({
   state: z.unknown().optional(),
 })
 
-/**
- * PATCH /plans/[id]/setting: "Usar apenas meu inventário", or whether a
- * counted claim of the plan's people is used (BitJita's ids are digits)
- */
-export const planSettingSchema = z.union([
-  z.object({ onlyMyInventory: z.boolean() }),
-  z.object({ claimEntityId: z.string().regex(/^\d{1,20}$/), used: z.boolean() }),
-])
+/** PATCH /plans/[id]/setting: a character or counted claim of the "Inventários" menu */
+export const planSettingSchema = inventoryChoiceSchema
 
 /** POST /quick_plans and /plans/[id]/quick_plans: which set, which tier and, for the metal set, which style */
 export const quickPlanSchema = z.object({

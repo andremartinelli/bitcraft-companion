@@ -8,6 +8,7 @@ import InventorySync, {
 } from '@/services/game_sync/inventory_sync'
 import { playersToSync, syncIfStale } from '@/services/game_sync/stale_sync'
 import { inventoryScope } from '@/services/inventory/scope'
+import { taskSyncPlayerIds } from '@/services/tasks/task_board'
 import { inventorySyncSchema } from '@/validators/inventory'
 
 /** BitJita answers in a few seconds; the default limit is enough, this is a ceiling */
@@ -25,7 +26,8 @@ const answer = (body: SyncResponse) => Response.json(body)
 
 /**
  * POST /api/inventory/sync: reads on BitJita the account's character or,
- * with `planId`, the plan's characters (services/inventory/scope), at most
+ * with `planId`, the plan's characters (services/inventory/scope) or, with
+ * `tasks`, the Tasks page's (services/tasks/task_board), at most
  * MAX_PLAYERS_PER_SYNC at a time, the least recently tried first.
  * "Sincronizar agora" (in the inventory, the calculator and the plans) reads
  * them even when recent. `onlyIfStale`: a page found the inventory old
@@ -40,11 +42,13 @@ export async function POST(request: NextRequest) {
   if (!user) return Response.json({ error: 'Faça login para continuar.' }, { status: 401 })
   const body = inventorySyncSchema.safeParse(await request.json().catch(() => ({})))
   if (!body.success) return Response.json({ error: 'Pedido inválido.' }, { status: 400 })
-  const { onlyIfStale, planId } = body.data
+  const { onlyIfStale, planId, tasks } = body.data
   if (planId !== undefined && !(await canEditPlan(planId, user.id))) {
     return Response.json({ error: 'Plano não encontrado.' }, { status: 404 })
   }
-  const { playerIds } = await inventoryScope(user.id, planId)
+  const playerIds = tasks
+    ? await taskSyncPlayerIds(user.id)
+    : (await inventoryScope(user.id, planId)).playerIds
 
   if (onlyIfStale) {
     let synced = false
