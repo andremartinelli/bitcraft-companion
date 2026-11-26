@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import type { CalculatorState } from '@/services/calculator/production_planner'
+import type { StockOwners } from '@/services/inventory/scope'
 import { holdersByItem, stockTotals } from '@/services/inventory/stock'
 
 export type OwnedSource = 'manual' | 'inventory'
@@ -39,9 +40,9 @@ export function mergeOwned(
  * read. The planner stays a pure function of that state. `holders` says who
  * has each item, for the page. `syncedAt`: the oldest read among them.
  */
-export async function withInventory(state: CalculatorState, playerIds: number[]) {
+export async function withInventory(state: CalculatorState, owners: StockOwners) {
   const oldest = await db.gamePlayer.findFirst({
-    where: { id: { in: playerIds }, lastSyncedAt: { not: null } },
+    where: { id: { in: owners.playerIds }, lastSyncedAt: { not: null } },
     orderBy: { lastSyncedAt: 'asc' },
     select: { lastSyncedAt: true },
   })
@@ -50,7 +51,7 @@ export async function withInventory(state: CalculatorState, playerIds: number[])
     syncedAt: oldest?.lastSyncedAt ?? null,
   }
   const [totals, holders] = inventory.available
-    ? await Promise.all([stockTotals(playerIds), holdersByItem(playerIds)])
+    ? await Promise.all([stockTotals(owners), holdersByItem(owners)])
     : [null, null]
   const { owned, sources } = mergeOwned(state.owned, totals)
   return { planState: { ...state, owned }, sources, totals, holders, inventory }

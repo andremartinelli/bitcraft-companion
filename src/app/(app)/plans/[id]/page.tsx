@@ -6,6 +6,7 @@ import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { DestroyPlanButton } from '@/components/plans/destroy_plan_button'
 import { OnlyMyInventory } from '@/components/plans/only_my_inventory'
+import { PlanClaims } from '@/components/plans/plan_claims'
 import { PlanCalculator } from '@/components/plans/plan_calculator'
 import { PlanDetails } from '@/components/plans/plan_details'
 import { PlanSharing, SharedPlanNotice } from '@/components/plans/plan_sharing'
@@ -54,7 +55,7 @@ export default async function PlanPage({ params }: PlanPageProps) {
   const owner = plan.createdById === user.id
   const scope = await inventoryScope(user.id, plan.id)
   const [panel, freshness, groups, quickPlans] = await Promise.all([
-    calculate(state, scope.playerIds),
+    calculate(state, scope),
     inventoryFreshness(scope.playerIds),
     owner ? listGroups(user.id) : [],
     quickPlanCatalog(),
@@ -112,6 +113,9 @@ export default async function PlanPage({ params }: PlanPageProps) {
             {!scope.hasMine && <NoCharacterNotice key="no-character" />}
             {scope.hasOthers && (
               <OnlyMyInventory key="only-mine" planId={plan.id} checked={scope.onlyMine} />
+            )}
+            {scope.planClaims.length > 0 && (
+              <PlanClaims key="claims" planId={plan.id} claims={scope.planClaims} />
             )}
             {freshness.hasPlayers && (
               <SyncControls key="sync" stale={freshness.stale} planId={plan.id} />

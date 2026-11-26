@@ -105,6 +105,11 @@ The project follows Rails conventions. When in doubt, do what Rails would do.
   - outside a plan (quick calculator, Inventory page, an item's "Você tem"): only the account's character;
   - in a plan: my character and the plan's people's characters (the owner and whoever received it, one by one or "Todos do grupo"), each character once;
   - "Usar apenas meu inventário" leaves only mine. Each person sets it for themselves, per plan (`plan_user_settings`), and it does not change what others see.
+- **Claim chests (decided 2026-11-26, `src/models/counted_claim.ts`):** off by default. On "Meu personagem", each account ticks the claims of its character whose chests count (`counted_claims`); the server refuses any other claim.
+  - a counted claim comes along with its account's character: outside a plan only mine; in a plan also the plan's people's, each claim once; "Usar apenas meu inventário" leaves only mine;
+  - in a plan, the "Claims" menu lists those claims and each person leaves some out for themselves (`plan_user_settings.excluded_claim_ids`), like "Usar apenas meu inventário";
+  - the sync reads only counted claims, and a claim stops counting when the character leaves it. Chests of a claim nobody counts leave the database;
+  - whole claims only: BitJita does not say which chests a member can open (issue #25).
 - **Recipes (decided 2026-11-25, `src/models/user_recipe_choice.ts`):**
   - in the Steps, an item with 2 or more recipes has "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), recipes only; "Tratar como matéria-prima" stays in the Production tree;
   - choosing a recipe (in the Steps or the tree) changes the plan and saves it as the account's default (`user_recipe_choices`), also on a shared plan;

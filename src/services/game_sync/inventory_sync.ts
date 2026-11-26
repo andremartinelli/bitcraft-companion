@@ -5,6 +5,7 @@ import {
   type SyncTrigger,
 } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
+import { allCountedClaimIds, claimsToRead } from '@/models/counted_claim'
 import { closeAbandonedRuns } from '@/models/sync_run'
 import { itemKey, type ItemKey } from '@/services/game_data/transform'
 import { RateLimitedError } from '@/services/game_sync/bitjita_client'
@@ -56,15 +57,6 @@ const TRANSACTION = { timeout: 30_000, maxWait: 10_000 }
 
 const describe = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-export interface SyncOptions {
-  /**
-   * Read the chests of the players' claims. Off: the group has no access to
-   * the settlement's chests (decided 21/11/2026), so they would only inflate
-   * the stock. The Settlement Stash is each player's own and is always read.
-   */
-  readClaims?: boolean
-}
-
 /** Whose characters a run reads */
 export interface SyncScope {
   /** The account that asked (the button, a page); none for the cron */
@@ -74,8 +66,9 @@ export interface SyncScope {
 }
 
 /**
- * Reads the inventories of the characters in the scope (and, when asked,
- * their claims' chests) from the source and replaces the stored snapshot. Each player and
+ * Reads the inventories of the characters in the scope (and the chests of the
+ * claims their accounts count, "Meu personagem") from the source and replaces
+ * the stored snapshot. Each player and
  * each claim is written in its own transaction: when a read fails, the
  * previous data of that player or claim stays.
  *
@@ -83,10 +76,7 @@ export interface SyncScope {
  * sync_runs row with status "running", and the database refuses a second one.
  */
 export default class InventorySync {
-  constructor(
-    private source: InventorySource,
-    private options: SyncOptions = {}
-  ) {}
+  constructor(private source: InventorySource) {}
 
   /** @throws SyncAlreadyRunningError when another sync is in progress */
   async run(trigger: SyncTrigger, scope: SyncScope = {}): Promise<SyncRun> {
@@ -158,14 +148,13 @@ export default class InventorySync {
     const problems: string[] = []
     // A 429 stops every further call: retrying right away only makes it worse
     let stoppedBy: string | null = null
-    let everyPlayerRead = true
     const claims = new Map<string, string>()
+    const counted = await claimsToRead(players.map((player) => player.id))
 
     for (const player of players) {
       // Read or not, it was tried now: the pages don't ask again for a while
       await db.gamePlayer.update({ where: { id: player.id }, data: { lastAttemptAt: new Date() } })
       if (stoppedBy) {
-        everyPlayerRead = false
         problems.push(`${player.username}: não lido (${stoppedBy}).`)
         continue
       }
@@ -175,9 +164,10 @@ export default class InventorySync {
         counts.players++
         counts.containers += written.containers
         counts.entries += written.entries
-        for (const claim of snapshot.player.claims) claims.set(claim.entityId, claim.name)
+        for (const claim of snapshot.player.claims) {
+          if (counted.get(player.id)?.has(claim.entityId)) claims.set(claim.entityId, claim.name)
+        }
       } catch (error) {
-        everyPlayerRead = false
         problems.push(`${player.username}: não foi possível ler (${describe(error)}).`)
         await db.gamePlayer.update({
           where: { id: player.id },
@@ -187,34 +177,35 @@ export default class InventorySync {
       }
     }
 
-    if (this.options.readClaims) {
-      // A claim shared by several players is read once
-      counts.claimsTotal = claims.size
-      for (const [claimId, claimName] of claims) {
-        if (stoppedBy) {
-          problems.push(`Claim ${claimName}: não lida (${stoppedBy}).`)
-          continue
-        }
-        try {
-          const snapshot = await this.source.fetchClaim(claimId)
-          const written = await this.#replaceClaim(claimId, claimName, snapshot.containers, unknown)
-          counts.claims++
-          counts.containers += written.containers
-          counts.entries += written.entries
-        } catch (error) {
-          problems.push(`Claim ${claimName}: não foi possível ler (${describe(error)}).`)
-          if (error instanceof RateLimitedError) stoppedBy = describe(error)
-        }
+    // A claim counted by several accounts is read once. shortcut: claim reads are
+    // not capped per run; if runs with many distinct counted claims pass the 60 s
+    // function limit, cap them or stop on a time budget.
+    counts.claimsTotal = claims.size
+    for (const [claimId, claimName] of claims) {
+      if (stoppedBy) {
+        problems.push(`Claim ${claimName}: não lida (${stoppedBy}).`)
+        continue
       }
-
-      // Chests of claims nobody belongs to anymore. Only when every player was
-      // read (all of them, not one account's): a player that failed or was not
-      // read may still belong to the claim.
-      if (everyPlayerRead && !scope.playerIds) await dropOtherClaims(db, [...claims.keys()])
-    } else {
-      // Claim chests are not read: none may stay from an earlier sync
-      await dropOtherClaims(db, [])
+      try {
+        const snapshot = await this.source.fetchClaim(claimId)
+        const written = await this.#replaceClaim(claimId, claimName, snapshot.containers, unknown)
+        counts.claims++
+        counts.containers += written.containers
+        counts.entries += written.entries
+      } catch (error) {
+        problems.push(`Claim ${claimName}: não foi possível ler (${describe(error)}).`)
+        if (error instanceof RateLimitedError) stoppedBy = describe(error)
+      }
     }
+
+    // Chests of claims no account counts any more, or whose counting characters
+    // left them (as of their last read, which may be this one)
+    await db.inventoryContainer.deleteMany({
+      where: {
+        kind: 'claim',
+        OR: [{ claimEntityId: null }, { claimEntityId: { notIn: await allCountedClaimIds() } }],
+      },
+    })
 
     counts.unknownItems = unknown.size
     const notes = [...problems]
@@ -367,18 +358,6 @@ async function replaceEntries(
     })),
   })
   return totals.size
-}
-
-/** Claim chests of any claim not in the list (all of them for an empty list) */
-function dropOtherClaims(client: Tx, claimIds: string[]) {
-  return client.inventoryContainer.deleteMany({
-    where: {
-      kind: 'claim',
-      ...(claimIds.length && {
-        OR: [{ claimEntityId: null }, { claimEntityId: { notIn: claimIds } }],
-      }),
-    },
-  })
 }
 
 /** "Personagens: 2 de 2 · Locais: 14 · Itens diferentes por local: 30" (the script) */

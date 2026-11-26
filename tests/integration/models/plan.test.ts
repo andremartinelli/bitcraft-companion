@@ -22,6 +22,7 @@ import { createUser } from '@/services/auth/create_user'
 import { calculate } from '@/services/calculator/calculate'
 import { emptyState } from '@/services/calculator/state_params'
 import { fixtureTables, importTables } from '../../helpers/game_data'
+import { charactersOnly } from '../../helpers/inventory'
 
 const itemId = async (gameId: number) =>
   (await db.item.findUniqueOrThrow({ where: { kind_gameId: { kind: 'item', gameId } } })).id
@@ -179,7 +180,7 @@ describe('plans', () => {
     )
     await importTables(tables)
 
-    const panel = await calculate(await loaded(plan.id), [])
+    const panel = await calculate(await loaded(plan.id), charactersOnly([]))
     expect(panel.warnings.join(' ')).toContain('não existe mais ou não produz esse item')
   })
 
@@ -189,7 +190,7 @@ describe('plans', () => {
     tables.item_desc = tables.item_desc.filter((row: { id: number }) => row.id !== 1030)
     await importTables(tables)
 
-    const panel = await calculate(await loaded(plan.id), [])
+    const panel = await calculate(await loaded(plan.id), charactersOnly([]))
     expect(panel.targets.map((t) => [t.item.name, t.item.removed])).toEqual([['Rough Plank', true]])
   })
 

@@ -18,18 +18,20 @@ import {
 import { importTables } from '../../helpers/game_data'
 import { addBothPlayers, groupTotal, quantityIn } from '../../helpers/inventory'
 
-/** The claim chests are off by default (no access); some tests turn them on */
-const WITH_CLAIMS = { readClaims: true }
-
 const claimChests = () => db.inventoryContainer.count({ where: { kind: 'claim' } })
 
 describe('inventory sync', () => {
+  let accounts: Awaited<ReturnType<typeof addBothPlayers>>
+  /** The claim chests count only for accounts that switched them on ("Meu personagem") */
+  const countClaim = (userId = accounts.userId) =>
+    db.countedClaim.create({ data: { userId, claimEntityId: CLAIM.entityId } })
+
   beforeEach(async () => {
     await importTables()
-    await addBothPlayers()
+    accounts = await addBothPlayers()
   })
 
-  test('stores every inventory of the players, but not the claim chests', async () => {
+  test('stores every inventory of the players, but not the chests of claims nobody counts', async () => {
     const fake = fakeBitJita()
     const run = await new InventorySync(bitjitaSource(fake)).run('manual')
 
@@ -71,19 +73,24 @@ describe('inventory sync', () => {
     )
   })
 
-  test('chests that were stored before are removed by the next sync', async () => {
-    await new InventorySync(bitjitaSource(), WITH_CLAIMS).run('manual')
+  test('the chests of a claim nobody counts any more are removed by the next sync', async () => {
+    await countClaim()
+    await new InventorySync(bitjitaSource()).run('manual')
     expect(await claimChests()).toBe(3)
 
+    await db.countedClaim.deleteMany()
     await new InventorySync(bitjitaSource()).run('manual')
 
     expect(await claimChests()).toBe(0)
     expect(await groupTotal('item', 1030)).toBe(68)
   })
 
-  test('with claim chests on, a claim shared by both players is read and counted once', async () => {
+  test('a claim both accounts count is read and stored once', async () => {
+    await countClaim()
+    await countClaim(accounts.partnerId)
     const fake = fakeBitJita()
-    await new InventorySync(bitjitaSource(fake), WITH_CLAIMS).run('manual')
+    const run = await new InventorySync(bitjitaSource(fake)).run('manual')
+    expect(run.counts).toMatchObject({ claims: 1, claimsTotal: 1 })
     // 68 of the players plus the chest's 100: once, not twice
     expect(await groupTotal('item', 1030)).toBe(168)
     expect(fake.calls.filter((c) => c.path.startsWith('/api/claims/'))).toHaveLength(1)
@@ -117,7 +124,8 @@ describe('inventory sync', () => {
   })
 
   test('429: stops calling BitJita, keeps the data it could not read', async () => {
-    await new InventorySync(bitjitaSource(), WITH_CLAIMS).run('manual')
+    await countClaim()
+    await new InventorySync(bitjitaSource()).run('manual')
 
     const responses = recordedResponses()
     responses[`/api/players/${PLAYER_TWO.entityId}`] = { status: 429, body: {} }
@@ -127,7 +135,7 @@ describe('inventory sync', () => {
     responses[`/api/players/${PLAYER_ONE.entityId}/inventories`] = { body: inventories }
     const fake = fakeBitJita(responses)
 
-    const run = await new InventorySync(bitjitaSource(fake), WITH_CLAIMS).run('manual')
+    const run = await new InventorySync(bitjitaSource(fake)).run('manual')
 
     expect(run.status).toBe('partial')
     expect(run.message).toContain('Quartz: não foi possível ler')
@@ -242,8 +250,9 @@ describe('inventory sync', () => {
     expect(backpack).not.toBeNull()
   })
 
-  test('with claim chests on, those of a claim nobody belongs to are removed', async () => {
-    await new InventorySync(bitjitaSource(), WITH_CLAIMS).run('manual')
+  test('the chests of a claim nobody belongs to any more are removed', async () => {
+    await countClaim()
+    await new InventorySync(bitjitaSource()).run('manual')
 
     const responses = recordedResponses()
     for (const [path, fixture] of [
@@ -254,11 +263,24 @@ describe('inventory sync', () => {
       player.player.claims = []
       responses[path] = { body: player }
     }
-    const run = await new InventorySync(bitjitaSource(fakeBitJita(responses)), WITH_CLAIMS).run(
-      'manual'
-    )
+    const run = await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual')
 
     expect(run.status).toBe('ok')
+    expect(await claimChests()).toBe(0)
+  })
+
+  test("one account's run drops the chests of a claim its character left", async () => {
+    const mine = { userId: accounts.userId, playerIds: [accounts.playerIds[0]] }
+    await countClaim()
+    await new InventorySync(bitjitaSource()).run('manual', mine)
+    expect(await claimChests()).toBe(3)
+
+    const responses = recordedResponses()
+    const player = bitjitaFixture('player_one')
+    player.player.claims = []
+    responses[`/api/players/${PLAYER_ONE.entityId}`] = { body: player }
+    await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual', mine)
+
     expect(await claimChests()).toBe(0)
   })
 
