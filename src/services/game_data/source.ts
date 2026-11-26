@@ -58,12 +58,21 @@ export class GitHubSource implements GameDataSource {
     if (this.#resolved) return this.#resolved
 
     const ref = encodeURIComponent(this.#commit ?? BRANCH)
+    // Without a token GitHub allows 60 calls an hour per IP, shared by every
+    // Actions runner on it: the workflow passes its own GITHUB_TOKEN
+    const token = process.env.GITHUB_TOKEN
     const response = await fetch(`https://api.github.com/repos/${REPOSITORY}/commits/${ref}`, {
-      headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'bitcraft-companion' },
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'bitcraft-companion',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
     })
     if (!response.ok) {
+      const { message } = ((await response.json().catch(() => null)) ?? {}) as { message?: string }
       throw new Error(
-        `GitHub respondeu ${response.status} ao buscar o commit ${decodeURIComponent(ref)}`
+        `GitHub respondeu ${response.status} ao buscar o commit ${decodeURIComponent(ref)}` +
+          (message ? `: ${message}` : '')
       )
     }
     const body = (await response.json()) as { sha: string; commit: { committer: { date: string } } }

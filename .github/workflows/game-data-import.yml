@@ -31,6 +31,9 @@ jobs:
     env:
       DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
       COMMIT: ${{ inputs.commit }}
+      # Asking GitHub's API for the commit without a token hits the 60 calls an
+      # hour shared by the runners' IP (a 403); the job's own token reads public repositories
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Confere o segredo e o commit
         run: |
