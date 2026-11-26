@@ -19,8 +19,14 @@ export const planUpdateSchema = z.object({
   state: z.unknown().optional(),
 })
 
-/** PATCH /plans/[id]/setting: "Usar apenas meu inventário" */
-export const planSettingSchema = z.object({ onlyMyInventory: z.boolean() })
+/**
+ * PATCH /plans/[id]/setting: "Usar apenas meu inventário", or whether a
+ * counted claim of the plan's people is used (BitJita's ids are digits)
+ */
+export const planSettingSchema = z.union([
+  z.object({ onlyMyInventory: z.boolean() }),
+  z.object({ claimEntityId: z.string().regex(/^\d{1,20}$/), used: z.boolean() }),
+])
 
 /** POST /quick_plans and /plans/[id]/quick_plans: which set, which tier and, for the metal set, which style */
 export const quickPlanSchema = z.object({

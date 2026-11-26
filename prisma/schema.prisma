@@ -523,8 +523,10 @@ model PlanUserSetting {
   userId          Int      @map("user_id")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// "Usar apenas meu inventário": only my character, without the plan's other people
-  onlyMyInventory Boolean  @default(false) @map("only_my_inventory")
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  onlyMyInventory  Boolean  @default(false) @map("only_my_inventory")
+  /// Counted claims (counted_claims) of the plan's people that I leave out in this plan
+  excludedClaimIds String[] @default([]) @map("excluded_claim_ids")
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@id([planId, userId])
   @@index([userId])

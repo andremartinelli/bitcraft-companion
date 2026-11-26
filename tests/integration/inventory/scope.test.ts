@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
 import { insertGroup } from '@/models/group'
 import { insertPlan } from '@/models/plan'
-import { saveOnlyMyInventory } from '@/models/plan_user_setting'
+import { saveOnlyMyInventory, savePlanClaim } from '@/models/plan_user_setting'
 import { emptyState } from '@/services/calculator/state_params'
 import { inventoryScope } from '@/services/inventory/scope'
 
@@ -39,6 +39,7 @@ describe('whose inventory a page uses', () => {
     expect(await inventoryScope(me.id)).toEqual({
       playerIds: [me.player],
       claimIds: [],
+      planClaims: [],
       hasMine: true,
       hasOthers: false,
       onlyMine: false,
@@ -52,6 +53,7 @@ describe('whose inventory a page uses', () => {
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
       claimIds: [],
+      planClaims: [],
       hasMine: true,
       hasOthers: false,
       onlyMine: false,
@@ -113,6 +115,7 @@ describe('whose inventory a page uses', () => {
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
       claimIds: [],
+      planClaims: [],
       hasMine: true,
       hasOthers: true,
       onlyMine: true,
@@ -170,9 +173,31 @@ describe('whose inventory a page uses', () => {
       })
       await db.countedClaim.create({ data: { userId: twin.id, claimEntityId: mine } })
 
-      expect((await inventoryScope(me.id, plan.id)).claimIds.sort()).toEqual([mine, theirs].sort())
+      const scope = await inventoryScope(me.id, plan.id)
+      expect(scope.claimIds.sort()).toEqual([mine, theirs].sort())
+      expect(scope.planClaims.every((claim) => claim.used)).toBe(true)
+      // Outside the plan, only mine
+      expect((await inventoryScope(me.id)).planClaims).toEqual([])
       await saveOnlyMyInventory(plan.id, me.id, true)
       expect((await inventoryScope(me.id, plan.id)).claimIds).toEqual([mine])
+    })
+
+    test('in a plan, each account leaves out claims for itself', async () => {
+      const other = await account()
+      const plan = await newPlan(me.id)
+      await db.planShare.create({ data: { planId: plan.id, userId: other.id } })
+      const mine = await counts(me.id)
+      const theirs = await counts(other.id)
+
+      await savePlanClaim(plan.id, me.id, theirs, false)
+
+      const scope = await inventoryScope(me.id, plan.id)
+      expect(scope.claimIds).toEqual([mine])
+      expect(scope.planClaims.find((claim) => claim.entityId === theirs)?.used).toBe(false)
+      // The other account still uses both
+      expect((await inventoryScope(other.id, plan.id)).claimIds.sort()).toEqual(
+        [mine, theirs].sort()
+      )
     })
   })
 })

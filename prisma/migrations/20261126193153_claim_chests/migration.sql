@@ -1,3 +1,6 @@
+-- AlterTable
+ALTER TABLE "plan_user_settings" ADD COLUMN     "excluded_claim_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
+
 -- CreateTable
 CREATE TABLE "counted_claims" (
     "user_id" INTEGER NOT NULL,

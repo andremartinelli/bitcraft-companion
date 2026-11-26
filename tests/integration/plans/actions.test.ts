@@ -26,7 +26,7 @@ import {
 import { db } from '@/lib/db'
 import { insertGroup } from '@/models/group'
 import { findPlan, insertPlan, toCalculatorState } from '@/models/plan'
-import { onlyMyInventory } from '@/models/plan_user_setting'
+import { planUserSetting } from '@/models/plan_user_setting'
 import { createUser } from '@/services/auth/create_user'
 import { createSessionToken } from '@/services/auth/session_token'
 import { emptyState } from '@/services/calculator/state_params'
@@ -320,9 +320,28 @@ describe('plan actions', () => {
     await updatePlanSetting(theirs.id, { onlyMyInventory: true })
     await updatePlanSetting(mine.id, { onlyMyInventory: 'yes' })
 
-    expect(await onlyMyInventory(mine.id, userId)).toBe(true)
-    expect(await onlyMyInventory(mine.id, other.id)).toBe(false)
+    expect((await planUserSetting(mine.id, userId)).onlyMyInventory).toBe(true)
+    expect((await planUserSetting(mine.id, other.id)).onlyMyInventory).toBe(false)
     expect(await db.planUserSetting.count({ where: { planId: theirs.id } })).toBe(0)
     expect(vi.mocked(refresh)).toHaveBeenCalled()
+  })
+
+  test("a claim left out of a plan: mine, and switched back on it's used again", async () => {
+    const plan = await insertPlan({ name: 'Meu', state: emptyState(), userId })
+
+    await updatePlanSetting(plan.id, { claimEntityId: '200000000000000001', used: false })
+    await updatePlanSetting(plan.id, { claimEntityId: '200000000000000002', used: false })
+    await updatePlanSetting(plan.id, { claimEntityId: 'Vila', used: false })
+    expect((await planUserSetting(plan.id, userId)).excludedClaimIds).toEqual([
+      '200000000000000001',
+      '200000000000000002',
+    ])
+
+    await updatePlanSetting(plan.id, { claimEntityId: '200000000000000001', used: true })
+    const setting = await planUserSetting(plan.id, userId)
+    expect([setting.excludedClaimIds, setting.onlyMyInventory]).toEqual([
+      ['200000000000000002'],
+      false,
+    ])
   })
 })

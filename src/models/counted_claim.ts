@@ -8,19 +8,23 @@ import { playerClaims } from '@/models/game_player'
  */
 
 /** The claims these accounts count, each once */
-export async function countedClaimIds(userIds: number[]) {
+export async function countedClaims(userIds: number[]) {
   const users = await db.user.findMany({
     where: { id: { in: userIds } },
+    orderBy: { id: 'asc' },
     select: {
       countedClaims: { select: { claimEntityId: true } },
       gamePlayer: { select: { claims: true } },
     },
   })
-  const ids = users.flatMap((user) => {
-    const current = new Set(playerClaims(user.gamePlayer?.claims).map((claim) => claim.entityId))
-    return user.countedClaims.map((c) => c.claimEntityId).filter((id) => current.has(id))
-  })
-  return [...new Set(ids)]
+  const claims = new Map<string, { entityId: string; name: string }>()
+  for (const user of users) {
+    const counted = new Set(user.countedClaims.map((c) => c.claimEntityId))
+    for (const claim of playerClaims(user.gamePlayer?.claims)) {
+      if (counted.has(claim.entityId)) claims.set(claim.entityId, claim)
+    }
+  }
+  return [...claims.values()]
 }
 
 /** The claims each of these characters' accounts count: what the sync reads */
