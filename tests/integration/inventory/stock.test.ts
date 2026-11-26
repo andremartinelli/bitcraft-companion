@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
 import { ANY_PROFESSION, NO_PROFESSION } from '@/services/inventory/professions'
-import { inventoryListing, itemStock, type StockSection } from '@/services/inventory/stock'
+import {
+  holdersByItem,
+  inventoryListing,
+  itemStock,
+  stockTotals,
+  type StockSection,
+} from '@/services/inventory/stock'
 import InventorySync from '@/services/game_sync/inventory_sync'
 import { bitjitaSource, CLAIM } from '../../helpers/bitjita'
 import { fixtureTables, importTables } from '../../helpers/game_data'
@@ -149,5 +155,11 @@ describe('inventory listing', () => {
     expect(subtitles.slice(first).every((s) => s === 'Claim Vila Teste · baús da claim')).toBe(true)
     // Not counted on this page: as before
     expect((await itemStock(plank.id, charactersOnly(playerIds))).total).toBe(68)
+    // The calculator's "já tenho" and the plan's "Coletar"
+    expect((await stockTotals(owners)).get(plank.id)).toBe(168)
+    expect((await holdersByItem(owners)).get(plank.id)?.[0]).toEqual({
+      owner: 'Claim Vila Teste',
+      quantity: 100,
+    })
   })
 })

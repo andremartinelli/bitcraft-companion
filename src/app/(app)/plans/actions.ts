@@ -18,6 +18,7 @@ import {
 } from '@/models/plan'
 import { saveOnlyMyInventory, savePlanClaim } from '@/models/plan_user_setting'
 import { readStateFromQuery, validateState } from '@/services/calculator/state_params'
+import { inventoryScope } from '@/services/inventory/scope'
 import QuickPlans, { METAL_STYLES } from '@/services/plans/quick_plans'
 import { idSchema } from '@/validators/group'
 import {
@@ -120,7 +121,11 @@ export async function updatePlanSetting(id: number, input: unknown) {
     if ('onlyMyInventory' in data) {
       await saveOnlyMyInventory(planId.data, user.id, data.onlyMyInventory)
     } else {
-      await savePlanClaim(planId.data, user.id, data.claimEntityId, data.used)
+      // Only a claim of the plan's "Claims" menu
+      const { planClaims } = await inventoryScope(user.id, planId.data)
+      if (planClaims.some((claim) => claim.entityId === data.claimEntityId)) {
+        await savePlanClaim(planId.data, user.id, data.claimEntityId, data.used)
+      }
     }
   }
   refresh()

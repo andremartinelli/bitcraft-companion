@@ -5,7 +5,7 @@ import {
   type SyncTrigger,
 } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
-import { claimsToRead } from '@/models/counted_claim'
+import { allCountedClaimIds, claimsToRead } from '@/models/counted_claim'
 import { closeAbandonedRuns } from '@/models/sync_run'
 import { itemKey, type ItemKey } from '@/services/game_data/transform'
 import { RateLimitedError } from '@/services/game_sync/bitjita_client'
@@ -148,7 +148,6 @@ export default class InventorySync {
     const problems: string[] = []
     // A 429 stops every further call: retrying right away only makes it worse
     let stoppedBy: string | null = null
-    let everyPlayerRead = true
     const claims = new Map<string, string>()
     const counted = await claimsToRead(players.map((player) => player.id))
 
@@ -156,7 +155,6 @@ export default class InventorySync {
       // Read or not, it was tried now: the pages don't ask again for a while
       await db.gamePlayer.update({ where: { id: player.id }, data: { lastAttemptAt: new Date() } })
       if (stoppedBy) {
-        everyPlayerRead = false
         problems.push(`${player.username}: não lido (${stoppedBy}).`)
         continue
       }
@@ -170,7 +168,6 @@ export default class InventorySync {
           if (counted.get(player.id)?.has(claim.entityId)) claims.set(claim.entityId, claim.name)
         }
       } catch (error) {
-        everyPlayerRead = false
         problems.push(`${player.username}: não foi possível ler (${describe(error)}).`)
         await db.gamePlayer.update({
           where: { id: player.id },
@@ -180,7 +177,9 @@ export default class InventorySync {
       }
     }
 
-    // A claim counted by several accounts is read once
+    // A claim counted by several accounts is read once. shortcut: claim reads are
+    // not capped per run; if runs with many distinct counted claims pass the 60 s
+    // function limit, cap them or stop on a time budget.
     counts.claimsTotal = claims.size
     for (const [claimId, claimName] of claims) {
       if (stoppedBy) {
@@ -199,17 +198,14 @@ export default class InventorySync {
       }
     }
 
-    // Chests of claims no account counts any more
+    // Chests of claims no account counts any more, or whose counting characters
+    // left them (as of their last read, which may be this one)
     await db.inventoryContainer.deleteMany({
       where: {
         kind: 'claim',
         OR: [{ claimEntityId: null }, { claimEntityId: { notIn: await allCountedClaimIds() } }],
       },
     })
-    // And of claims nobody belongs to any more. Only when every player was read
-    // (all of them, not one account's): a player that failed or was not read
-    // may still belong to the claim.
-    if (everyPlayerRead && !scope.playerIds) await dropOtherClaims(db, [...claims.keys()])
 
     counts.unknownItems = unknown.size
     const notes = [...problems]
@@ -362,23 +358,6 @@ async function replaceEntries(
     })),
   })
   return totals.size
-}
-
-/** Claim chests of any claim not in the list (all of them for an empty list) */
-function dropOtherClaims(client: Tx, claimIds: string[]) {
-  return client.inventoryContainer.deleteMany({
-    where: {
-      kind: 'claim',
-      ...(claimIds.length && {
-        OR: [{ claimEntityId: null }, { claimEntityId: { notIn: claimIds } }],
-      }),
-    },
-  })
-}
-
-async function allCountedClaimIds() {
-  const rows = await db.countedClaim.findMany({ distinct: ['claimEntityId'], select: { claimEntityId: true } })
-  return rows.map((row) => row.claimEntityId)
 }
 
 /** "Personagens: 2 de 2 · Locais: 14 · Itens diferentes por local: 30" (the script) */

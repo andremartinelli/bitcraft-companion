@@ -27,6 +27,12 @@ export async function countedClaims(userIds: number[]) {
   return [...claims.values()]
 }
 
+/** Every claim some account counts while its character still belongs to it: the chests to keep */
+export async function allCountedClaimIds() {
+  const accounts = await db.countedClaim.findMany({ distinct: ['userId'], select: { userId: true } })
+  return (await countedClaims(accounts.map((account) => account.userId))).map((c) => c.entityId)
+}
+
 /** The claims each of these characters' accounts count: what the sync reads */
 export async function claimsToRead(playerIds: number[]) {
   const rows = await db.countedClaim.findMany({

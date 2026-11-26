@@ -326,11 +326,24 @@ describe('plan actions', () => {
     expect(vi.mocked(refresh)).toHaveBeenCalled()
   })
 
-  test("a claim left out of a plan: mine, and switched back on it's used again", async () => {
+  test("a claim left out of a plan: mine, only one of its menu, and back on it's used again", async () => {
+    const claims = [
+      { entityId: '200000000000000001', name: 'Vila' },
+      { entityId: '200000000000000002', name: 'Porto' },
+    ]
+    const player = await db.gamePlayer.create({
+      data: { username: 'Nimbus', entityId: '100000000000000001', claims },
+    })
+    await db.user.update({ where: { id: userId }, data: { gamePlayerId: player.id } })
+    await db.countedClaim.createMany({
+      data: claims.map((claim) => ({ userId, claimEntityId: claim.entityId })),
+    })
     const plan = await insertPlan({ name: 'Meu', state: emptyState(), userId })
 
     await updatePlanSetting(plan.id, { claimEntityId: '200000000000000001', used: false })
     await updatePlanSetting(plan.id, { claimEntityId: '200000000000000002', used: false })
+    // Not in the plan's menu, or not an id
+    await updatePlanSetting(plan.id, { claimEntityId: '200000000000000003', used: false })
     await updatePlanSetting(plan.id, { claimEntityId: 'Vila', used: false })
     expect((await planUserSetting(plan.id, userId)).excludedClaimIds).toEqual([
       '200000000000000001',

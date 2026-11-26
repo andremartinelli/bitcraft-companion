@@ -269,6 +269,21 @@ describe('inventory sync', () => {
     expect(await claimChests()).toBe(0)
   })
 
+  test("one account's run drops the chests of a claim its character left", async () => {
+    const mine = { userId: accounts.userId, playerIds: [accounts.playerIds[0]] }
+    await countClaim()
+    await new InventorySync(bitjitaSource()).run('manual', mine)
+    expect(await claimChests()).toBe(3)
+
+    const responses = recordedResponses()
+    const player = bitjitaFixture('player_one')
+    player.player.claims = []
+    responses[`/api/players/${PLAYER_ONE.entityId}`] = { body: player }
+    await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual', mine)
+
+    expect(await claimChests()).toBe(0)
+  })
+
   test('without players there is nothing to sync', async () => {
     await db.gamePlayer.deleteMany()
 
