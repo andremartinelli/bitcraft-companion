@@ -2,7 +2,8 @@ import { findAccountPlayer } from '@/models/game_player'
 import { playerTasks, tasksAtTiers, travelers, unlockedTaskTiers } from '@/models/traveler_task'
 import { levelTier } from '@/services/game_data/transform'
 import { inventoryScope } from '@/services/inventory/scope'
-import { stockTotals } from '@/services/inventory/stock'
+import type { ItemHolder } from '@/services/inventory/professions'
+import { holdersByItem, stockTotals } from '@/services/inventory/stock'
 import { levelFromXp } from '@/services/tasks/skill_level'
 
 /**
@@ -21,9 +22,17 @@ import { levelFromXp } from '@/services/tasks/skill_level'
  */
 
 export interface TaskLine {
-  item: { id: number; name: string; tier: number; rarity: string | null; iconAssetName: string | null }
+  item: {
+    id: number
+    name: string
+    tier: number
+    rarity: string | null
+    iconAssetName: string | null
+  }
   quantity: number
   have: number
+  /** Who has it and how many, the most first, as the plan's "Coletar" shows */
+  holders: ItemHolder[]
 }
 
 export interface BoardTask {
@@ -62,10 +71,10 @@ export async function taskBoard(userId: number) {
     }
   })
   if (!all.length) return { syncedAt: player.lastSyncedAt, travelers: [] }
-  const [current, possible, totals] = await Promise.all([
+  const [current, possible, [totals, holders]] = await Promise.all([
     playerTasks(player.id),
     tasksAtTiers(all.map(({ skillId, tier, level }) => ({ skillId, tier, level }))),
-    inventoryScope(userId).then(stockTotals),
+    inventoryScope(userId).then((scope) => Promise.all([stockTotals(scope), holdersByItem(scope)])),
   ])
 
   type Task = (typeof possible)[number]
@@ -78,6 +87,7 @@ export async function taskBoard(userId: number) {
       item,
       quantity,
       have: totals.get(item.id) ?? 0,
+      holders: holders.get(item.id) ?? [],
     })),
   })
 

@@ -12,14 +12,22 @@ function TaskRow({ task }: { task: BoardTask }) {
       {task.lines.map((line) => {
         const missing = line.quantity - line.have
         return (
-          <HStack key={line.item.id} gap="2">
-            <ItemChip item={line.item} quantity={line.quantity} />
-            <Text textStyle="sm" color={missing > 0 ? 'fg.muted' : 'fg.success'}>
-              {missing > 0
-                ? `você tem ${formatNumber(line.have)} · faltam ${formatNumber(missing)}`
-                : `✅ você tem ${formatNumber(line.have)}`}
-            </Text>
-          </HStack>
+          <Stack key={line.item.id} gap="0.5">
+            <HStack gap="2">
+              <ItemChip item={line.item} quantity={line.quantity} />
+              <Text textStyle="sm" color={missing > 0 ? 'fg.muted' : 'fg.success'}>
+                {missing > 0
+                  ? `você tem ${formatNumber(line.have)} · faltam ${formatNumber(missing)}`
+                  : `✅ você tem ${formatNumber(line.have)}`}
+              </Text>
+            </HStack>
+            {line.holders.length > 0 && (
+              <Text textStyle="xs" color="fg.muted">
+                {/* "Nimbus 40 · Claim Aurora 100", like the plan's "Coletar" */}
+                {line.holders.map((h) => `${h.owner} ${formatNumber(h.quantity)}`).join(' · ')}
+              </Text>
+            )}
+          </Stack>
         )
       })}
       <HStack gap="1.5" ml="auto">
@@ -102,12 +110,7 @@ export function TaskBoard({ travelers, read }: { travelers: TravelerBoard[]; rea
           abaixo.
         </Text>
         {travelers.map((traveler) => (
-          <TravelerCard
-            key={traveler.name}
-            traveler={traveler}
-            tasks={traveler.possible}
-            notice
-          />
+          <TravelerCard key={traveler.name} traveler={traveler} tasks={traveler.possible} notice />
         ))}
       </Stack>
     </Stack>
