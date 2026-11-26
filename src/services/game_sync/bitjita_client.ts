@@ -54,6 +54,13 @@ export interface PlayerSummary {
 export interface PlayerClaim {
   entityId: string
   name: string
+  isOwner?: boolean | null
+  /** 1 or 0 per permission */
+  memberPermissions?: {
+    inventoryPermission?: number | null
+    officerPermission?: number | null
+    coOwnerPermission?: number | null
+  } | null
   regionId?: number | null
   regionName?: string | null
 }
@@ -98,6 +105,8 @@ export interface BuildingSlot {
 
 export interface BuildingInventory {
   entityId: string
+  /** building_desc id: the kind of building */
+  buildingDescriptionId?: number | null
   buildingName?: string | null
   buildingNickname?: string | null
   inventory?: BuildingSlot[] | null

@@ -39,6 +39,7 @@ describe('whose inventory a page uses', () => {
     expect(await inventoryScope(me.id)).toEqual({
       playerIds: [me.player],
       claimIds: [],
+      excludedBuildingIds: [],
       planClaims: [],
       hasMine: true,
       hasOthers: false,
@@ -53,6 +54,7 @@ describe('whose inventory a page uses', () => {
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
       claimIds: [],
+      excludedBuildingIds: [],
       planClaims: [],
       hasMine: true,
       hasOthers: false,
@@ -115,6 +117,7 @@ describe('whose inventory a page uses', () => {
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
       claimIds: [],
+      excludedBuildingIds: [],
       planClaims: [],
       hasMine: true,
       hasOthers: true,

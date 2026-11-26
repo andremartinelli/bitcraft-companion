@@ -1,3 +1,4 @@
+import { excludedBuildingIds } from '@/models/claim_building_choice'
 import { countedClaims } from '@/models/counted_claim'
 import { accountPlayerIds, planPeople } from '@/models/game_player'
 import { planUserSetting } from '@/models/plan_user_setting'
@@ -11,7 +12,8 @@ import { planUserSetting } from '@/models/plan_user_setting'
  *
  * The chests of the claims each of those accounts counts ("Meu personagem")
  * come along with its character, each claim once; in a plan, each account can
- * leave some out for itself (decided 26/11/2026).
+ * leave some out for itself (decided 26/11/2026). Of those chests, only the
+ * kinds of building this account counts (models/claim_building_choice).
  */
 export interface InventoryScope extends StockOwners {
   /** In a plan: the claims its people count, and whether this account uses each one there */
@@ -27,6 +29,8 @@ export interface InventoryScope extends StockOwners {
 export interface StockOwners {
   playerIds: number[]
   claimIds: string[]
+  /** Claim chests of these kinds of building (buildings.id) stay out */
+  excludedBuildingIds?: number[]
 }
 
 export interface PlanClaim {
@@ -51,9 +55,11 @@ export async function inventoryScope(userId: number, planId?: number): Promise<I
     ...claim,
     used: !setting?.excludedClaimIds.includes(claim.entityId),
   }))
+  const claimIds = claims.filter((claim) => claim.used).map((claim) => claim.entityId)
   return {
     playerIds: onlyMine ? mine : [...mine, ...others],
-    claimIds: claims.filter((claim) => claim.used).map((claim) => claim.entityId),
+    claimIds,
+    excludedBuildingIds: await excludedBuildingIds(userId, claimIds),
     planClaims: planId ? claims : [],
     hasMine: mine.length > 0,
     hasOthers: others.length > 0,

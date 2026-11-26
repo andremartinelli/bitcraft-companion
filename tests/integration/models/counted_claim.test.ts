@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
-import { accountClaims, saveCountedClaim } from '@/models/counted_claim'
+import { accountClaims, countedClaims, saveCountedClaim } from '@/models/counted_claim'
 import { claimGamePlayer } from '@/models/game_player'
 import InventorySync from '@/services/game_sync/inventory_sync'
 import { bitjitaSource, CLAIM } from '../../helpers/bitjita'
@@ -23,11 +23,25 @@ describe('counted claims', () => {
 
     expect(await saveCountedClaim(accounts.userId, CLAIM.entityId, true)).toBe(true)
     expect(await accountClaims(accounts.userId)).toEqual([
-      { entityId: CLAIM.entityId, name: CLAIM.name, counted: true },
+      { entityId: CLAIM.entityId, name: CLAIM.name, counted: true, inventory: true },
     ])
     // Switched on twice is still one row
     await saveCountedClaim(accounts.userId, CLAIM.entityId, true)
     expect(await db.countedClaim.count()).toBe(1)
+  })
+
+  test('without inventory permission in the claim, it cannot be switched on and never counts', async () => {
+    await saveCountedClaim(accounts.userId, CLAIM.entityId, true)
+    await db.gamePlayer.update({
+      where: { id: accounts.playerIds[0] },
+      data: { claims: [{ entityId: CLAIM.entityId, name: CLAIM.name, inventory: false }] },
+    })
+    expect(await accountClaims(accounts.userId)).toEqual([
+      { entityId: CLAIM.entityId, name: CLAIM.name, counted: false, inventory: false },
+    ])
+    expect(await countedClaims([accounts.userId])).toEqual([])
+    expect(await saveCountedClaim(accounts.partnerId, CLAIM.entityId, false)).toBe(true)
+    expect(await saveCountedClaim(accounts.userId, CLAIM.entityId, true)).toBe(false)
   })
 
   test('switched on, the character is read again on the next page', async () => {
@@ -40,10 +54,10 @@ describe('counted claims', () => {
     await saveCountedClaim(accounts.userId, CLAIM.entityId, true)
     await saveCountedClaim(accounts.partnerId, CLAIM.entityId, true)
     await new InventorySync(bitjitaSource()).run('manual')
-    expect(await claimChests()).toBe(3)
+    expect(await claimChests()).toBe(4)
 
     await saveCountedClaim(accounts.userId, CLAIM.entityId, false)
-    expect(await claimChests()).toBe(3)
+    expect(await claimChests()).toBe(4)
     expect((await accountClaims(accounts.userId))[0].counted).toBe(false)
 
     await saveCountedClaim(accounts.partnerId, CLAIM.entityId, false)

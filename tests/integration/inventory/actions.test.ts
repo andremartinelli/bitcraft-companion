@@ -82,11 +82,13 @@ describe('Meu personagem (game_player actions)', () => {
       notice: 'Nimbus é o seu personagem. Sincronize o inventário para ver os itens.',
       username: '',
     })
-    const player = await db.gamePlayer.findUniqueOrThrow({ where: { entityId: PLAYER_ONE.entityId } })
+    const player = await db.gamePlayer.findUniqueOrThrow({
+      where: { entityId: PLAYER_ONE.entityId },
+    })
     expect([player.username, player.regionId, player.claims]).toEqual([
       'Nimbus',
       14,
-      [{ entityId: CLAIM.entityId, name: CLAIM.name }],
+      [{ entityId: CLAIM.entityId, name: CLAIM.name, inventory: true }],
     ])
     expect(await mine()).toBe(player.id)
     expect(vi.mocked(refresh)).toHaveBeenCalled()

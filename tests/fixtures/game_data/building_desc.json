@@ -1,1 +1,22 @@
-[{ "id": 50, "name": "Starter House" }]
+[
+  {
+    "id": 50,
+    "name": "Starter House",
+    "interact_permission": "None"
+  },
+  {
+    "id": 3007,
+    "name": "Sturdy Large Chest",
+    "interact_permission": "Claim"
+  },
+  {
+    "id": 3210,
+    "name": "Sturdy Barter Stall",
+    "interact_permission": "All"
+  },
+  {
+    "id": 90001,
+    "name": "Hexite Reserve",
+    "interact_permission": "Empire"
+  }
+]

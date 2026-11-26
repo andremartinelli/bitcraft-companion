@@ -2,10 +2,15 @@
 
 import { refresh } from 'next/cache'
 import { requireUser } from '@/lib/session'
+import { saveClaimBuildingChoice } from '@/models/claim_building_choice'
 import { saveCountedClaim } from '@/models/counted_claim'
 import { claimGamePlayer, releaseGamePlayer } from '@/models/game_player'
 import { findPlayerByNick } from '@/services/game_sync/find_player'
-import { countedClaimSchema, gamePlayerSchema } from '@/validators/game_player'
+import {
+  claimBuildingChoiceSchema,
+  countedClaimSchema,
+  gamePlayerSchema,
+} from '@/validators/game_player'
 
 export interface GamePlayerFormState {
   error: string | null
@@ -64,11 +69,26 @@ export async function destroyGamePlayer(): Promise<{ notice: string }> {
 
 /**
  * PATCH /game_player/claims/[id]: the claim's chests count toward the
- * account's inventory, or stop counting. Only a claim of its character.
+ * account's inventory, or stop counting. Only a claim of its character with
+ * inventory permission.
  */
 export async function updateCountedClaim(claimEntityId: string, counted: boolean) {
   const user = await requireUser()
   const parsed = countedClaimSchema.safeParse({ claimEntityId, counted })
-  if (parsed.success) await saveCountedClaim(user.id, parsed.data.claimEntityId, parsed.data.counted)
+  if (parsed.success)
+    await saveCountedClaim(user.id, parsed.data.claimEntityId, parsed.data.counted)
+  refresh()
+}
+
+/**
+ * PATCH /game_player/buildings/[id]: the account's claim chests of this kind of
+ * building count, or stop counting. Never the empire's (Hexite Reserve).
+ */
+export async function updateClaimBuildingChoice(buildingId: number, counted: boolean) {
+  const user = await requireUser()
+  const parsed = claimBuildingChoiceSchema.safeParse({ buildingId, counted })
+  if (parsed.success) {
+    await saveClaimBuildingChoice(user.id, parsed.data.buildingId, parsed.data.counted)
+  }
   refresh()
 }

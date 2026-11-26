@@ -27,3 +27,9 @@ export const countedClaimSchema = z.object({
   claimEntityId: z.string().regex(/^\d{1,20}$/),
   counted: z.boolean(),
 })
+
+/** PATCH /game_player/buildings/[id]: a kind of building of the claims counts, or not */
+export const claimBuildingChoiceSchema = z.object({
+  buildingId: z.number().int().positive(),
+  counted: z.boolean(),
+})

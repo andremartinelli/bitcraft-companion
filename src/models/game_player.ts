@@ -1,6 +1,6 @@
 import type { Prisma } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
-import type { PlayerInfo } from '@/services/game_sync/inventory_source'
+import type { PlayerClaimInfo, PlayerInfo } from '@/services/game_sync/inventory_source'
 
 type Tx = Prisma.TransactionClient
 
@@ -101,12 +101,17 @@ export function releaseGamePlayer(userId: number) {
   })
 }
 
-/** The character's claims as of the last read (game_players.claims) */
-export function playerClaims(claims: unknown): { entityId: string; name: string }[] {
+/**
+ * The character's claims as of the last read (game_players.claims), each with
+ * whether it can open the claim's chests (inventory permission).
+ */
+export function playerClaims(claims: unknown): PlayerClaimInfo[] {
   if (!Array.isArray(claims)) return []
   return claims.flatMap((claim) =>
     claim && typeof claim.entityId === 'string' && typeof claim.name === 'string'
-      ? [{ entityId: claim.entityId, name: claim.name }]
+      ? // shortcut: a read from before 26/11/2026 has no permission and counts as allowed
+        // until the character is read again (on the next page that shows the inventory)
+        [{ entityId: claim.entityId, name: claim.name, inventory: claim.inventory !== false }]
       : []
   )
 }

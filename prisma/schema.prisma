@@ -95,6 +95,7 @@ model User {
   recipeChoices   UserRecipeChoice[]
   planSettings    PlanUserSetting[]
   countedClaims   CountedClaim[]
+  buildingChoices ClaimBuildingChoice[]
 
   @@index([signupIp, createdAt])
   @@index([gamePlayerId])
@@ -175,6 +176,20 @@ model ToolType {
   extractionRecipes ExtractionRecipe[]
 
   @@map("tool_types")
+}
+
+/// A kind of building of the game (building_desc). Who can open it decides
+/// whether a claim's building of this kind counts by default (ClaimBuildingChoice).
+model Building {
+  id                 Int    @id
+  name               String
+  /// "Claim" (the claim's members: chests), "All" (anyone: a barter stall),
+  /// "Empire" (the Hexite Reserve) or "None"
+  interactPermission String @map("interact_permission")
+
+  choices ClaimBuildingChoice[]
+
+  @@map("buildings")
 }
 
 model BuildingType {
@@ -686,8 +701,9 @@ model GamePlayerTask {
 
 /// A claim whose chests count toward the account's inventory, switched on in
 /// "Meu personagem" (decided 26/11/2026). Only claims of the account's character:
-/// BitJita reads a claim's chests while someone counts it. Whole claims only, since
-/// BitJita does not say which chests a member can open (issue #25).
+/// BitJita reads a claim's chests while someone counts it, and only while the
+/// character has inventory permission there. Whole claims only: BitJita does not
+/// say which chests a member can open (issue #25); ClaimBuildingChoice picks by kind.
 model CountedClaim {
   userId        Int      @map("user_id")
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -700,6 +716,21 @@ model CountedClaim {
   @@map("counted_claims")
 }
 
+/// Which kinds of building of the counted claims count for the account
+/// ("Meu personagem", decided 26/11/2026). Without a row, the default: kinds the
+/// claim's members open ("Claim") count, the others don't; "Empire" never counts.
+model ClaimBuildingChoice {
+  userId     Int      @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buildingId Int      @map("building_id")
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  counted    Boolean
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([userId, buildingId])
+  @@map("claim_building_choices")
+}
+
 model InventoryContainer {
   id            Int           @id @default(autoincrement())
   kind          ContainerKind
@@ -710,6 +741,9 @@ model InventoryContainer {
   gamePlayer    GamePlayer?   @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
   claimEntityId String?       @map("claim_entity_id")
   claimName     String?       @map("claim_name")
+  /// The claim chest's kind of building (buildings.id). No foreign key: the sync
+  /// can see a kind the game data import has not brought yet
+  buildingId    Int?          @map("building_id")
   name          String
   lastSeenAt    DateTime?     @map("last_seen_at") @db.Timestamptz(3)
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)

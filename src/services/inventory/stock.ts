@@ -83,18 +83,24 @@ const ownerOf = (row: { username: string | null; claim_name: string | null }) =>
 const byLargest = (a: ItemPlace, b: ItemPlace) =>
   b.quantity - a.quantity || a.owner.localeCompare(b.owner)
 
-/** The places of these owners: the characters' own and the counted claims' chests */
-const ownedBy = ({ playerIds, claimIds }: StockOwners) => ({
+/** The places of these owners: the characters' own and the counted claims' chests of the counted kinds */
+const ownedBy = ({ playerIds, claimIds, excludedBuildingIds = [] }: StockOwners) => ({
   OR: [
     { gamePlayerId: { in: playerIds } },
-    { kind: 'claim' as const, claimEntityId: { in: claimIds } },
+    {
+      kind: 'claim' as const,
+      claimEntityId: { in: claimIds },
+      // A chest read before its kind was known counts
+      OR: [{ buildingId: null }, { buildingId: { notIn: excludedBuildingIds } }],
+    },
   ],
 })
 
 /** ownedBy in SQL, for the container `c` */
-const ownedBySql = ({ playerIds, claimIds }: StockOwners) => Prisma.sql`(
+const ownedBySql = ({ playerIds, claimIds, excludedBuildingIds = [] }: StockOwners) => Prisma.sql`(
   c.game_player_id = ANY(${playerIds}::int[])
-  OR (c.kind = 'claim' AND c.claim_entity_id = ANY(${claimIds}::text[])))`
+  OR (c.kind = 'claim' AND c.claim_entity_id = ANY(${claimIds}::text[])
+      AND (c.building_id IS NULL OR NOT c.building_id = ANY(${excludedBuildingIds}::int[]))))`
 
 /**
  * Every entry of the owners, with its place, owner and item; only items

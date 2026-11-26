@@ -26,7 +26,7 @@ describe('BitJita inventory source', () => {
       entityId: PLAYER_ONE.entityId,
       username: 'Nimbus',
       regionId: 14,
-      claims: [{ entityId: CLAIM.entityId, name: CLAIM.name }],
+      claims: [{ entityId: CLAIM.entityId, name: CLAIM.name, inventory: true }],
     })
     expect(summary(snapshot.containers)).toEqual([
       'stash: Settlement Stash',
@@ -90,7 +90,10 @@ describe('BitJita inventory source', () => {
       },
       { kind: 'claim', name: 'Sturdy Large Chest', items: [] },
       { kind: 'claim', name: 'Reserva', items: [{ kind: 'cargo', gameId: 1010, quantity: 4 }] },
+      { kind: 'claim', name: 'Banca', items: [{ kind: 'item', gameId: 1020, quantity: 5 }] },
     ])
+    // The kind of building, to pick which kinds count (models/claim_building_choice)
+    expect(snapshot.containers.map((c) => c.buildingId)).toEqual([3007, 3007, 90001, 3210])
   })
 
   test('both item formats are accepted in both places; empty slots are skipped', () => {
