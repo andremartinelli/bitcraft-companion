@@ -42,6 +42,9 @@ describe("the travelers' tasks page", () => {
       [2, false, ['3 Simple Plank (tem 1)', '2 Rough Wood Trunk (tem 3)']],
       [2, false, ['10 Rough Wood Scraps (tem 7)']],
     ])
+    // Where each item is, like the plan's "Coletar"
+    expect(brico.current[0].lines[0].holders).toEqual([{ owner: 'Nimbus', quantity: 50 }])
+    expect(brico.current[1].lines[0].holders).toEqual([{ owner: 'Nimbus', quantity: 1 }])
   })
 
   test("a task of the tier above the character's level does not show", async () => {
