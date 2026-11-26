@@ -2,9 +2,10 @@
 
 import { refresh } from 'next/cache'
 import { requireUser } from '@/lib/session'
+import { saveCountedClaim } from '@/models/counted_claim'
 import { claimGamePlayer, releaseGamePlayer } from '@/models/game_player'
 import { findPlayerByNick } from '@/services/game_sync/find_player'
-import { gamePlayerSchema } from '@/validators/game_player'
+import { countedClaimSchema, gamePlayerSchema } from '@/validators/game_player'
 
 export interface GamePlayerFormState {
   error: string | null
@@ -59,4 +60,15 @@ export async function destroyGamePlayer(): Promise<{ notice: string }> {
       ? `${removed.username} removido do seu inventário.`
       : 'Você já não tinha personagem.',
   }
+}
+
+/**
+ * PATCH /game_player/claims/[id]: the claim's chests count toward the
+ * account's inventory, or stop counting. Only a claim of its character.
+ */
+export async function updateCountedClaim(claimEntityId: string, counted: boolean) {
+  const user = await requireUser()
+  const parsed = countedClaimSchema.safeParse({ claimEntityId, counted })
+  if (parsed.success) await saveCountedClaim(user.id, parsed.data.claimEntityId, parsed.data.counted)
+  refresh()
 }

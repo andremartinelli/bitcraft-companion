@@ -94,6 +94,7 @@ model User {
   syncRuns        SyncRun[]
   recipeChoices   UserRecipeChoice[]
   planSettings    PlanUserSetting[]
+  countedClaims   CountedClaim[]
 
   @@index([signupIp, createdAt])
   @@index([gamePlayerId])
@@ -622,6 +623,22 @@ model GamePlayer {
   accounts   User[]
 
   @@map("game_players")
+}
+
+/// A claim whose chests count toward the account's inventory, switched on in
+/// "Meu personagem" (decided 26/11/2026). Only claims of the account's character:
+/// BitJita reads a claim's chests while someone counts it. Whole claims only, since
+/// BitJita does not say which chests a member can open (issue #25).
+model CountedClaim {
+  userId        Int      @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// BitJita's entityId of the claim: 18 digits
+  claimEntityId String   @map("claim_entity_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([userId, claimEntityId])
+  @@index([claimEntityId])
+  @@map("counted_claims")
 }
 
 model InventoryContainer {

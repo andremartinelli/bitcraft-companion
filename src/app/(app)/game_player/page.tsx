@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import { AddGamePlayerForm } from '@/components/game_players/add_game_player_form'
+import { CountedClaims } from '@/components/game_players/counted_claims'
 import { GamePlayerTable, type GamePlayerRow } from '@/components/game_players/game_player_table'
 import { EmptyNotice } from '@/components/layout/empty_notice'
 import { LinkButton } from '@/components/layout/link_button'
 import { PageHeader } from '@/components/layout/page_header'
 import { formatAgo } from '@/lib/format'
 import { requireUser } from '@/lib/session'
+import { accountClaims } from '@/models/counted_claim'
 import { claimNames, findAccountPlayer } from '@/models/game_player'
 
 export const metadata: Metadata = { title: 'Meu personagem' }
@@ -29,7 +31,7 @@ const toRow = (player: NonNullable<Awaited<ReturnType<typeof findAccountPlayer>>
  */
 export default async function GamePlayerPage() {
   const user = await requireUser()
-  const mine = await findAccountPlayer(user.id)
+  const [mine, claims] = await Promise.all([findAccountPlayer(user.id), accountClaims(user.id)])
 
   return (
     <>
@@ -39,7 +41,10 @@ export default async function GamePlayerPage() {
         actions={<LinkButton href="/inventory">Inventário</LinkButton>}
       />
       {mine ? (
-        <GamePlayerTable players={[toRow(mine)]} />
+        <>
+          <GamePlayerTable players={[toRow(mine)]} />
+          {claims.length > 0 && <CountedClaims claims={claims} />}
+        </>
       ) : (
         <>
           <AddGamePlayerForm />

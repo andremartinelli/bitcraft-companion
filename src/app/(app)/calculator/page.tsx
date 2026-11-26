@@ -26,10 +26,11 @@ export default async function CalculatorPage({
 }) {
   const user = await requireUser()
   const { state, errors } = readStateFromQuery(await searchParams)
-  const { playerIds, hasMine } = await inventoryScope(user.id)
+  const scope = await inventoryScope(user.id)
+  const { playerIds, hasMine } = scope
   const [panel, freshness] = await Promise.all([
     // The account's recipes where the URL chose none; the URL keeps only its own
-    withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, playerIds)),
+    withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, scope)),
     inventoryFreshness(playerIds),
   ])
   return (

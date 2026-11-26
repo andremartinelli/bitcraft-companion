@@ -34,14 +34,14 @@ export default async function ItemPage({ params }: ItemPageProps) {
   const item = await loadItem((await params).id)
   if (!item) notFound()
 
-  const { playerIds } = await inventoryScope(user.id)
+  const scope = await inventoryScope(user.id)
   const [producers, consumers, synced] = await Promise.all([
     producingRecipes(item.id),
     consumingRecipes(item.id),
-    db.gamePlayer.count({ where: { id: { in: playerIds }, lastSyncedAt: { not: null } } }),
+    db.gamePlayer.count({ where: { id: { in: scope.playerIds }, lastSyncedAt: { not: null } } }),
   ])
   // "Você tem" once the account's character was read
-  const stock = synced ? await itemStock(item.id, playerIds) : null
+  const stock = synced ? await itemStock(item.id, scope) : null
 
   return (
     <ItemDetails

@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { calculate } from '@/services/calculator/calculate'
 import { emptyState } from '@/services/calculator/state_params'
 import { importTables, withSecondStrippedWoodRecipe } from '../../helpers/game_data'
-import { addBothPlayers, syncBothPlayers } from '../../helpers/inventory'
+import { addBothPlayers, charactersOnly, syncBothPlayers } from '../../helpers/inventory'
 
 const itemId = async (kind: 'item' | 'cargo', gameId: number) =>
   (await db.item.findUniqueOrThrow({ where: { kind_gameId: { kind, gameId } } })).id
@@ -12,7 +12,7 @@ describe('calculation as the page shows it', () => {
   beforeEach(() => importTables())
 
   test('starts empty', async () => {
-    const panel = await calculate(emptyState(), [])
+    const panel = await calculate(emptyState(), charactersOnly([]))
     expect(panel.empty).toBe(true)
     expect(panel.inventory).toEqual({ available: false, syncedAt: null })
   })
@@ -21,7 +21,7 @@ describe('calculation as the page shows it', () => {
     const plank = await itemId('item', 1030)
     const panel = await calculate(
       { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
-      []
+      charactersOnly([])
     )
 
     // Round 1 gathers; nothing in stock, so the crafts (log, stripped wood,
@@ -53,7 +53,7 @@ describe('calculation as the page shows it', () => {
         choices: { [stripped]: 'raw' },
         owned: { [stripped]: 5 },
       },
-      []
+      charactersOnly([])
     )
 
     const node = panel.trees[0].children[0]
@@ -80,7 +80,7 @@ describe('calculation as the page shows it', () => {
     const plank = await itemId('item', 1030)
     const panel = await calculate(
       { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
-      playerIds
+      charactersOnly(playerIds)
     )
 
     expect(panel.inventory).toMatchObject({ available: true })
@@ -99,7 +99,7 @@ describe('calculation as the page shows it', () => {
         targets: [{ itemId: plank, quantity: 10 }],
         owned: { [plank]: 0, [stripped]: 3 },
       },
-      playerIds
+      charactersOnly(playerIds)
     )
 
     const node = panel.trees[0]
@@ -118,7 +118,7 @@ describe('calculation as the page shows it', () => {
     const plank = await itemId('item', 1030)
     const panel = await calculate(
       { ...emptyState(), targets: [{ itemId: plank, quantity: 10 }] },
-      playerIds
+      charactersOnly(playerIds)
     )
 
     expect(panel.inventory).toEqual({ available: false, syncedAt: null })
@@ -137,7 +137,7 @@ describe('calculation as the page shows it', () => {
         owned: { [plank]: 0 },
         choices: { [log]: 'raw' },
       },
-      playerIds
+      charactersOnly(playerIds)
     )
 
     const logs = panel.materials.find((m) => m.item.id === log)!
@@ -153,7 +153,7 @@ describe('calculation as the page shows it', () => {
         ...emptyState(),
         buildings: [{ recipeId: house.id, quantity: 1 }],
       },
-      []
+      charactersOnly([])
     )
 
     expect(panel.buildings.map((b) => [b.recipe.name, b.quantity, b.removed])).toEqual([
@@ -171,7 +171,7 @@ describe('calculation as the page shows it', () => {
         targets: [{ itemId: plank, quantity: 10 }],
         owned: { [stripped]: 20 },
       },
-      []
+      charactersOnly([])
     )
 
     const done = [
@@ -193,7 +193,7 @@ describe('calculation as the page shows it', () => {
     const stepOf = (panel: Awaited<ReturnType<typeof calculate>>, id: number) =>
       panel.rounds.flatMap((round) => round.steps).find((step) => step.itemId === id)!
 
-    const panel = await calculate(state, [])
+    const panel = await calculate(state, charactersOnly([]))
     expect(
       stepOf(panel, stripped).recipes.map((r) => [
         r.inputsLabel,
@@ -210,7 +210,7 @@ describe('calculation as the page shows it', () => {
     expect(stepOf(panel, plank).recipes).toEqual([])
 
     const carved = stepOf(
-      await calculate({ ...state, choices: { [stripped]: carve.id } }, []),
+      await calculate({ ...state, choices: { [stripped]: carve.id } }, charactersOnly([])),
       stripped
     )
     expect(carved.recipes.map((r) => [r.isDefault, r.inUse])).toEqual([

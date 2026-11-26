@@ -46,12 +46,12 @@ export default async function InventoryPage({
   const tab = filters.tab ?? TABS[0].value
   const q = filters.q ?? ''
 
-  const { playerIds } = await inventoryScope(user.id)
+  const scope = await inventoryScope(user.id)
   const [latest, lastGood, freshness, listing] = await Promise.all([
     latestSyncRun(user.id),
     lastSuccessfulSyncRun(user.id),
-    inventoryFreshness(playerIds),
-    inventoryListing(playerIds, tab, q),
+    inventoryFreshness(scope.playerIds),
+    inventoryListing(scope, tab, q),
   ])
 
   return (

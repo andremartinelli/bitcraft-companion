@@ -21,3 +21,9 @@ export const optionalNick = () =>
     .max(NICK_MAX, { error: `O nick pode ter no máximo ${NICK_MAX} caracteres.` })
     .optional()
     .transform((nick) => nick || null)
+
+/** PATCH /game_player/claims/[id]: a claim's chests count, or not. BitJita's ids are digits */
+export const countedClaimSchema = z.object({
+  claimEntityId: z.string().regex(/^\d{1,20}$/),
+  counted: z.boolean(),
+})

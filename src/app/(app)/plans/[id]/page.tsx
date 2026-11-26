@@ -54,7 +54,7 @@ export default async function PlanPage({ params }: PlanPageProps) {
   const owner = plan.createdById === user.id
   const scope = await inventoryScope(user.id, plan.id)
   const [panel, freshness, groups, quickPlans] = await Promise.all([
-    calculate(state, scope.playerIds),
+    calculate(state, scope),
     inventoryFreshness(scope.playerIds),
     owner ? listGroups(user.id) : [],
     quickPlanCatalog(),

@@ -7,12 +7,17 @@ import { emptyState } from '@/services/calculator/state_params'
 import { inventoryScope } from '@/services/inventory/scope'
 
 let next = 0
-/** An account with its own character (`player`: an id to share one) */
+/** An account with its own character (`player`: an id to share one), a member of claim "c<n>" */
 async function account(player?: number | null) {
   next++
+  const claims = [{ entityId: `c${next}`, name: `Vila ${next}` }]
   const gamePlayerId =
     player === undefined
-      ? (await db.gamePlayer.create({ data: { username: `P${next}`, entityId: `${next}` } })).id
+      ? (
+          await db.gamePlayer.create({
+            data: { username: `P${next}`, entityId: `${next}`, claims },
+          })
+        ).id
       : player
   const user = await db.user.create({
     data: { email: `p${next}@example.com`, password: '-', gamePlayerId },
@@ -33,6 +38,7 @@ describe('whose inventory a page uses', () => {
     await account()
     expect(await inventoryScope(me.id)).toEqual({
       playerIds: [me.player],
+      claimIds: [],
       hasMine: true,
       hasOthers: false,
       onlyMine: false,
@@ -45,6 +51,7 @@ describe('whose inventory a page uses', () => {
     const plan = await newPlan(me.id)
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
+      claimIds: [],
       hasMine: true,
       hasOthers: false,
       onlyMine: false,
@@ -105,6 +112,7 @@ describe('whose inventory a page uses', () => {
 
     expect(await inventoryScope(me.id, plan.id)).toEqual({
       playerIds: [me.player],
+      claimIds: [],
       hasMine: true,
       hasOthers: true,
       onlyMine: true,
@@ -121,5 +129,50 @@ describe('whose inventory a page uses', () => {
     await db.planShare.create({ data: { planId: plan.id, userId: mine.id } })
 
     expect((await inventoryScope(mine.id, plan.id)).playerIds).toEqual([owner.player])
+  })
+
+  describe("the claims' chests", () => {
+    const counts = async (userId: number) => {
+      const user = await db.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { gamePlayer: { select: { claims: true } } },
+      })
+      const [claim] = user.gamePlayer!.claims as { entityId: string }[]
+      await db.countedClaim.create({ data: { userId, claimEntityId: claim.entityId } })
+      return claim.entityId
+    }
+
+    test('outside a plan: the claims the account counts, not the others', async () => {
+      const mine = await counts(me.id)
+      const other = await account()
+      await counts(other.id)
+      expect((await inventoryScope(me.id)).claimIds).toEqual([mine])
+    })
+
+    test('a claim the character left stops counting', async () => {
+      await counts(me.id)
+      await db.gamePlayer.update({ where: { id: me.player! }, data: { claims: [] } })
+      expect((await inventoryScope(me.id)).claimIds).toEqual([])
+    })
+
+    test("in a plan: the claims of the plan's people come with them, each once", async () => {
+      const [other, twin] = [await account(), await account()]
+      const plan = await newPlan(me.id)
+      await db.planShare.createMany({
+        data: [other, twin].map((person) => ({ planId: plan.id, userId: person.id })),
+      })
+      const mine = await counts(me.id)
+      const theirs = await counts(other.id)
+      // Twin's character is in my claim too, and counts it
+      await db.gamePlayer.update({
+        where: { id: twin.player! },
+        data: { claims: [{ entityId: mine, name: 'Minha' }] },
+      })
+      await db.countedClaim.create({ data: { userId: twin.id, claimEntityId: mine } })
+
+      expect((await inventoryScope(me.id, plan.id)).claimIds.sort()).toEqual([mine, theirs].sort())
+      await saveOnlyMyInventory(plan.id, me.id, true)
+      expect((await inventoryScope(me.id, plan.id)).claimIds).toEqual([mine])
+    })
   })
 })

@@ -63,3 +63,6 @@ export async function quantityIn(
   if (rows.length > 1) throw new Error(`"${containerName}" is ambiguous: pass the player`)
   return rows.length ? rows[0].quantity : null
 }
+
+/** Stock owners without claims: these characters only */
+export const charactersOnly = (playerIds: number[]) => ({ playerIds, claimIds: [] })

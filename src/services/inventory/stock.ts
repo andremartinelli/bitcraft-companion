@@ -4,9 +4,10 @@ import { namesMatch, searchWords } from '@/lib/search'
 import { defaultProducer, producersOf } from '@/services/calculator/production_planner'
 import { getRecipeGraph, type RecipeGraph } from '@/services/calculator/recipe_graph'
 import { ANY_PROFESSION, NO_PROFESSION, type ItemHolder } from '@/services/inventory/professions'
+import type { StockOwners } from '@/services/inventory/scope'
 
 /**
- * The stock of some characters, as of the last sync (whose: services/inventory/scope).
+ * The stock of some characters and claims, as of the last sync (whose: services/inventory/scope).
  * The inventory page by tab, the item page's "Você tem", and what the
  * calculator uses as "já tenho".
  */
@@ -82,11 +83,24 @@ const ownerOf = (row: { username: string | null; claim_name: string | null }) =>
 const byLargest = (a: ItemPlace, b: ItemPlace) =>
   b.quantity - a.quantity || a.owner.localeCompare(b.owner)
 
+/** The places of these owners: the characters' own and the counted claims' chests */
+const ownedBy = ({ playerIds, claimIds }: StockOwners) => ({
+  OR: [
+    { gamePlayerId: { in: playerIds } },
+    { kind: 'claim' as const, claimEntityId: { in: claimIds } },
+  ],
+})
+
+/** ownedBy in SQL, for the container `c` */
+const ownedBySql = ({ playerIds, claimIds }: StockOwners) => Prisma.sql`(
+  c.game_player_id = ANY(${playerIds}::int[])
+  OR (c.kind = 'claim' AND c.claim_entity_id = ANY(${claimIds}::text[])))`
+
 /**
- * Every entry of the characters, with its place, owner and item; only items
+ * Every entry of the owners, with its place, owner and item; only items
  * whose name has every word of `q`
  */
-function entries(playerIds: number[], q?: string) {
+function entries(owners: StockOwners, q?: string) {
   const words = searchWords(q)
   return db.$queryRaw<EntryRow[]>`
     SELECT e.item_id, e.quantity, c.id AS container_id, c.name AS container_name,
@@ -95,8 +109,8 @@ function entries(playerIds: number[], q?: string) {
     FROM inventory_entries e
     JOIN inventory_containers c ON c.id = e.container_id
     JOIN items i ON i.id = e.item_id
-    JOIN game_players p ON p.id = c.game_player_id
-    WHERE p.id = ANY(${playerIds}::int[])
+    LEFT JOIN game_players p ON p.id = c.game_player_id
+    WHERE ${ownedBySql(owners)}
       AND ${words.length ? namesMatch('i.name', words) : Prisma.sql`TRUE`}`
 }
 
@@ -151,11 +165,11 @@ function professionOf(graph: RecipeGraph, itemId: number) {
  * total ("Tudo"), or each place.
  */
 export async function inventoryListing(
-  playerIds: number[],
+  owners: StockOwners,
   tab: InventoryTab,
   q?: string
 ): Promise<{ sections: StockSection[] }> {
-  const rows = await entries(playerIds, q)
+  const rows = await entries(owners, q)
 
   if (tab === 'professions') {
     const graph = await getRecipeGraph()
@@ -203,26 +217,26 @@ export async function inventoryListing(
   return { sections }
 }
 
-/** The characters' total of each item: what the calculator can use as "já tenho" */
-export async function stockTotals(playerIds: number[]): Promise<Map<number, number>> {
+/** The owners' total of each item: what the calculator can use as "já tenho" */
+export async function stockTotals(owners: StockOwners): Promise<Map<number, number>> {
   const rows = await db.inventoryEntry.groupBy({
     by: ['itemId'],
-    where: { container: { gamePlayerId: { in: playerIds } } },
+    where: { container: ownedBy(owners) },
     _sum: { quantity: true },
   })
   return new Map(rows.map((row) => [row.itemId, Number(row._sum.quantity ?? 0)]))
 }
 
-/** Each item's holders among the characters, the one with most first (the plan's "Coletar") */
-export async function holdersByItem(playerIds: number[]): Promise<Map<number, ItemHolder[]>> {
+/** Each item's holders among the owners, the one with most first (the plan's "Coletar") */
+export async function holdersByItem(owners: StockOwners): Promise<Map<number, ItemHolder[]>> {
   const rows = await db.$queryRaw<
     { item_id: number; quantity: number; username: string | null; claim_name: string | null }[]
   >`
     SELECT e.item_id, e.quantity, p.username, c.claim_name
     FROM inventory_entries e
     JOIN inventory_containers c ON c.id = e.container_id
-    JOIN game_players p ON p.id = c.game_player_id
-    WHERE p.id = ANY(${playerIds}::int[])`
+    LEFT JOIN game_players p ON p.id = c.game_player_id
+    WHERE ${ownedBySql(owners)}`
 
   const byItem = new Map<number, Map<string, number>>()
   for (const row of rows) {
@@ -241,10 +255,10 @@ export async function holdersByItem(playerIds: number[]): Promise<Map<number, It
   )
 }
 
-/** Where the characters keep an item, and how many in all (the item page) */
-export async function itemStock(itemId: number, playerIds: number[]) {
+/** Where the owners keep an item, and how many in all (the item page) */
+export async function itemStock(itemId: number, owners: StockOwners) {
   const rows = await db.inventoryEntry.findMany({
-    where: { itemId, container: { gamePlayerId: { in: playerIds } } },
+    where: { itemId, container: ownedBy(owners) },
     select: {
       quantity: true,
       container: {

@@ -24,10 +24,10 @@ export async function accountPlayerIds(userId: number) {
 }
 
 /**
- * The characters of a plan's other people: its owner and whoever it is shared
- * with (one by one or "Todos do grupo"), each once
+ * A plan's other people with a character: its owner and whoever it is shared
+ * with (one by one or "Todos do grupo")
  */
-export async function planPeoplePlayerIds(planId: number, userId: number) {
+export async function planPeople(planId: number, userId: number) {
   const people = await db.user.findMany({
     where: {
       id: { not: userId },
@@ -38,9 +38,9 @@ export async function planPeoplePlayerIds(planId: number, userId: number) {
         { groupMembers: { some: { group: { planShares: { some: { planId } } } } } },
       ],
     },
-    select: { gamePlayerId: true },
+    select: { id: true, gamePlayerId: true },
   })
-  return [...new Set(people.map((person) => person.gamePlayerId!))]
+  return people.map((person) => ({ id: person.id, gamePlayerId: person.gamePlayerId! }))
 }
 
 /**
@@ -54,7 +54,10 @@ async function setAccountPlayer(tx: Tx, userId: number, playerId: number | null)
     select: { gamePlayerId: true },
   })
   await tx.user.update({ where: { id: userId }, data: { gamePlayerId: playerId } })
-  if (before.gamePlayerId === null || before.gamePlayerId === playerId) return
+  if (before.gamePlayerId === playerId) return
+  // The claims counted were the old character's
+  await tx.countedClaim.deleteMany({ where: { userId } })
+  if (before.gamePlayerId === null) return
   await tx.gamePlayer.deleteMany({ where: { id: before.gamePlayerId, accounts: { none: {} } } })
 }
 
@@ -98,13 +101,20 @@ export function releaseGamePlayer(userId: number) {
   })
 }
 
+/** The character's claims as of the last read (game_players.claims) */
+export function playerClaims(claims: unknown): { entityId: string; name: string }[] {
+  if (!Array.isArray(claims)) return []
+  return claims.flatMap((claim) =>
+    claim && typeof claim.entityId === 'string' && typeof claim.name === 'string'
+      ? [{ entityId: claim.entityId, name: claim.name }]
+      : []
+  )
+}
+
 /** "Vila A, Vila B", as of the last read */
 export function claimNames(claims: unknown) {
-  if (!Array.isArray(claims)) return ''
-  return claims
-    .map((claim) =>
-      claim && typeof claim === 'object' ? (claim as { name?: unknown }).name : null
-    )
-    .filter((name): name is string => typeof name === 'string' && name !== '')
+  return playerClaims(claims)
+    .map((claim) => claim.name)
+    .filter((name) => name !== '')
     .join(', ')
 }
