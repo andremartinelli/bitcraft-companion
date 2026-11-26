@@ -101,6 +101,37 @@ describe('inventory sync', () => {
     expect(await quantityIn('Baú de madeira', 'item', 1030)).toBe(100)
   })
 
+  test("stores the skills' XP and the travelers' tasks the character has now", async () => {
+    await new InventorySync(bitjitaSource()).run('manual')
+    const tasksOf = async (entityId: string) =>
+      (
+        await db.gamePlayerTask.findMany({
+          where: { gamePlayer: { entityId } },
+          include: { travelerTask: true },
+          orderBy: { travelerTask: { gameId: 'asc' } },
+        })
+      ).map((task) => [task.travelerTask.gameId, task.completed])
+
+    const one = await db.gamePlayer.findUniqueOrThrow({ where: { entityId: PLAYER_ONE.entityId } })
+    expect(one.skills).toEqual({ '15': 57740, '3': 1100 })
+    // 9999 is newer than the game data: skipped
+    expect(await tasksOf(PLAYER_ONE.entityId)).toEqual([
+      [9001, false],
+      [9002, false],
+    ])
+    expect(await tasksOf(PLAYER_TWO.entityId)).toEqual([[9001, true]])
+
+    // The game renewed them; a player with no tasks answers 404
+    const responses = recordedResponses()
+    responses[`/api/players/${PLAYER_ONE.entityId}/traveler-tasks`] = {
+      body: { tasks: [{ taskId: 9003, completed: true }] },
+    }
+    responses[`/api/players/${PLAYER_TWO.entityId}/traveler-tasks`] = { status: 404, body: {} }
+    await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual')
+    expect(await tasksOf(PLAYER_ONE.entityId)).toEqual([[9003, true]])
+    expect(await tasksOf(PLAYER_TWO.entityId)).toEqual([])
+  })
+
   test('BitJita down: the run fails and the previous data stays', async () => {
     await new InventorySync(bitjitaSource()).run('manual')
     const before = await db.inventoryEntry.count()

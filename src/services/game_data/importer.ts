@@ -9,10 +9,12 @@ import {
   toCraftingRecipeRows,
   toExtractionRecipeRows,
   toHuntingRows,
+  toTravelerTaskRows,
   toItemListRows,
   toItemRows,
   type ClaimTechRow,
   type ExtractionRecipeRow,
+  type TravelerTaskRow,
   type ItemKey,
   type ItemListRow,
   type ItemRow,
@@ -76,6 +78,8 @@ export default class GameDataImporter {
       claimTechs: await source.read('claim_tech_desc'),
       extraction: await source.read('extraction_recipe_desc'),
       enemies: await source.read('enemy_desc'),
+      travelerTasks: await source.read('traveler_task_desc'),
+      npcs: await source.read('npc_desc'),
     }
 
     // Transform everything first: a format error must stop the import before any write.
@@ -94,6 +98,7 @@ export default class GameDataImporter {
       ...toExtractionRecipeRows(tables.extraction),
       ...toHuntingRows(tables.enemies),
     ]
+    const travelerTaskRows = toTravelerTaskRows(tables.travelerTasks, tables.npcs)
 
     return this.client.$transaction(
       async (tx) => {
@@ -133,12 +138,16 @@ export default class GameDataImporter {
         this.onProgress(`Coletas e caça (${extractionRows.length})`)
         await upsertExtractionRecipes(tx, extractionRows, itemIds, lookups, stamp, summary)
 
+        this.onProgress(`Tasks dos viajantes (${travelerTaskRows.length})`)
+        await upsertTravelerTasks(tx, travelerTaskRows, itemIds, stamp, summary)
+
         this.onProgress('Marcando o que saiu do jogo')
         summary.removed.items = await markRemoved(tx, 'items', stamp)
         summary.removed.itemLists = await markRemoved(tx, 'item_lists', stamp)
         summary.removed.recipes = await markRemoved(tx, 'recipes', stamp)
         await markRemoved(tx, 'claim_techs', stamp)
         await markRemoved(tx, 'extraction_recipes', stamp)
+        await markRemoved(tx, 'traveler_tasks', stamp)
 
         this.onProgress('Grafo de receitas da calculadora')
         const graph = buildRecipeGraph(await loadGraphRows(tx))
@@ -157,6 +166,7 @@ export default class GameDataImporter {
           claimTechs: claimTechRows.length,
           extractionRecipes: extractionRows.filter((row) => row.source === 'resource').length,
           hunting: extractionRows.filter((row) => row.source === 'enemy').length,
+          travelerTasks: travelerTaskRows.length,
         }
         // finished_at last: the app switches to this import (and its graph) only now
         await tx.gameDataImport.update({
@@ -468,6 +478,53 @@ async function upsertClaimTechs(
     }
   }
   await insertStacks(tx, 'claim_tech_inputs', 'claim_tech_id', inputs)
+}
+
+async function upsertTravelerTasks(
+  tx: Tx,
+  rows: TravelerTaskRow[],
+  itemIds: Map<ItemKey, number>,
+  stamp: Stamp,
+  summary: ImportSummary
+) {
+  const values = rows.map((row) => ({
+    game_id: row.gameId,
+    traveler: row.traveler,
+    skill_id: row.skillId,
+    min_level: row.minLevel,
+    tier: row.tier,
+    description: row.description,
+  }))
+  await tx.$executeRaw`
+    INSERT INTO traveler_tasks (game_id, traveler, skill_id, min_level, tier, description,
+                                removed_at, last_import_id, created_at, updated_at)
+    SELECT r.game_id, r.traveler, r.skill_id, r.min_level, r.tier, r.description,
+           NULL, ${stamp.importId}, ${stamp.now}, ${stamp.now}
+    FROM jsonb_to_recordset(${rowsJson(values)}::jsonb) AS r(
+      game_id int, traveler text, skill_id int, min_level int, tier int, description text)
+    ON CONFLICT (game_id) DO UPDATE SET
+      traveler = EXCLUDED.traveler, skill_id = EXCLUDED.skill_id,
+      min_level = EXCLUDED.min_level, tier = EXCLUDED.tier, description = EXCLUDED.description,
+      removed_at = NULL, last_import_id = EXCLUDED.last_import_id, updated_at = EXCLUDED.updated_at`
+
+  const taskIds = new Map(
+    (await tx.travelerTask.findMany({ select: { id: true, gameId: true } })).map((r) => [
+      r.gameId,
+      r.id,
+    ])
+  )
+  await tx.$executeRaw`
+    DELETE FROM traveler_task_inputs
+    WHERE traveler_task_id IN (SELECT id FROM traveler_tasks WHERE last_import_id = ${stamp.importId})`
+
+  const inputs: object[] = []
+  for (const row of rows) {
+    const ownerId = taskIds.get(row.gameId)!
+    for (const s of resolveStacks(row.inputs, itemIds, summary)) {
+      inputs.push({ owner_id: ownerId, item_id: s.itemId, quantity: s.quantity })
+    }
+  }
+  await insertStacks(tx, 'traveler_task_inputs', 'traveler_task_id', inputs)
 }
 
 async function upsertExtractionRecipes(

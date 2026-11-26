@@ -75,6 +75,10 @@ O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme
 
 Só um sync roda por vez. Se a BitJita falhar, os dados anteriores ficam, e a página diz quem não foi lido.
 
+## Tasks
+
+A página **Tasks** (`/tasks`) mostra as tasks dos viajantes (não as quests). Em cima, as tasks que o seu personagem tem agora, lidas da BitJita junto com o inventário. Embaixo, todas as tasks do seu tier em cada viajante, dos dados do jogo: o tier vem do seu nível na habilidade do viajante (nível 20 → T2 ... 100 → T10, abaixo de 20 → T1). Às vezes os viajantes também dão tasks de um ou dois tiers abaixo. Cada item mostra quanto você tem (o seu personagem e as claims marcadas) e quanto falta.
+
 ## Testes
 
 ```bash

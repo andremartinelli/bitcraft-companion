@@ -32,10 +32,12 @@ export function recordedResponses(): Record<string, FakeResponse> {
     [one]: { body: bitjitaFixture('player_one') },
     [`${one}/inventories`]: { body: bitjitaFixture('player_one_inventories') },
     [`${one}/housing`]: { status: 404, body: bitjitaFixture('housing_not_found') },
+    [`${one}/traveler-tasks`]: { body: bitjitaFixture('player_one_traveler_tasks') },
     [two]: { body: bitjitaFixture('player_two') },
     [`${two}/inventories`]: { body: bitjitaFixture('player_two_inventories') },
     [`${two}/housing`]: { body: bitjitaFixture('player_two_housing') },
     [`${two}/housing/${HOUSE_ID}`]: { body: bitjitaFixture('player_two_house') },
+    [`${two}/traveler-tasks`]: { body: bitjitaFixture('player_two_traveler_tasks') },
     [`/api/claims/${CLAIM.entityId}/inventories`]: { body: bitjitaFixture('claim_inventories') },
   }
 }

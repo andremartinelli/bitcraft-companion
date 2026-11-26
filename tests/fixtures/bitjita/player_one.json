@@ -14,7 +14,10 @@
     "travelerTasksExpiration": "0",
     "createdAt": "2026-11-20 12:00:00.000000+00",
     "updatedAt": "2026-11-20 12:00:00.000000+00",
-    "experience": [],
+    "experience": [
+      { "quantity": 57740, "skill_id": 15 },
+      { "quantity": 1100, "skill_id": 3 }
+    ],
     "lastLoginTimestamp": "2026-11-20 12:00:00.000000+00",
     "role": null,
     "locationX": 1000,

@@ -6,6 +6,7 @@ import BitJitaClient, {
   type PlayerDetail,
   type PlayerInventory,
   type PlayerPocket,
+  type PlayerTravelerTask,
 } from '@/services/game_sync/bitjita_client'
 
 export interface StackRef {
@@ -39,6 +40,10 @@ export interface PlayerInfo {
 export interface PlayerSnapshot {
   player: PlayerInfo
   containers: ContainerSnapshot[]
+  /** Total XP per skill id */
+  skills: Record<string, number>
+  /** The travelers' tasks the player has now, by traveler_task_desc id */
+  tasks: { gameId: number; completed: boolean }[]
 }
 
 export interface ClaimSnapshot {
@@ -54,7 +59,7 @@ export interface InventorySource {
   readonly name: string
   /** Exact nick, ignoring case. Null when there is no such player. */
   findPlayer(username: string): Promise<PlayerInfo | null>
-  /** Personal inventories, bank, stash, carts and house */
+  /** Personal inventories, bank, stash, carts and house; also the skills' XP and the travelers' tasks */
   fetchPlayer(entityId: string): Promise<PlayerSnapshot>
   /** The claim's chests, shared by its members */
   fetchClaim(claimEntityId: string): Promise<ClaimSnapshot>
@@ -174,7 +179,17 @@ export class BitJitaInventorySource implements InventorySource {
       }
     }
 
-    return { player: toPlayerInfo(player), containers }
+    return {
+      player: toPlayerInfo(player),
+      containers,
+      skills: Object.fromEntries(
+        (player.experience ?? []).map((e) => [String(e.skill_id), Number(e.quantity) || 0])
+      ),
+      tasks: (await this.#tasks(entityId)).map((task) => ({
+        gameId: Number(task.taskId),
+        completed: Boolean(task.completed),
+      })),
+    }
   }
 
   async fetchClaim(claimEntityId: string): Promise<ClaimSnapshot> {
@@ -188,6 +203,16 @@ export class BitJitaInventorySource implements InventorySource {
         claim: { entityId: claimEntityId, name: null },
         items: stacksFromSlots(building.inventory),
       })),
+    }
+  }
+
+  /** A 404 means no tasks */
+  async #tasks(entityId: string): Promise<PlayerTravelerTask[]> {
+    try {
+      return (await this.client.playerTravelerTasks(entityId)).tasks ?? []
+    } catch (error) {
+      if (error instanceof NotFoundError) return []
+      throw error
     }
   }
 

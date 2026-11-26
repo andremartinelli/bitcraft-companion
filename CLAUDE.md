@@ -110,6 +110,10 @@ The project follows Rails conventions. When in doubt, do what Rails would do.
   - in a plan, the "Claims" menu lists those claims and each person leaves some out for themselves (`plan_user_settings.excluded_claim_ids`), like "Usar apenas meu inventário";
   - the sync reads only counted claims, and a claim stops counting when the character leaves it. Chests of a claim nobody counts leave the database;
   - whole claims only: BitJita does not say which chests a member can open (issue #25).
+- **Tasks (decided 2026-11-26, `src/services/tasks/task_board.ts`, page `/tasks`):** the travelers' tasks (`traveler_task_desc`), not quests.
+  - "Suas tasks agora": the character's current tasks, read from BitJita with the inventory (`/api/players/{id}/traveler-tasks`, stored in `game_player_tasks`);
+  - "Podem aparecer": every task of the character's tier in each traveler's skill. The level comes from the skill's XP (`game_players.skills`, table in `src/services/tasks/skill_level.ts`, copied from BitJita); the tier is the level's (20 → T2 ... 100 → T10, below 20 → T1);
+  - "você tem" uses the stock outside a plan: the account's character and counted claims.
 - **Recipes (decided 2026-11-25, `src/models/user_recipe_choice.ts`):**
   - in the Steps, an item with 2 or more recipes has "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), recipes only; "Tratar como matéria-prima" stays in the Production tree;
   - choosing a recipe (in the Steps or the tree) changes the plan and saves it as the account's default (`user_recipe_choices`), also on a shared plan;

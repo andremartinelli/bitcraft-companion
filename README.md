@@ -75,6 +75,10 @@ The app reads BitJita in three ways, and never on a timer (the Neon database sle
 
 Only one sync runs at a time. If BitJita fails, the previous data stays, and the page says who was not read.
 
+## Tasks
+
+The **Tasks** page (`/tasks`) lists the travelers' tasks (not quests). On top, the tasks your character has now, read from BitJita with the inventory. Below, every task of your tier with each traveler, from the game data: the tier comes from your level in the traveler's skill (level 20 → T2 ... 100 → T10, below 20 → T1). Travelers sometimes give tasks one or two tiers below, too. Each item shows how many you have (your character and ticked claims) and how many are missing.
+
 ## Tests
 
 ```bash

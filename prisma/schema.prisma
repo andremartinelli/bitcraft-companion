@@ -162,6 +162,7 @@ model Skill {
 
   recipes           Recipe[]
   extractionRecipes ExtractionRecipe[]
+  travelerTasks     TravelerTask[]
 
   @@map("skills")
 }
@@ -207,16 +208,17 @@ model Item {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  recipeInputs      RecipeInput[]
-  recipeOutputs     RecipeOutput[]
-  listEntries       ItemListPossibilityItem[]
-  claimTechInputs   ClaimTechInput[]
-  extractionOutputs ExtractionRecipeOutput[]
-  planItems         PlanItem[]
-  planChoices       PlanChoice[]
-  userRecipeChoices UserRecipeChoice[]
-  planOwnedItems    PlanOwnedItem[]
-  inventoryEntries  InventoryEntry[]
+  recipeInputs       RecipeInput[]
+  recipeOutputs      RecipeOutput[]
+  listEntries        ItemListPossibilityItem[]
+  claimTechInputs    ClaimTechInput[]
+  travelerTaskInputs TravelerTaskInput[]
+  extractionOutputs  ExtractionRecipeOutput[]
+  planItems          PlanItem[]
+  planChoices        PlanChoice[]
+  userRecipeChoices  UserRecipeChoice[]
+  planOwnedItems     PlanOwnedItem[]
+  inventoryEntries   InventoryEntry[]
 
   @@unique([kind, gameId])
   @@index([name])
@@ -372,6 +374,44 @@ model ClaimTechInput {
   @@map("claim_tech_inputs")
 }
 
+/// A traveler's task (traveler_task_desc): items delivered to a traveler for
+/// Hex Coins and XP in its skill. Not a quest: quests are another table.
+model TravelerTask {
+  id           Int       @id @default(autoincrement())
+  gameId       Int       @unique @map("game_id")
+  /// Who asks for it (npc_desc, by the task's skill): Svim, Alesi, Brico...
+  traveler     String?
+  skillId      Int       @map("skill_id")
+  skill        Skill     @relation(fields: [skillId], references: [id])
+  /// The skill level it takes
+  minLevel     Int       @map("min_level")
+  /// The level's tier: 20 → T2 ... 100 → T10, below 20 → T1
+  tier         Int
+  description  String
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId Int?      @map("last_import_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  inputs      TravelerTaskInput[]
+  playerTasks GamePlayerTask[]
+
+  @@index([skillId, tier])
+  @@map("traveler_tasks")
+}
+
+model TravelerTaskInput {
+  id             Int          @id @default(autoincrement())
+  travelerTaskId Int          @map("traveler_task_id")
+  travelerTask   TravelerTask @relation(fields: [travelerTaskId], references: [id], onDelete: Cascade)
+  itemId         Int          @map("item_id")
+  item           Item         @relation(fields: [itemId], references: [id])
+  quantity       Int
+
+  @@index([travelerTaskId])
+  @@map("traveler_task_inputs")
+}
+
 /// World gathering (Chop, Mine, Gather...) or hunting (Hunt, Slay)
 model ExtractionRecipe {
   id           Int              @id @default(autoincrement())
@@ -518,10 +558,10 @@ model PlanShare {
 
 /// What each person chose for themselves on a plan. It doesn't change what others see
 model PlanUserSetting {
-  planId          Int      @map("plan_id")
-  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  userId          Int      @map("user_id")
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId           Int      @map("plan_id")
+  plan             Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId           Int      @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// "Usar apenas meu inventário": only my character, without the plan's other people
   onlyMyInventory  Boolean  @default(false) @map("only_my_inventory")
   /// Counted claims (counted_claims) of the plan's people that I leave out in this plan
@@ -613,6 +653,8 @@ model GamePlayer {
   regionId      Int?      @map("region_id")
   /// The character's claims at the last read: [{ entityId, name }]
   claims        Json?
+  /// XP per skill at the last read: { "<skill id>": xp }
+  skills        Json?
   /// The last successful read
   lastSyncedAt  DateTime? @map("last_synced_at") @db.Timestamptz(3)
   /// The last attempt, successful or not: decides whether it's time to read again
@@ -623,8 +665,23 @@ model GamePlayer {
 
   containers InventoryContainer[]
   accounts   User[]
+  tasks      GamePlayerTask[]
 
   @@map("game_players")
+}
+
+/// A traveler's task the character has now, as of the last read (the game renews
+/// them every few hours)
+model GamePlayerTask {
+  id             Int          @id @default(autoincrement())
+  gamePlayerId   Int          @map("game_player_id")
+  gamePlayer     GamePlayer   @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  travelerTaskId Int          @map("traveler_task_id")
+  travelerTask   TravelerTask @relation(fields: [travelerTaskId], references: [id])
+  completed      Boolean      @default(false)
+
+  @@unique([gamePlayerId, travelerTaskId])
+  @@map("game_player_tasks")
 }
 
 /// A claim whose chests count toward the account's inventory, switched on in

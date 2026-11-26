@@ -37,7 +37,7 @@ try {
   console.log(
     `Itens: ${counts.items} · Cargos: ${counts.cargo} · Saídas aleatórias: ${counts.itemLists} · ` +
       `Receitas de craft: ${counts.craftingRecipes} · Construção: ${counts.constructionRecipes} · ` +
-      `Pesquisas do assentamento: ${counts.claimTechs} · Coletas: ${counts.extractionRecipes} · Caça: ${counts.hunting}`
+      `Pesquisas do assentamento: ${counts.claimTechs} · Coletas: ${counts.extractionRecipes} · Caça: ${counts.hunting} · Tasks: ${counts.travelerTasks}`
   )
   console.log(
     `Novos: ${added.items} itens, ${added.itemLists} listas, ${added.recipes} receitas · ` +
