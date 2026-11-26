@@ -71,7 +71,7 @@ The project follows Rails conventions. When in doubt, do what Rails would do.
 | Service objects / POROs | `src/services/<area>/<name>.ts`, one class or module per use case. |
 | Models | Prisma has no classes: each table's queries and rules live in `src/models/<model>.ts`. Game data queries always filter out removed rows with `active` (`removedAt: null`). |
 | Strong params + validations | Zod in `src/validators/<resource>.ts`, one schema per resource and action. Invalid input becomes a message in Portuguese (it is shown in the UI), never a 500 error. |
-| Migrations | `prisma migrate`. Never edit a migration that was already applied; create a new one. SQL that Prisma cannot express (such as a partial index) goes in the migration itself, with a comment. |
+| Migrations | `prisma migrate`. Never edit a migration that was already applied; create a new one. A pushed branch counts: its Vercel preview applies the migrations to its own Neon branch at once, and a migration changed after that fails there (P3009) on every later deploy. SQL that Prisma cannot express (such as a partial index) goes in the migration itself, with a comment. |
 | `db/seeds.rb` | Seeders for dev and test only. Game data comes from `npm run game-data:import`. |
 | Rake tasks | Scripts in `scripts/`, run with `tsx` through `npm run`. |
 | Partials and layouts | App Router layouts and React components with Chakra in `src/components/<area>/`. A client component (`'use client'`) only where there is interaction or Chakra; the page fetches the data and passes plain data. |
