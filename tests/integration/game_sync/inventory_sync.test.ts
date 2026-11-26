@@ -164,6 +164,24 @@ describe('inventory sync', () => {
     expect(tasks).toBe(2)
   })
 
+  test('stores the quest chains completed; quests failing keeps the previous ones', async () => {
+    await new InventorySync(bitjitaSource()).run('manual')
+    const quests = async (entityId: string) =>
+      (await db.gamePlayer.findUniqueOrThrow({ where: { entityId } })).completedQuestChainIds
+    // 8003 is started, not completed
+    expect(await quests(PLAYER_ONE.entityId)).toEqual([8001, 8002])
+    expect(await quests(PLAYER_TWO.entityId)).toEqual([8001])
+
+    const responses = recordedResponses()
+    responses[`/api/players/${PLAYER_ONE.entityId}/quests`] = { status: 500, body: {} }
+    responses[`/api/players/${PLAYER_TWO.entityId}/quests`] = { status: 404, body: {} }
+    const run = await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual')
+
+    expect(run.status).toBe('ok')
+    expect(await quests(PLAYER_ONE.entityId)).toEqual([8001, 8002])
+    expect(await quests(PLAYER_TWO.entityId)).toEqual([])
+  })
+
   test('BitJita down: the run fails and the previous data stays', async () => {
     await new InventorySync(bitjitaSource()).run('manual')
     const before = await db.inventoryEntry.count()

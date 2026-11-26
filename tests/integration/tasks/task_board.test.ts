@@ -28,10 +28,11 @@ describe("the travelers' tasks page", () => {
   test("the character's tasks now, and the ones of its tier, with how many it has", async () => {
     const board = (await taskBoard(userId))!
 
-    // Construction 57740 XP = level 25 = T2. Only travelers with tasks: Brico
-    expect(board.travelers.map((t) => [t.name, t.skill, t.level, t.tier])).toEqual([
-      ['Brico', 'Construction', 25, 2],
-    ])
+    // Construction 57740 XP = level 25; Nimbus completed "Brick by Brick (I)": T2.
+    // Only travelers with tasks: Brico
+    expect(
+      board.travelers.map((t) => [t.name, t.skill, t.level, t.tier, t.tierFromQuests])
+    ).toEqual([['Brico', 'Construction', 25, 2, true]])
     const [brico] = board.travelers
     // Only the account's character counts outside a plan: Nimbus has 50 of the 68 planks
     expect(summary(brico.current)).toEqual([
@@ -42,6 +43,9 @@ describe("the travelers' tasks page", () => {
       [2, false, ['3 Simple Plank (tem 1)', '2 Rough Wood Trunk (tem 3)']],
       [2, false, ['10 Rough Wood Scraps (tem 7)']],
     ])
+    // Where each item is, like the plan's "Coletar"
+    expect(brico.current[0].lines[0].holders).toEqual([{ owner: 'Nimbus', quantity: 50 }])
+    expect(brico.current[1].lines[0].holders).toEqual([{ owner: 'Nimbus', quantity: 1 }])
   })
 
   test("a task of the tier above the character's level does not show", async () => {
@@ -54,10 +58,26 @@ describe("the travelers' tasks page", () => {
     ])
   })
 
-  test('without XP in the skill: T1', async () => {
-    await db.gamePlayer.updateMany({ data: { skills: {} } })
+  test("the tier is the quests', not the level's: level 25 without the quest is T1", async () => {
+    await db.gamePlayer.updateMany({ data: { completedQuestChainIds: [] } })
     const [brico] = (await taskBoard(userId))!.travelers
-    expect([brico.level, brico.tier, brico.possible.length]).toEqual([1, 1, 1])
+    expect([brico.level, brico.tier]).toEqual([25, 1])
+    expect(summary(brico.possible)).toEqual([[1, false, ['5 Rough Plank (tem 50)']]])
+  })
+
+  test('the highest tier unlocked counts', async () => {
+    await db.gamePlayer.updateMany({
+      data: { completedQuestChainIds: [8001, 8003, 8002], skills: { '15': 103110 } },
+    })
+    const [brico] = (await taskBoard(userId))!.travelers
+    expect([brico.level, brico.tier]).toEqual([30, 3])
+  })
+
+  test('a skill no quest unlocks (Hunting) goes by the level', async () => {
+    await db.taskTierUnlock.deleteMany()
+    await db.gamePlayer.updateMany({ data: { completedQuestChainIds: [] } })
+    const [brico] = (await taskBoard(userId))!.travelers
+    expect([brico.level, brico.tier, brico.tierFromQuests]).toEqual([25, 2, false])
   })
 
   test('an account without a character has no board', async () => {

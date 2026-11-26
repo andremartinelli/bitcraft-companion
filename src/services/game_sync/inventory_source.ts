@@ -7,7 +7,6 @@ import BitJitaClient, {
   type PlayerDetail,
   type PlayerInventory,
   type PlayerPocket,
-  type PlayerTravelerTask,
 } from '@/services/game_sync/bitjita_client'
 
 export interface StackRef {
@@ -55,6 +54,8 @@ export interface PlayerSnapshot {
   skills: Record<string, number>
   /** The travelers' tasks the player has now, by traveler_task_desc id; null when BitJita failed to say */
   tasks: { gameId: number; completed: boolean }[] | null
+  /** The quest chains completed (quest_chain_desc ids): they unlock the task tiers; null when BitJita failed to say */
+  completedQuestChainIds: number[] | null
 }
 
 export interface ClaimSnapshot {
@@ -196,6 +197,8 @@ export class BitJitaInventorySource implements InventorySource {
       }
     }
 
+    const tasks = await this.#secondary(() => this.client.playerTravelerTasks(entityId))
+    const quests = await this.#secondary(() => this.client.playerQuests(entityId))
     return {
       player: toPlayerInfo(player),
       containers,
@@ -203,10 +206,16 @@ export class BitJitaInventorySource implements InventorySource {
         (player.experience ?? []).map((e) => [String(e.skill_id), Number(e.quantity) || 0])
       ),
       tasks:
-        (await this.#tasks(entityId))?.map((task) => ({
+        tasks &&
+        (tasks.tasks ?? []).map((task) => ({
           gameId: Number(task.taskId),
           completed: Boolean(task.completed),
-        })) ?? null,
+        })),
+      completedQuestChainIds:
+        quests &&
+        (quests.quests ?? [])
+          .filter((quest) => quest.completed)
+          .map((quest) => Number(quest.questChainDescId)),
     }
   }
 
@@ -226,14 +235,14 @@ export class BitJitaInventorySource implements InventorySource {
   }
 
   /**
-   * A 404 means no tasks. Any other failure (but a 429, which stops the run)
-   * gives null: the tasks are secondary and must not cost the inventory read.
+   * The tasks and quests: a 404 means none. Any other failure (but a 429, which
+   * stops the run) gives null: they are secondary and must not cost the inventory read.
    */
-  async #tasks(entityId: string): Promise<PlayerTravelerTask[] | null> {
+  async #secondary<T extends object>(read: () => Promise<T>): Promise<Partial<T> | null> {
     try {
-      return (await this.client.playerTravelerTasks(entityId)).tasks ?? []
+      return await read()
     } catch (error) {
-      if (error instanceof NotFoundError) return []
+      if (error instanceof NotFoundError) return {}
       if (error instanceof RateLimitedError) throw error
       return null
     }

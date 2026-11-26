@@ -41,6 +41,25 @@ export function tasksAtTiers(tiers: { skillId: number; tier: number; level: numb
   })
 }
 
+/**
+ * The tier of each skill's tasks that these completed quest chains unlock
+ * (task_tier_unlocks): 1 with none of them. A skill whose tiers no quest
+ * unlocks (Hunting) is not in the map.
+ */
+export async function unlockedTaskTiers(completedQuestChainIds: number[]) {
+  const unlocks = await db.taskTierUnlock.findMany({
+    where: { removedAt: null },
+    select: { questChainGameId: true, skillId: true, tier: true },
+  })
+  const done = new Set(completedQuestChainIds)
+  const tiers = new Map<number, number>()
+  for (const { questChainGameId, skillId, tier } of unlocks) {
+    const reached = done.has(questChainGameId) ? tier : 1
+    tiers.set(skillId, Math.max(tiers.get(skillId) ?? 1, reached))
+  }
+  return tiers
+}
+
 /** The tasks the character has now, as of its last read */
 export async function playerTasks(gamePlayerId: number) {
   const rows = await db.gamePlayerTask.findMany({

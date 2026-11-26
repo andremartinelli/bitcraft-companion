@@ -164,6 +164,7 @@ model Skill {
   recipes           Recipe[]
   extractionRecipes ExtractionRecipe[]
   travelerTasks     TravelerTask[]
+  taskTierUnlocks   TaskTierUnlock[]
 
   @@map("skills")
 }
@@ -415,6 +416,24 @@ model TravelerTask {
   @@map("traveler_tasks")
 }
 
+/// A quest that unlocks a tier of a traveler's tasks in its skill (decided
+/// 26/11/2026): "The Best Ingredients (I)" unlocks Heimlich's (Cooking) T2.
+/// Tier 1 needs no quest. Hunting (Ramparte) has none: it unlocks per creature.
+model TaskTierUnlock {
+  id               Int       @id @default(autoincrement())
+  /// quest_chain_desc id
+  questChainGameId Int       @unique @map("quest_chain_game_id")
+  skillId          Int       @map("skill_id")
+  skill            Skill     @relation(fields: [skillId], references: [id])
+  tier             Int
+  removedAt        DateTime? @map("removed_at") @db.Timestamptz(3)
+  lastImportId     Int?      @map("last_import_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("task_tier_unlocks")
+}
+
 model TravelerTaskInput {
   id             Int          @id @default(autoincrement())
   travelerTaskId Int          @map("traveler_task_id")
@@ -661,22 +680,24 @@ model PlanOwnedItem {
 /// A character, by BitJita's public entityId. No token. It is an
 /// account's (users.game_player_id) and exists only once, even if two accounts choose it.
 model GamePlayer {
-  id            Int       @id @default(autoincrement())
-  username      String
+  id                     Int       @id @default(autoincrement())
+  username               String
   /// 18 digits: doesn't fit in a JavaScript number
-  entityId      String    @unique @map("entity_id")
-  regionId      Int?      @map("region_id")
+  entityId               String    @unique @map("entity_id")
+  regionId               Int?      @map("region_id")
   /// The character's claims at the last read: [{ entityId, name }]
-  claims        Json?
+  claims                 Json?
   /// XP per skill at the last read: { "<skill id>": xp }
-  skills        Json?
+  skills                 Json?
+  /// The quest chains (quest_chain_desc ids) completed at the last read: they unlock the task tiers
+  completedQuestChainIds Int[]     @default([]) @map("completed_quest_chain_ids")
   /// The last successful read
-  lastSyncedAt  DateTime? @map("last_synced_at") @db.Timestamptz(3)
+  lastSyncedAt           DateTime? @map("last_synced_at") @db.Timestamptz(3)
   /// The last attempt, successful or not: decides whether it's time to read again
-  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(3)
-  lastError     String?   @map("last_error")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lastAttemptAt          DateTime? @map("last_attempt_at") @db.Timestamptz(3)
+  lastError              String?   @map("last_error")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   containers InventoryContainer[]
   accounts   User[]
