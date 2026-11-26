@@ -252,6 +252,10 @@ export default class InventorySync {
           regionId: snapshot.player.regionId,
           claims: snapshot.player.claims,
           skills: snapshot.skills,
+          // Without an answer for the quests, the previous ones stay
+          ...(snapshot.completedQuestChainIds && {
+            completedQuestChainIds: snapshot.completedQuestChainIds,
+          }),
           lastSyncedAt: now,
           lastError: null,
         },

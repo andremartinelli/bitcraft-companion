@@ -192,6 +192,41 @@ export function toTravelerTaskRows(tasks: RawRow[], npcs: RawRow[]): TravelerTas
   })
 }
 
+export interface TaskTierUnlockRow {
+  /** quest_chain_desc id */
+  questChainGameId: number
+  skillId: number
+  tier: number
+}
+
+const ROMAN: Record<string, number> = { II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10 }
+
+/**
+ * The quests that unlock a tier of a traveler's tasks (quest_chain_desc): each
+ * one rewards a knowledge item named "Unlock Tier <roman> <skill> Tasks" and
+ * asks for a level in that skill. Tier I needs no quest. Hunting (Ramparte)
+ * unlocks its tasks per creature instead, so it has none of these.
+ */
+export function toTaskTierUnlockRows(chains: RawRow[], items: RawRow[]): TaskTierUnlockRow[] {
+  const unlockTiers = new Map<number, number>()
+  for (const item of items) {
+    const tier = ROMAN[/^Unlock Tier ([IVX]+) .+ Tasks$/.exec(item.name ?? '')?.[1] ?? '']
+    if (tier) unlockTiers.set(item.id, tier)
+  }
+  return chains.flatMap((raw) => {
+    if (typeof raw.id !== 'number' || !Array.isArray(raw.rewards) || !Array.isArray(raw.requirements)) {
+      throw new GameDataFormatError(`quest_chain_desc: linha sem id, rewards ou requirements (${raw.id})`)
+    }
+    const tier = raw.rewards
+      .map((reward: RawRow) => unlockTiers.get(reward.ItemStack_?.item_id))
+      .find(Boolean)
+    const skillId = raw.requirements.find((r: RawRow) => r.Level_)?.Level_.skill_id
+    return tier && typeof skillId === 'number'
+      ? [{ questChainGameId: raw.id, skillId, tier }]
+      : []
+  })
+}
+
 export interface ExtractionRecipeRow {
   /** A resource in the world (tree, vein, plant) or an enemy (a hunted animal) */
   source: 'resource' | 'enemy'

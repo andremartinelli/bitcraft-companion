@@ -1,5 +1,5 @@
 import { findAccountPlayer } from '@/models/game_player'
-import { playerTasks, tasksAtTiers, travelers } from '@/models/traveler_task'
+import { playerTasks, tasksAtTiers, travelers, unlockedTaskTiers } from '@/models/traveler_task'
 import { levelTier } from '@/services/game_data/transform'
 import { inventoryScope } from '@/services/inventory/scope'
 import { stockTotals } from '@/services/inventory/stock'
@@ -11,9 +11,13 @@ import { levelFromXp } from '@/services/tasks/skill_level'
  * traveler's skill (up to its level), each item with how many the account has (its character and
  * counted claims, like the rest of the app outside a plan).
  *
- * Travelers only give tasks of the player's level or below. In a sample of
- * 114 characters × travelers (26/11/2026), 68% had only tasks of the current
- * tier; the others also had tasks one or two tiers below.
+ * The tier is the one the character's quests unlocked, not its level's: "The
+ * Best Ingredients (I)" (Cooking 20) unlocks Heimlich's T2, and so on up to
+ * T10. In a sample of 60 characters (26/11/2026), no task was above the
+ * unlocked tier, 79% of characters × travelers had only tasks of that tier and
+ * the others also had some below it; the level's tier was too high for 54%.
+ * Hunting (Ramparte) has no tiers: each creature's tasks take its own quest,
+ * which the game data does not tie to the tasks, so it goes by the level.
  */
 
 export interface TaskLine {
@@ -35,6 +39,8 @@ export interface TravelerBoard {
   skill: string
   level: number
   tier: number
+  /** False: no quest unlocks this traveler's tiers (Ramparte), so the tier is the level's */
+  tierFromQuests: boolean
   current: BoardTask[]
   possible: BoardTask[]
 }
@@ -44,9 +50,16 @@ export async function taskBoard(userId: number) {
   if (!player) return null
 
   const skills = (player.skills ?? {}) as Record<string, number>
+  const unlocked = await unlockedTaskTiers(player.completedQuestChainIds)
   const all = (await travelers()).map((traveler) => {
     const level = levelFromXp(skills[traveler.skillId] ?? 0)
-    return { ...traveler, level, tier: levelTier(level) }
+    const fromQuests = unlocked.get(traveler.skillId)
+    return {
+      ...traveler,
+      level,
+      tier: fromQuests ?? levelTier(level),
+      tierFromQuests: fromQuests !== undefined,
+    }
   })
   if (!all.length) return { syncedAt: player.lastSyncedAt, travelers: [] }
   const [current, possible, totals] = await Promise.all([
@@ -73,6 +86,7 @@ export async function taskBoard(userId: number) {
     skill: traveler.skill,
     level: traveler.level,
     tier: traveler.tier,
+    tierFromQuests: traveler.tierFromQuests,
     current: current
       .filter((task) => task.skillId === traveler.skillId)
       .map((task) => toBoard(task, task.completed)),

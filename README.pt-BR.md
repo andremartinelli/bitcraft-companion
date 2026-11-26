@@ -77,7 +77,7 @@ Só um sync roda por vez. Se a BitJita falhar, os dados anteriores ficam, e a p�
 
 ## Tasks
 
-A página **Tasks** (`/tasks`) mostra as tasks dos viajantes (não as quests). Em cima, as tasks que o seu personagem tem agora, lidas da BitJita junto com o inventário. Embaixo, todas as tasks do seu tier em cada viajante, dos dados do jogo: o tier vem do seu nível na habilidade do viajante (nível 20 → T2 ... 100 → T10, abaixo de 20 → T1). Às vezes os viajantes também dão tasks de um ou dois tiers abaixo. Cada item mostra quanto você tem (o seu personagem e as claims marcadas) e quanto falta.
+A página **Tasks** (`/tasks`) mostra as tasks dos viajantes (não as quests). Em cima, as tasks que o seu personagem tem agora, lidas da BitJita junto com o inventário. Embaixo, todas as tasks do seu tier em cada viajante, dos dados do jogo: o tier é o que as suas quests liberaram com aquele viajante (no Heimlich, "The Best Ingredients (I)" libera o T2, a "(II)" o T3 e assim por diante; sem elas, T1). O Ramparte não tem tiers: as tasks de cada criatura exigem a quest dela, então as dele seguem o seu nível. Às vezes os viajantes também dão tasks de tiers abaixo. Cada item mostra quanto você tem (o seu personagem e as claims marcadas) e quanto falta.
 
 ## Testes
 

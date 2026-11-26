@@ -1,0 +1,61 @@
+{
+  "quests": [
+    {
+      "entityId": "400000000000000001",
+      "playerEntityId": "100000000000000001",
+      "questChainDescId": 8001,
+      "stageId": -1,
+      "completed": true,
+      "stageRewardsAwarded": [],
+      "tracked": false,
+      "regionId": 14,
+      "questName": "",
+      "isHint": false,
+      "isSecret": false,
+      "unstartable": false,
+      "requirements": [],
+      "rewards": [],
+      "implicitRewards": [],
+      "totalStages": 4,
+      "currentStageIndex": 4
+    },
+    {
+      "entityId": "400000000000000002",
+      "playerEntityId": "100000000000000001",
+      "questChainDescId": 8002,
+      "stageId": -1,
+      "completed": true,
+      "stageRewardsAwarded": [],
+      "tracked": false,
+      "regionId": 14,
+      "questName": "",
+      "isHint": false,
+      "isSecret": false,
+      "unstartable": false,
+      "requirements": [],
+      "rewards": [],
+      "implicitRewards": [],
+      "totalStages": 4,
+      "currentStageIndex": 4
+    },
+    {
+      "entityId": "400000000000000003",
+      "playerEntityId": "100000000000000001",
+      "questChainDescId": 8003,
+      "stageId": 1,
+      "completed": false,
+      "stageRewardsAwarded": [],
+      "tracked": false,
+      "regionId": 14,
+      "questName": "",
+      "isHint": false,
+      "isSecret": false,
+      "unstartable": false,
+      "requirements": [],
+      "rewards": [],
+      "implicitRewards": [],
+      "totalStages": 4,
+      "currentStageIndex": 1
+    }
+  ]
+}

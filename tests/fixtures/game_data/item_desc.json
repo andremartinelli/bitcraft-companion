@@ -62,5 +62,35 @@
     "tag": "Plank",
     "rarity": "Uncommon",
     "item_list_id": 0
+  },
+  {
+    "id": 8101,
+    "name": "Unlock Tier II Construction Tasks",
+    "description": "",
+    "tier": -1,
+    "tag": "Knowledge",
+    "rarity": "Common",
+    "icon_asset_name": "",
+    "item_list_id": 0
+  },
+  {
+    "id": 8102,
+    "name": "Unlock Tier III Construction Tasks",
+    "description": "",
+    "tier": -1,
+    "tag": "Knowledge",
+    "rarity": "Common",
+    "icon_asset_name": "",
+    "item_list_id": 0
+  },
+  {
+    "id": 8103,
+    "name": "Unlock Wasp Slayer Tasks",
+    "description": "",
+    "tier": -1,
+    "tag": "Knowledge",
+    "rarity": "Common",
+    "icon_asset_name": "",
+    "item_list_id": 0
   }
 ]

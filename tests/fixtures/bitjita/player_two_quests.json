@@ -1,0 +1,23 @@
+{
+  "quests": [
+    {
+      "entityId": "400000000000000004",
+      "playerEntityId": "100000000000000002",
+      "questChainDescId": 8001,
+      "stageId": -1,
+      "completed": true,
+      "stageRewardsAwarded": [],
+      "tracked": false,
+      "regionId": 14,
+      "questName": "",
+      "isHint": false,
+      "isSecret": false,
+      "unstartable": false,
+      "requirements": [],
+      "rewards": [],
+      "implicitRewards": [],
+      "totalStages": 4,
+      "currentStageIndex": 4
+    }
+  ]
+}

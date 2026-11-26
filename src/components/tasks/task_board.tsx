@@ -39,9 +39,12 @@ function TaskRow({ task }: { task: BoardTask }) {
 function TravelerCard({
   traveler,
   tasks,
+  notice = false,
 }: {
   traveler: TravelerBoard
   tasks: BoardTask[]
+  /** Say when the tier comes from the level, not from quests */
+  notice?: boolean
 }) {
   return (
     <Box p="3" borderWidth="1px" rounded="l2" bg="bg">
@@ -53,6 +56,11 @@ function TravelerCard({
           {traveler.skill} nível {traveler.level} · T{traveler.tier}
         </Text>
       </HStack>
+      {notice && !traveler.tierFromQuests && (
+        <Text textStyle="xs" color="fg.muted" mb="1">
+          As tasks de cada criatura exigem a quest dela.
+        </Text>
+      )}
       {tasks.map((task) => (
         <TaskRow key={task.id} task={task} />
       ))}
@@ -89,11 +97,17 @@ export function TaskBoard({ travelers, read }: { travelers: TravelerBoard[]; rea
           Podem aparecer
         </Heading>
         <Text textStyle="sm" color="fg.muted">
-          Todas as tasks do seu tier em cada viajante, pelo nível da habilidade dele. Os viajantes
-          também pedem, às vezes, tasks de um ou dois tiers abaixo.
+          Todas as tasks do tier que as suas quests liberaram em cada viajante (a quest de cada tier
+          pede um nível na habilidade dele). Os viajantes também pedem, às vezes, tasks de tiers
+          abaixo.
         </Text>
         {travelers.map((traveler) => (
-          <TravelerCard key={traveler.name} traveler={traveler} tasks={traveler.possible} />
+          <TravelerCard
+            key={traveler.name}
+            traveler={traveler}
+            tasks={traveler.possible}
+            notice
+          />
         ))}
       </Stack>
     </Stack>
