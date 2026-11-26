@@ -74,6 +74,13 @@ export interface PlayerTravelerTask {
   completed: boolean
 }
 
+/** /api/players/{id}/quests: the quest chains the player started or completed */
+export interface PlayerQuest {
+  /** quest_chain_desc id */
+  questChainDescId: number
+  completed: boolean
+}
+
 /** /api/players/{id}/inventories: camelCase, itemType 0 = item, 1 = cargo */
 export interface PlayerPocket {
   contents?: { itemId: number; itemType: number | string; quantity: number } | null
@@ -153,6 +160,12 @@ export default class BitJitaClient {
   playerTravelerTasks(entityId: string) {
     return this.get<{ tasks?: PlayerTravelerTask[] | null }>(
       `/api/players/${encodeURIComponent(entityId)}/traveler-tasks`
+    )
+  }
+
+  playerQuests(entityId: string) {
+    return this.get<{ quests?: PlayerQuest[] | null }>(
+      `/api/players/${encodeURIComponent(entityId)}/quests`
     )
   }
 

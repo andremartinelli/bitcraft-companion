@@ -1,0 +1,125 @@
+[
+  {
+    "id": 8001,
+    "name": "Tutorial",
+    "is_hint": false,
+    "stages": [],
+    "requirements": [],
+    "rewards": [
+      {
+        "ItemStack_": {
+          "item_id": 1010,
+          "quantity": 1,
+          "item_type": "Item",
+          "durability": 0
+        }
+      }
+    ],
+    "implicit_rewards": [],
+    "unstartable": false,
+    "is_secret": false,
+    "recommended_priority": 1
+  },
+  {
+    "id": 8002,
+    "name": "Brick by Brick (I)",
+    "is_hint": false,
+    "stages": [],
+    "requirements": [
+      {
+        "Level_": {
+          "skill_id": 15,
+          "level": 20
+        }
+      },
+      {
+        "QuestChain_": 8001
+      }
+    ],
+    "rewards": [
+      {
+        "Experience_": {
+          "skill_id": 15,
+          "quantity": 500.0
+        }
+      },
+      {
+        "ItemStack_": {
+          "item_id": 8101,
+          "quantity": 1,
+          "item_type": "Item",
+          "durability": 0
+        }
+      }
+    ],
+    "implicit_rewards": [],
+    "unstartable": false,
+    "is_secret": false,
+    "recommended_priority": 0
+  },
+  {
+    "id": 8003,
+    "name": "Brick by Brick (II)",
+    "is_hint": false,
+    "stages": [],
+    "requirements": [
+      {
+        "QuestChain_": 8002
+      },
+      {
+        "Level_": {
+          "skill_id": 15,
+          "level": 30
+        }
+      }
+    ],
+    "rewards": [
+      {
+        "ItemStack_": {
+          "item_id": 8102,
+          "quantity": 1,
+          "item_type": "Item",
+          "durability": 0
+        }
+      },
+      {
+        "Experience_": {
+          "skill_id": 15,
+          "quantity": 1100.0
+        }
+      }
+    ],
+    "implicit_rewards": [],
+    "unstartable": false,
+    "is_secret": false,
+    "recommended_priority": 0
+  },
+  {
+    "id": 8004,
+    "name": "Sting Operation",
+    "is_hint": false,
+    "stages": [],
+    "requirements": [
+      {
+        "Level_": {
+          "skill_id": 15,
+          "level": 20
+        }
+      }
+    ],
+    "rewards": [
+      {
+        "ItemStack_": {
+          "item_id": 8103,
+          "quantity": 1,
+          "item_type": "Item",
+          "durability": 0
+        }
+      }
+    ],
+    "implicit_rewards": [],
+    "unstartable": false,
+    "is_secret": false,
+    "recommended_priority": 0
+  }
+]

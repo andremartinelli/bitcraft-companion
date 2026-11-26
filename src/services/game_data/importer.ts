@@ -9,11 +9,13 @@ import {
   toCraftingRecipeRows,
   toExtractionRecipeRows,
   toHuntingRows,
+  toTaskTierUnlockRows,
   toTravelerTaskRows,
   toItemListRows,
   toItemRows,
   type ClaimTechRow,
   type ExtractionRecipeRow,
+  type TaskTierUnlockRow,
   type TravelerTaskRow,
   type ItemKey,
   type ItemListRow,
@@ -80,6 +82,7 @@ export default class GameDataImporter {
       enemies: await source.read('enemy_desc'),
       travelerTasks: await source.read('traveler_task_desc'),
       npcs: await source.read('npc_desc'),
+      questChains: await source.read('quest_chain_desc'),
     }
 
     // Transform everything first: a format error must stop the import before any write.
@@ -99,6 +102,7 @@ export default class GameDataImporter {
       ...toHuntingRows(tables.enemies),
     ]
     const travelerTaskRows = toTravelerTaskRows(tables.travelerTasks, tables.npcs)
+    const taskTierUnlockRows = toTaskTierUnlockRows(tables.questChains, tables.items)
 
     return this.client.$transaction(
       async (tx) => {
@@ -140,6 +144,7 @@ export default class GameDataImporter {
 
         this.onProgress(`Tasks dos viajantes (${travelerTaskRows.length})`)
         await upsertTravelerTasks(tx, travelerTaskRows, itemIds, stamp, summary)
+        await upsertTaskTierUnlocks(tx, taskTierUnlockRows, stamp)
 
         this.onProgress('Marcando o que saiu do jogo')
         summary.removed.items = await markRemoved(tx, 'items', stamp)
@@ -148,6 +153,7 @@ export default class GameDataImporter {
         await markRemoved(tx, 'claim_techs', stamp)
         await markRemoved(tx, 'extraction_recipes', stamp)
         await markRemoved(tx, 'traveler_tasks', stamp)
+        await markRemoved(tx, 'task_tier_unlocks', stamp)
 
         this.onProgress('Grafo de receitas da calculadora')
         const graph = buildRecipeGraph(await loadGraphRows(tx))
@@ -167,6 +173,7 @@ export default class GameDataImporter {
           extractionRecipes: extractionRows.filter((row) => row.source === 'resource').length,
           hunting: extractionRows.filter((row) => row.source === 'enemy').length,
           travelerTasks: travelerTaskRows.length,
+          taskTierUnlocks: taskTierUnlockRows.length,
         }
         // finished_at last: the app switches to this import (and its graph) only now
         await tx.gameDataImport.update({
@@ -525,6 +532,23 @@ async function upsertTravelerTasks(
     }
   }
   await insertStacks(tx, 'traveler_task_inputs', 'traveler_task_id', inputs)
+}
+
+async function upsertTaskTierUnlocks(tx: Tx, rows: TaskTierUnlockRow[], stamp: Stamp) {
+  const values = rows.map((row) => ({
+    quest_chain_game_id: row.questChainGameId,
+    skill_id: row.skillId,
+    tier: row.tier,
+  }))
+  await tx.$executeRaw`
+    INSERT INTO task_tier_unlocks (quest_chain_game_id, skill_id, tier,
+                                   removed_at, last_import_id, created_at, updated_at)
+    SELECT r.quest_chain_game_id, r.skill_id, r.tier, NULL, ${stamp.importId}, ${stamp.now}, ${stamp.now}
+    FROM jsonb_to_recordset(${rowsJson(values)}::jsonb) AS r(
+      quest_chain_game_id int, skill_id int, tier int)
+    ON CONFLICT (quest_chain_game_id) DO UPDATE SET
+      skill_id = EXCLUDED.skill_id, tier = EXCLUDED.tier,
+      removed_at = NULL, last_import_id = EXCLUDED.last_import_id, updated_at = EXCLUDED.updated_at`
 }
 
 async function upsertExtractionRecipes(

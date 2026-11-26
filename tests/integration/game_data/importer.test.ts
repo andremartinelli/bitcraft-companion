@@ -15,7 +15,8 @@ describe('game data importer', () => {
     const summary = await importTables()
 
     expect(summary.counts).toEqual({
-      items: 7,
+      // 3 of them are the knowledge items the task quests reward
+      items: 10,
       cargo: 1,
       itemLists: 1,
       craftingRecipes: 5,
@@ -24,6 +25,7 @@ describe('game data importer', () => {
       extractionRecipes: 3,
       hunting: 0,
       travelerTasks: 4,
+      taskTierUnlocks: 2,
     })
     const same = await db.item.findMany({ where: { gameId: 1010 }, orderBy: { kind: 'desc' } })
     expect(same.map((i) => [i.kind, i.name, i.iconAssetName])).toEqual([
@@ -78,7 +80,7 @@ describe('game data importer', () => {
 
     expect(second.added).toEqual({ items: 0, itemLists: 0, recipes: 0 })
     expect(second.removed).toEqual({ items: 0, itemLists: 0, recipes: 0 })
-    expect(await db.item.count()).toBe(8)
+    expect(await db.item.count()).toBe(11)
     expect(await db.recipe.count()).toBe(6)
     expect(await db.itemListPossibility.count()).toBe(
       fixtureTables().item_list_desc.reduce((sum, list) => sum + list.possibilities.length, 0)
@@ -217,6 +219,22 @@ describe('game data importer', () => {
       include: { inputs: true },
     })
     expect([gone.removedAt !== null, gone.inputs.length]).toEqual([true, 1])
+  })
+
+  test('the quests that unlock task tiers; a creature quest is not one, and a quest that left is marked', async () => {
+    await importTables()
+    const unlocks = await db.taskTierUnlock.findMany({ orderBy: { questChainGameId: 'asc' } })
+    // 8001 (Tutorial) rewards no unlock; 8004 unlocks a creature's tasks, not a tier
+    expect(unlocks.map((u) => [u.questChainGameId, u.skillId, u.tier])).toEqual([
+      [8002, 15, 2],
+      [8003, 15, 3],
+    ])
+
+    const tables = fixtureTables()
+    tables.quest_chain_desc = tables.quest_chain_desc.filter((r) => r.id !== 8003)
+    await importTables(tables)
+    const gone = await db.taskTierUnlock.findUniqueOrThrow({ where: { questChainGameId: 8003 } })
+    expect(gone.removedAt).not.toBeNull()
   })
 
   test('a gathering that left the game is marked, and comes back', async () => {
