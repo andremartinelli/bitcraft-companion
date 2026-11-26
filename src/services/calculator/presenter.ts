@@ -11,7 +11,7 @@ import {
   type PlanResult,
   type PlanStep,
 } from '@/services/calculator/production_planner'
-import { ANY_PROFESSION, type ItemHolder } from '@/services/inventory/professions'
+import { ANY_PROFESSION, holdersLabel, type ItemHolder } from '@/services/inventory/professions'
 
 const EPSILON = 1e-9
 // The same format as the views' formatNumber, for labels built here
@@ -128,11 +128,8 @@ export function present(
   // A value typed by hand says nothing about where the items are
   const whoHas = (itemId: number) =>
     sources[itemId] === 'manual' ? [] : (holders?.get(itemId) ?? [])
-  /** "Nimbus 3 · Quartz 1" */
-  const holdersLabelOf = (itemId: number) =>
-    whoHas(itemId)
-      .map((holder) => `${holder.owner} ${numberFormat.format(holder.quantity)}`)
-      .join(' · ')
+  /** "Nimbus 3 (Banco) · Quartz 1 (Mochila)" */
+  const holdersLabelOf = (itemId: number) => holdersLabel(whoHas(itemId))
   /** What they have of an item: the value typed by hand, else the inventory */
   const haveOf = (itemId: number) =>
     sources[itemId] === 'manual' ? (state.owned[itemId] ?? 0) : (totals?.get(itemId) ?? 0)

@@ -233,30 +233,52 @@ export async function stockTotals(owners: StockOwners): Promise<Map<number, numb
   return new Map(rows.map((row) => [row.itemId, Number(row._sum.quantity ?? 0)]))
 }
 
-/** Each item's holders among the owners, the one with most first (the plan's "Coletar") */
+/**
+ * Each item's holders among the owners, the one with most first, with their
+ * places by name (the plan's "Coletar" and the Tasks page). Places of an owner
+ * with the same name (two "Baú de madeira") add up.
+ */
 export async function holdersByItem(owners: StockOwners): Promise<Map<number, ItemHolder[]>> {
   const rows = await db.$queryRaw<
-    { item_id: number; quantity: number; username: string | null; claim_name: string | null }[]
+    {
+      item_id: number
+      quantity: number
+      username: string | null
+      claim_name: string | null
+      container_name: string
+    }[]
   >`
-    SELECT e.item_id, e.quantity, p.username, c.claim_name
+    SELECT e.item_id, e.quantity, p.username, c.claim_name, c.name AS container_name
     FROM inventory_entries e
     JOIN inventory_containers c ON c.id = e.container_id
     LEFT JOIN game_players p ON p.id = c.game_player_id
     WHERE ${ownedBySql(owners)}`
 
-  const byItem = new Map<number, Map<string, number>>()
+  // item → owner → place name → quantity
+  const byItem = new Map<number, Map<string, Map<string, number>>>()
   for (const row of rows) {
-    const owners = byItem.get(row.item_id) ?? new Map<string, number>()
-    const owner = ownerOf(row)
-    owners.set(owner, (owners.get(owner) ?? 0) + Number(row.quantity))
+    const owners = byItem.get(row.item_id) ?? new Map<string, Map<string, number>>()
+    const places = owners.get(ownerOf(row)) ?? new Map<string, number>()
+    places.set(row.container_name, (places.get(row.container_name) ?? 0) + Number(row.quantity))
+    owners.set(ownerOf(row), places)
     byItem.set(row.item_id, owners)
   }
+  const largest = <T extends { quantity: number }>(list: T[], key: (entry: T) => string) =>
+    list.sort((a, b) => b.quantity - a.quantity || key(a).localeCompare(key(b)))
   return new Map(
     [...byItem].map(([itemId, owners]) => [
       itemId,
-      [...owners]
-        .map(([owner, quantity]) => ({ owner, quantity }))
-        .sort((a, b) => b.quantity - a.quantity || a.owner.localeCompare(b.owner)),
+      largest(
+        [...owners].map(([owner, places]) => ({
+          owner,
+          quantity: [...places.values()].reduce((sum, quantity) => sum + quantity, 0),
+          places: largest(
+            [...places].map(([name, quantity]) => ({ name, quantity })),
+            (place) => place.name
+          ),
+        })),
+        (holder) => holder.owner
+      ),
     ])
   )
 }

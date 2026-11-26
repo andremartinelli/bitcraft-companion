@@ -160,6 +160,7 @@ describe('inventory listing', () => {
     expect((await holdersByItem(owners)).get(plank.id)?.[0]).toEqual({
       owner: 'Claim Vila Teste',
       quantity: 100,
+      places: [{ name: 'Baú de madeira', quantity: 100 }],
     })
   })
 })
