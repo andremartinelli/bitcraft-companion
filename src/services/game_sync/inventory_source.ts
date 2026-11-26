@@ -1,11 +1,13 @@
 import type { ContainerKind, ItemKind } from '@/generated/prisma/client.ts'
 import BitJitaClient, {
   NotFoundError,
+  RateLimitedError,
   type BuildingSlot,
   type HouseSummary,
   type PlayerDetail,
   type PlayerInventory,
   type PlayerPocket,
+  type PlayerTravelerTask,
 } from '@/services/game_sync/bitjita_client'
 
 export interface StackRef {
@@ -39,6 +41,10 @@ export interface PlayerInfo {
 export interface PlayerSnapshot {
   player: PlayerInfo
   containers: ContainerSnapshot[]
+  /** Total XP per skill id */
+  skills: Record<string, number>
+  /** The travelers' tasks the player has now, by traveler_task_desc id; null when BitJita failed to say */
+  tasks: { gameId: number; completed: boolean }[] | null
 }
 
 export interface ClaimSnapshot {
@@ -54,7 +60,7 @@ export interface InventorySource {
   readonly name: string
   /** Exact nick, ignoring case. Null when there is no such player. */
   findPlayer(username: string): Promise<PlayerInfo | null>
-  /** Personal inventories, bank, stash, carts and house */
+  /** Personal inventories, bank, stash, carts and house; also the skills' XP and the travelers' tasks */
   fetchPlayer(entityId: string): Promise<PlayerSnapshot>
   /** The claim's chests, shared by its members */
   fetchClaim(claimEntityId: string): Promise<ClaimSnapshot>
@@ -174,7 +180,18 @@ export class BitJitaInventorySource implements InventorySource {
       }
     }
 
-    return { player: toPlayerInfo(player), containers }
+    return {
+      player: toPlayerInfo(player),
+      containers,
+      skills: Object.fromEntries(
+        (player.experience ?? []).map((e) => [String(e.skill_id), Number(e.quantity) || 0])
+      ),
+      tasks:
+        (await this.#tasks(entityId))?.map((task) => ({
+          gameId: Number(task.taskId),
+          completed: Boolean(task.completed),
+        })) ?? null,
+    }
   }
 
   async fetchClaim(claimEntityId: string): Promise<ClaimSnapshot> {
@@ -188,6 +205,20 @@ export class BitJitaInventorySource implements InventorySource {
         claim: { entityId: claimEntityId, name: null },
         items: stacksFromSlots(building.inventory),
       })),
+    }
+  }
+
+  /**
+   * A 404 means no tasks. Any other failure (but a 429, which stops the run)
+   * gives null: the tasks are secondary and must not cost the inventory read.
+   */
+  async #tasks(entityId: string): Promise<PlayerTravelerTask[] | null> {
+    try {
+      return (await this.client.playerTravelerTasks(entityId)).tasks ?? []
+    } catch (error) {
+      if (error instanceof NotFoundError) return []
+      if (error instanceof RateLimitedError) throw error
+      return null
     }
   }
 

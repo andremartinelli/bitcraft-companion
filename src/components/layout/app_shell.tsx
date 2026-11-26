@@ -10,6 +10,7 @@ import {
   LuClipboardList,
   LuLogOut,
   LuPackage,
+  LuScrollText,
   LuSettings,
   LuTriangleAlert,
 } from 'react-icons/lu'
@@ -22,6 +23,7 @@ const NAV = [
   { label: 'Receitas', href: '/recipes', icon: LuBookOpen },
   { label: 'Calculadora', href: '/calculator', icon: LuCalculator },
   { label: 'Inventário', href: '/inventory', icon: LuPackage },
+  { label: 'Tasks', href: '/tasks', icon: LuScrollText },
 ]
 
 interface AppShellProps {

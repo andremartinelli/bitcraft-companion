@@ -1,0 +1,54 @@
+{
+  "tasks": [
+    {
+      "entityId": "300000000000000004",
+      "taskId": 9001,
+      "travelerId": 5,
+      "completed": true,
+      "regionId": 14,
+      "description": "Brico needs some materials.",
+      "levelRequirement": {
+        "skill_id": 15,
+        "max_level": 120,
+        "min_level": 1
+      },
+      "requiredItems": [
+        {
+          "item_id": 1030,
+          "quantity": 5,
+          "item_type": "item"
+        }
+      ],
+      "rewardedItems": [
+        {
+          "item_id": 1,
+          "quantity": 250,
+          "item_type": "item",
+          "durability": 0
+        }
+      ],
+      "rewardedExperience": {
+        "quantity": 1000,
+        "skill_id": 15
+      },
+      "createdAt": "2026-11-26 17:52:48.177497+00",
+      "updatedAt": "2026-11-26 17:52:48.177497+00"
+    }
+  ],
+  "items": {},
+  "cargo": {},
+  "expirationTimestamp": 0,
+  "taskCredits": {
+    "5": {
+      "credits": 50,
+      "lastReset": 0
+    }
+  },
+  "rerollCreditCost": 2,
+  "weeklyCredits": [
+    {
+      "traveler_type": "Brico",
+      "weekly_task_credits": 50
+    }
+  ]
+}

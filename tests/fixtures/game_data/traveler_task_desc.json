@@ -1,0 +1,37 @@
+[
+  {
+    "id": 9001,
+    "level_requirement": { "skill_id": 15, "min_level": 1, "max_level": 120 },
+    "required_items": [{ "item_id": 1030, "quantity": 5, "item_type": "Item", "durability": 0 }],
+    "rewarded_items": [{ "item_id": 1, "quantity": 250, "item_type": "Item", "durability": 0 }],
+    "rewarded_experience": { "skill_id": 15, "quantity": 1000.0 },
+    "description": "Brico needs some Rough Planks for a fence."
+  },
+  {
+    "id": 9002,
+    "level_requirement": { "skill_id": 15, "min_level": 20, "max_level": 120 },
+    "required_items": [
+      { "item_id": 5000, "quantity": 3, "item_type": "Item", "durability": 0 },
+      { "item_id": 1010, "quantity": 2, "item_type": "Cargo", "durability": null }
+    ],
+    "rewarded_items": [{ "item_id": 1, "quantity": 400, "item_type": "Item", "durability": 0 }],
+    "rewarded_experience": { "skill_id": 15, "quantity": 2000.0 },
+    "description": "Brico needs Simple Planks and Rough Wood Trunks for a shed."
+  },
+  {
+    "id": 9003,
+    "level_requirement": { "skill_id": 15, "min_level": 25, "max_level": 120 },
+    "required_items": [{ "item_id": 1060, "quantity": 10, "item_type": "Item", "durability": 0 }],
+    "rewarded_items": [{ "item_id": 1, "quantity": 300, "item_type": "Item", "durability": 0 }],
+    "rewarded_experience": { "skill_id": 15, "quantity": 1500.0 },
+    "description": "Brico wants Rough Wood Scraps to start a fire."
+  },
+  {
+    "id": 9004,
+    "level_requirement": { "skill_id": 3, "min_level": 1, "max_level": 120 },
+    "required_items": [{ "item_id": 1020, "quantity": 4, "item_type": "Item", "durability": 0 }],
+    "rewarded_items": [{ "item_id": 1, "quantity": 100, "item_type": "Item", "durability": 0 }],
+    "rewarded_experience": { "skill_id": 3, "quantity": 500.0 },
+    "description": "A task whose skill no traveler checks."
+  }
+]

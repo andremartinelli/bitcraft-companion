@@ -23,6 +23,7 @@ describe('game data importer', () => {
       claimTechs: 6,
       extractionRecipes: 3,
       hunting: 0,
+      travelerTasks: 4,
     })
     const same = await db.item.findMany({ where: { gameId: 1010 }, orderBy: { kind: 'desc' } })
     expect(same.map((i) => [i.kind, i.name, i.iconAssetName])).toEqual([
@@ -184,6 +185,38 @@ describe('game data importer', () => {
     expect(hunt.verb).toBe('Hunt')
     expect(hunt.skill?.name).toBe('Hunting')
     expect(hunt.outputs.map((o) => [o.item.kind, o.item.name])).toEqual([['cargo', 'Cervus']])
+  })
+
+  test("travelers' tasks: who asks, the tier and the items; a task that left is marked", async () => {
+    await importTables()
+    const tasks = await db.travelerTask.findMany({
+      orderBy: { gameId: 'asc' },
+      include: { inputs: { include: { item: true }, orderBy: { id: 'asc' } } },
+    })
+    expect(
+      tasks.map((t) => [
+        t.gameId,
+        t.traveler,
+        t.minLevel,
+        t.tier,
+        t.inputs.map((i) => `${i.quantity} ${i.item.kind} ${i.item.name}`),
+      ])
+    ).toEqual([
+      [9001, 'Brico', 1, 1, ['5 item Rough Plank']],
+      [9002, 'Brico', 20, 2, ['3 item Simple Plank', '2 cargo Rough Wood Trunk']],
+      [9003, 'Brico', 25, 2, ['10 item Rough Wood Scraps']],
+      // No traveler gives XP in that skill
+      [9004, null, 1, 1, ['4 item Rough Stripped Wood']],
+    ])
+
+    const tables = fixtureTables()
+    tables.traveler_task_desc = tables.traveler_task_desc.filter((r) => r.id !== 9003)
+    await importTables(tables)
+    const gone = await db.travelerTask.findUniqueOrThrow({
+      where: { gameId: 9003 },
+      include: { inputs: true },
+    })
+    expect([gone.removedAt !== null, gone.inputs.length]).toEqual([true, 1])
   })
 
   test('a gathering that left the game is marked, and comes back', async () => {

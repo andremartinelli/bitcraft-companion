@@ -63,6 +63,15 @@ export interface PlayerDetail {
   username: string
   regionId?: number | null
   claims?: PlayerClaim[] | null
+  /** Total XP per skill */
+  experience?: { skill_id: number; quantity: number }[] | null
+}
+
+/** /api/players/{id}/traveler-tasks: the tasks the travelers give the player now */
+export interface PlayerTravelerTask {
+  /** traveler_task_desc id */
+  taskId: number
+  completed: boolean
 }
 
 /** /api/players/{id}/inventories: camelCase, itemType 0 = item, 1 = cargo */
@@ -138,6 +147,12 @@ export default class BitJitaClient {
   playerInventories(entityId: string) {
     return this.get<{ inventories?: PlayerInventory[] | null }>(
       `/api/players/${encodeURIComponent(entityId)}/inventories`
+    )
+  }
+
+  playerTravelerTasks(entityId: string) {
+    return this.get<{ tasks?: PlayerTravelerTask[] | null }>(
+      `/api/players/${encodeURIComponent(entityId)}/traveler-tasks`
     )
   }
 

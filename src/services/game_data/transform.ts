@@ -142,6 +142,56 @@ export function toClaimTechRows(techs: RawRow[]): ClaimTechRow[] {
   })
 }
 
+export interface TravelerTaskRow {
+  gameId: number
+  traveler: string | null
+  skillId: number
+  minLevel: number
+  tier: number
+  description: string
+  inputs: StackRow[]
+}
+
+/** The tier of a skill level, and so of the tasks that take it: 20 → T2 ... 100 → T10, below 20 → T1 */
+export const levelTier = (level: number) => Math.min(10, Math.max(1, Math.floor(level / 10)))
+
+/**
+ * Travelers' tasks (traveler_task_desc): the items each one asks for. The
+ * traveler is the NPC (npc_desc) whose tasks give XP in the task's skill.
+ */
+export function toTravelerTaskRows(tasks: RawRow[], npcs: RawRow[]): TravelerTaskRow[] {
+  const travelers = new Map<number, string>(
+    npcs.flatMap((npc: RawRow) =>
+      (npc.task_skill_check ?? []).map((skillId: number) => [skillId, npc.name])
+    )
+  )
+  return tasks.map((raw) => {
+    const level = raw.level_requirement
+    if (
+      typeof raw.id !== 'number' ||
+      typeof level?.skill_id !== 'number' ||
+      !Array.isArray(raw.required_items)
+    ) {
+      throw new GameDataFormatError(
+        `traveler_task_desc: linha sem id, level_requirement ou required_items (${raw.id})`
+      )
+    }
+    const minLevel = level.min_level ?? 1
+    return {
+      gameId: raw.id,
+      traveler: travelers.get(level.skill_id) ?? null,
+      skillId: level.skill_id,
+      minLevel,
+      tier: levelTier(minLevel),
+      description: raw.description ?? '',
+      inputs: (raw.required_items as RawStack[]).map((s) => ({
+        key: stackKey(s),
+        quantity: s.quantity,
+      })),
+    }
+  })
+}
+
 export interface ExtractionRecipeRow {
   /** A resource in the world (tree, vein, plant) or an enemy (a hunted animal) */
   source: 'resource' | 'enemy'

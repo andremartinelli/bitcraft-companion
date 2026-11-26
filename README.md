@@ -69,11 +69,15 @@ Claim chests count only when you tick the claim on **Meu personagem** (off by de
 
 The app reads BitJita in three ways, and never on a timer (the Neon database sleeps when nobody uses the app):
 
-- **When a page that shows the inventory opens** (the inventory, the calculator and the plans): the page's characters not read in the last `INVENTORY_STALE_MINUTES` minutes (1, like the old app) are read again, with the page already open. Up to 20 at a time, the oldest first.
-- **"Sincronizar agora"**, on the same pages, for the page's characters (up to 20). From a PC, `npm run inventory:sync` reads all of them.
-- **A daily Vercel cron** (`vercel.json`, at 6 a.m. Brasília time) calls `/api/cron/inventory-sync` with the `CRON_SECRET` key and reads up to 20 characters nobody looked at in the last hour.
+- **When a page that shows the inventory opens** (the inventory, the calculator and the plans): the page's characters not read in the last `INVENTORY_STALE_MINUTES` minutes (1, like the old app) are read again, with the page already open. Up to 15 at a time, the oldest first.
+- **"Sincronizar agora"**, on the same pages, for the page's characters (up to 15). From a PC, `npm run inventory:sync` reads all of them.
+- **A daily Vercel cron** (`vercel.json`, at 6 a.m. Brasília time) calls `/api/cron/inventory-sync` with the `CRON_SECRET` key and reads up to 15 characters nobody looked at in the last hour.
 
 Only one sync runs at a time. If BitJita fails, the previous data stays, and the page says who was not read.
+
+## Tasks
+
+The **Tasks** page (`/tasks`) lists the travelers' tasks (not quests). On top, the tasks your character has now, read from BitJita with the inventory. Below, every task of your tier with each traveler, from the game data: the tier comes from your level in the traveler's skill (level 20 → T2 ... 100 → T10, below 20 → T1). Travelers sometimes give tasks one or two tiers below, too. Each item shows how many you have (your character and ticked claims) and how many are missing.
 
 ## Tests
 

@@ -71,7 +71,7 @@ The project follows Rails conventions. When in doubt, do what Rails would do.
 | Service objects / POROs | `src/services/<area>/<name>.ts`, one class or module per use case. |
 | Models | Prisma has no classes: each table's queries and rules live in `src/models/<model>.ts`. Game data queries always filter out removed rows with `active` (`removedAt: null`). |
 | Strong params + validations | Zod in `src/validators/<resource>.ts`, one schema per resource and action. Invalid input becomes a message in Portuguese (it is shown in the UI), never a 500 error. |
-| Migrations | `prisma migrate`. Never edit a migration that was already applied; create a new one. SQL that Prisma cannot express (such as a partial index) goes in the migration itself, with a comment. |
+| Migrations | `prisma migrate`. Never edit a migration that was already applied; create a new one. A pushed branch counts: its Vercel preview applies the migrations to its own Neon branch at once, and a migration changed after that fails there (P3009) on every later deploy. SQL that Prisma cannot express (such as a partial index) goes in the migration itself, with a comment. |
 | `db/seeds.rb` | Seeders for dev and test only. Game data comes from `npm run game-data:import`. |
 | Rake tasks | Scripts in `scripts/`, run with `tsx` through `npm run`. |
 | Partials and layouts | App Router layouts and React components with Chakra in `src/components/<area>/`. A client component (`'use client'`) only where there is interaction or Chakra; the page fetches the data and passes plain data. |
@@ -110,6 +110,10 @@ The project follows Rails conventions. When in doubt, do what Rails would do.
   - in a plan, the "Claims" menu lists those claims and each person leaves some out for themselves (`plan_user_settings.excluded_claim_ids`), like "Usar apenas meu inventário";
   - the sync reads only counted claims, and a claim stops counting when the character leaves it. Chests of a claim nobody counts leave the database;
   - whole claims only: BitJita does not say which chests a member can open (issue #25).
+- **Tasks (decided 2026-11-26, `src/services/tasks/task_board.ts`, page `/tasks`):** the travelers' tasks (`traveler_task_desc`), not quests.
+  - "Suas tasks agora": the character's current tasks, read from BitJita with the inventory (`/api/players/{id}/traveler-tasks`, stored in `game_player_tasks`);
+  - "Podem aparecer": every task of the character's tier in each traveler's skill. The level comes from the skill's XP (`game_players.skills`, table in `src/services/tasks/skill_level.ts`, copied from BitJita); the tier is the level's (20 → T2 ... 100 → T10, below 20 → T1);
+  - "você tem" uses the stock outside a plan: the account's character and counted claims.
 - **Recipes (decided 2026-11-25, `src/models/user_recipe_choice.ts`):**
   - in the Steps, an item with 2 or more recipes has "Trocar receita" (`src/components/calculator/recipe_picker.tsx`), recipes only; "Tratar como matéria-prima" stays in the Production tree;
   - choosing a recipe (in the Steps or the tree) changes the plan and saves it as the account's default (`user_recipe_choices`), also on a shared plan;
@@ -122,7 +126,7 @@ Details that already cost time:
 - **Dates:** Vercel runs in UTC. Format with `src/lib/format.ts`, which uses the `America/Sao_Paulo` time zone.
 - **Item icons:** the name comes from the game data (`items.icon_asset_name`) and the image from BitJita; only `src/lib/item_icon.ts` knows the address. Some icons do not exist there: `ItemIcon` hides them, including those that fail before hydration.
 - **Text search:** Postgres is case-sensitive in `LIKE`. Use `ILIKE` (or `mode: 'insensitive'`) with the escape of `%` and `_` (`namesMatch` and `containsWord` in `src/lib/search.ts`).
-- **Inventory sync:** per character, by `last_attempt_at`, up to 20 at a time (`MAX_PLAYERS_PER_SYNC`), least recently attempted first. On demand (a page that shows the inventory calls `POST /api/inventory/sync` with `onlyIfStale`, which reads the page's characters not attempted in the last minute; on a plan, with `planId`, the plan's), by the button (the same route) and by a daily cron (`/api/cron/inventory-sync`, with `CRON_SECRET`: characters not read in the last hour). Never a timer. The lock between instances is the partial index `sync_runs_one_running`: a second `running` raises P2002.
+- **Inventory sync:** per character, by `last_attempt_at`, up to 15 at a time (`MAX_PLAYERS_PER_SYNC`), least recently attempted first. On demand (a page that shows the inventory calls `POST /api/inventory/sync` with `onlyIfStale`, which reads the page's characters not attempted in the last minute; on a plan, with `planId`, the plan's), by the button (the same route) and by a daily cron (`/api/cron/inventory-sync`, with `CRON_SECRET`: characters not read in the last hour). Never a timer. The lock between instances is the partial index `sync_runs_one_running`: a second `running` raises P2002.
 - **`prisma dev`:** if the local database starts closing connections ("Server has closed the connection"), stop it and start it again (`npx prisma dev stop bitcraft-dev`, then `npm run db:dev`). The data stays on disk.
 
 ## Free plan limits (non-negotiable)
