@@ -65,6 +65,8 @@ Cada conta tem os seus planos. Para planos em conjunto, uma conta cria um grupo 
 
 Os inventários vêm da API pública da [BitJita](https://bitjita.com), sem token de jogador. Cada conta tem um personagem, informado no cadastro ou em **Meu personagem** (`/game_player`); o nick é conferido na BitJita antes de ser salvo. Um personagem de duas contas é lido uma vez só. Conta sem personagem vê um aviso ⚠️ na aba Inventário e na calculadora, com o link para Meu personagem. O inventário, a calculadora rápida e o "Você tem" de cada item usam o personagem da conta. Um plano usa também os personagens das pessoas do plano (o dono e quem o recebeu), cada um uma vez; "Usar apenas meu inventário" deixa só o seu. O "já tenho" digitado vale mais que o inventário.
 
+Os baús de uma claim só contam quando você marca a claim em **Meu personagem** (desmarcada no começo, e sempre a claim inteira: a BitJita não diz quais baús cada membro consegue abrir). A claim marcada acompanha o seu personagem: num plano, contam também as claims marcadas pelas pessoas do plano, cada uma uma vez, e o menu **Claims** do plano deixa cada pessoa tirar algumas só para si. A sincronização lê só as claims marcadas.
+
 O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme quando ninguém usa o app):
 
 - **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da página que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta. Até 20 por vez, os mais antigos primeiro.
