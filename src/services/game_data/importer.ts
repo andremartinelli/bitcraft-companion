@@ -126,6 +126,7 @@ export default class GameDataImporter {
           toolTypes: await upsertLookup(tx, 'tool_types', tables.toolTypes),
           buildingTypes: await upsertLookup(tx, 'building_types', tables.buildingTypes),
         }
+        await upsertBuildings(tx, tables.buildings)
 
         this.onProgress(`Itens (${itemRows.length})`)
         const itemIds = await upsertItems(tx, itemRows, stamp, summary)
@@ -200,6 +201,21 @@ async function upsertLookup(tx: Tx, table: string, rows: RawRow[]) {
     SELECT r.id, r.name FROM jsonb_to_recordset(${rowsJson(values)}::jsonb) AS r(id int, name text)
     ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`
   return new Set<number>(values.map((v) => v.id))
+}
+
+/** Who can open each kind of building: which claim buildings count by default */
+async function upsertBuildings(tx: Tx, rows: RawRow[]) {
+  const values = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    interact_permission: row.interact_permission ?? 'None',
+  }))
+  await tx.$executeRaw`
+    INSERT INTO buildings (id, name, interact_permission)
+    SELECT r.id, r.name, r.interact_permission
+    FROM jsonb_to_recordset(${rowsJson(values)}::jsonb) AS r(id int, name text, interact_permission text)
+    ON CONFLICT (id) DO UPDATE
+      SET name = EXCLUDED.name, interact_permission = EXCLUDED.interact_permission`
 }
 
 async function upsertItems(tx: Tx, rows: ItemRow[], stamp: Stamp, summary: ImportSummary) {

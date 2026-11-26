@@ -4,7 +4,7 @@
       "entityId": "400000000000000101",
       "buildingDescriptionId": 3007,
       "buildingName": "Sturdy Large Chest",
-      "buildingNickname": "Baú de madeira",
+      "buildingNickname": "Ba\u00fa de madeira",
       "iconAssetName": "GeneratedIcons/Other/Buildings/Storage/ChestLargeT3",
       "inventory": [
         {
@@ -49,6 +49,24 @@
             "item_id": 1010,
             "quantity": 4,
             "item_type": "cargo"
+          }
+        }
+      ]
+    },
+    {
+      "entityId": "400000000000000104",
+      "buildingDescriptionId": 3210,
+      "buildingName": "Sturdy Barter Stall",
+      "buildingNickname": "Banca",
+      "iconAssetName": "GeneratedIcons/Other/Buildings/BarterStall",
+      "inventory": [
+        {
+          "locked": false,
+          "volume": 60000000,
+          "contents": {
+            "item_id": 1020,
+            "quantity": 5,
+            "item_type": "item"
           }
         }
       ]

@@ -165,7 +165,8 @@ export default class InventorySync {
         counts.containers += written.containers
         counts.entries += written.entries
         for (const claim of snapshot.player.claims) {
-          if (counted.get(player.id)?.has(claim.entityId)) claims.set(claim.entityId, claim.name)
+          if (claim.inventory && counted.get(player.id)?.has(claim.entityId))
+            claims.set(claim.entityId, claim.name)
         }
       } catch (error) {
         problems.push(`${player.username}: não foi possível ler (${describe(error)}).`)
@@ -321,6 +322,7 @@ async function upsertContainer(
     name: snap.name,
     claimEntityId: snap.claim?.entityId ?? null,
     claimName: claimName ?? snap.claim?.name ?? null,
+    buildingId: snap.buildingId ?? null,
     lastSeenAt: now,
   }
   const container = await tx.inventoryContainer.upsert({

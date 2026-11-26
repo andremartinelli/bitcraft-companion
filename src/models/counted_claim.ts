@@ -3,8 +3,9 @@ import { playerClaims } from '@/models/game_player'
 
 /**
  * The claims whose chests count toward an account's inventory (counted_claims,
- * "Meu personagem"). Only claims the account's character belongs to, as of its
- * last read: a claim it left stops counting without anyone touching the row.
+ * "Meu personagem"). Only claims the account's character belongs to and can open
+ * the chests of (inventory permission), as of its last read: a claim it left, or
+ * lost the permission in, stops counting without anyone touching the row.
  */
 
 /** The claims these accounts count, each once */
@@ -21,7 +22,9 @@ export async function countedClaims(userIds: number[]) {
   for (const user of users) {
     const counted = new Set(user.countedClaims.map((c) => c.claimEntityId))
     for (const claim of playerClaims(user.gamePlayer?.claims)) {
-      if (counted.has(claim.entityId)) claims.set(claim.entityId, claim)
+      if (claim.inventory && counted.has(claim.entityId)) {
+        claims.set(claim.entityId, { entityId: claim.entityId, name: claim.name })
+      }
     }
   }
   return [...claims.values()]
@@ -29,7 +32,10 @@ export async function countedClaims(userIds: number[]) {
 
 /** Every claim some account counts while its character still belongs to it: the chests to keep */
 export async function allCountedClaimIds() {
-  const accounts = await db.countedClaim.findMany({ distinct: ['userId'], select: { userId: true } })
+  const accounts = await db.countedClaim.findMany({
+    distinct: ['userId'],
+    select: { userId: true },
+  })
   return (await countedClaims(accounts.map((account) => account.userId))).map((c) => c.entityId)
 }
 
@@ -47,7 +53,7 @@ export async function claimsToRead(playerIds: number[]) {
   return byPlayer
 }
 
-/** The account's character's claims, each with whether the account counts it */
+/** The account's character's claims, each with whether the account counts it (never without permission) */
 export async function accountClaims(userId: number) {
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
@@ -59,16 +65,16 @@ export async function accountClaims(userId: number) {
   const counted = new Set(user.countedClaims.map((c) => c.claimEntityId))
   return playerClaims(user.gamePlayer?.claims).map((claim) => ({
     ...claim,
-    counted: counted.has(claim.entityId),
+    counted: claim.inventory && counted.has(claim.entityId),
   }))
 }
 
 /**
- * Switches a claim on or off for the account. Only a claim of its character:
- * anything else would read another settlement's chests. On: the character is
+ * Switches a claim on or off for the account. Only a claim of its character
+ * with inventory permission: anything else would read chests it cannot open. On: the character is
  * read again on the next page that shows the inventory. Off: the chests leave
  * the app once no account counts the claim.
- * @returns false when the claim is not the character's
+ * @returns false when the claim is not the character's, or (on) it cannot open the chests
  */
 export async function saveCountedClaim(userId: number, claimEntityId: string, counted: boolean) {
   const user = await db.user.findUniqueOrThrow({
@@ -76,9 +82,8 @@ export async function saveCountedClaim(userId: number, claimEntityId: string, co
     select: { gamePlayer: { select: { id: true, claims: true } } },
   })
   const player = user.gamePlayer
-  if (!player || !playerClaims(player.claims).some((c) => c.entityId === claimEntityId)) {
-    return false
-  }
+  const claim = playerClaims(player?.claims).find((c) => c.entityId === claimEntityId)
+  if (!player || !claim || (counted && !claim.inventory)) return false
 
   const key = { userId_claimEntityId: { userId, claimEntityId } }
   if (counted) {

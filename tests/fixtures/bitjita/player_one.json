@@ -54,7 +54,7 @@
         "updatedAt": "2026-11-20 12:00:00.000000+00",
         "isOwner": false,
         "memberPermissions": {
-          "inventoryPermission": 0,
+          "inventoryPermission": 1,
           "buildPermission": 0,
           "officerPermission": 0,
           "coOwnerPermission": 0

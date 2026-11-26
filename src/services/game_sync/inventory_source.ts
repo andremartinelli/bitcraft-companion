@@ -26,6 +26,8 @@ export interface ContainerSnapshot {
   gameEntityId: string
   name: string
   claim: ClaimRef | null
+  /** A claim chest's kind of building (building_desc id) */
+  buildingId?: number | null
   /** One entry per occupied pocket: the same item may appear more than once */
   items: StackRef[]
 }
@@ -34,7 +36,15 @@ export interface PlayerInfo {
   entityId: string
   username: string
   regionId: number | null
-  claims: { entityId: string; name: string }[]
+  /** inventory: the character can open the claim's chests (owner, co-owner, officer or inventory permission) */
+  claims: PlayerClaimInfo[]
+}
+
+// A type, not an interface: it is stored as JSON (game_players.claims)
+export type PlayerClaimInfo = {
+  entityId: string
+  name: string
+  inventory: boolean
 }
 
 export interface PlayerSnapshot {
@@ -131,10 +141,16 @@ function toPlayerInfo(player: PlayerDetail): PlayerInfo {
     entityId: String(player.entityId),
     username: player.username,
     regionId: player.regionId ?? null,
-    claims: (player.claims ?? []).map((claim) => ({
-      entityId: String(claim.entityId),
-      name: claim.name,
-    })),
+    claims: (player.claims ?? []).map((claim) => {
+      const can = claim.memberPermissions ?? {}
+      return {
+        entityId: String(claim.entityId),
+        name: claim.name,
+        inventory: Boolean(
+          claim.isOwner || can.inventoryPermission || can.officerPermission || can.coOwnerPermission
+        ),
+      }
+    }),
   }
 }
 
@@ -212,6 +228,7 @@ export class BitJitaInventorySource implements InventorySource {
         gameEntityId: String(building.entityId),
         name: building.buildingNickname?.trim() || building.buildingName?.trim() || 'Baú',
         claim: { entityId: claimEntityId, name: null },
+        buildingId: building.buildingDescriptionId ?? null,
         items: stacksFromSlots(building.inventory),
       })),
     }

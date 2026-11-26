@@ -7,6 +7,7 @@ import { LinkButton } from '@/components/layout/link_button'
 import { PageHeader } from '@/components/layout/page_header'
 import { formatAgo } from '@/lib/format'
 import { requireUser } from '@/lib/session'
+import { claimBuildingKinds } from '@/models/claim_building_choice'
 import { accountClaims } from '@/models/counted_claim'
 import { claimNames, findAccountPlayer } from '@/models/game_player'
 
@@ -32,6 +33,8 @@ const toRow = (player: NonNullable<Awaited<ReturnType<typeof findAccountPlayer>>
 export default async function GamePlayerPage() {
   const user = await requireUser()
   const [mine, claims] = await Promise.all([findAccountPlayer(user.id), accountClaims(user.id)])
+  const counted = claims.filter((claim) => claim.counted).map((claim) => claim.entityId)
+  const kinds = (await claimBuildingKinds(user.id, counted)).filter((kind) => kind.choosable)
 
   return (
     <>
@@ -43,7 +46,7 @@ export default async function GamePlayerPage() {
       {mine ? (
         <>
           <GamePlayerTable players={[toRow(mine)]} />
-          {claims.length > 0 && <CountedClaims claims={claims} />}
+          {claims.length > 0 && <CountedClaims claims={claims} kinds={kinds} />}
         </>
       ) : (
         <>

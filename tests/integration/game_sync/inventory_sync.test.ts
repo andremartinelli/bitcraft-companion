@@ -65,7 +65,7 @@ describe('inventory sync', () => {
     expect([one.lastError, one.regionId, one.claims]).toEqual([
       null,
       14,
-      [{ entityId: CLAIM.entityId, name: CLAIM.name }],
+      [{ entityId: CLAIM.entityId, name: CLAIM.name, inventory: true }],
     ])
     expect(syncSummary(run)).toBe(
       'Personagens: 2 de 2 · Locais: 14 · Itens diferentes por local: ' +
@@ -76,13 +76,26 @@ describe('inventory sync', () => {
   test('the chests of a claim nobody counts any more are removed by the next sync', async () => {
     await countClaim()
     await new InventorySync(bitjitaSource()).run('manual')
-    expect(await claimChests()).toBe(3)
+    expect(await claimChests()).toBe(4)
 
     await db.countedClaim.deleteMany()
     await new InventorySync(bitjitaSource()).run('manual')
 
     expect(await claimChests()).toBe(0)
     expect(await groupTotal('item', 1030)).toBe(68)
+  })
+
+  test('a claim the character has no inventory permission in is not read', async () => {
+    await countClaim()
+    const responses = recordedResponses()
+    const player = bitjitaFixture('player_one')
+    player.player.claims[0].memberPermissions.inventoryPermission = 0
+    responses[`/api/players/${PLAYER_ONE.entityId}`] = { body: player }
+    const fake = fakeBitJita(responses)
+    await new InventorySync(bitjitaSource(fake)).run('manual')
+
+    expect(fake.calls.map((c) => c.path)).not.toContain(`/api/claims/${CLAIM.entityId}/inventories`)
+    expect(await claimChests()).toBe(0)
   })
 
   test('a claim both accounts count is read and stored once', async () => {
@@ -96,7 +109,7 @@ describe('inventory sync', () => {
     expect(fake.calls.filter((c) => c.path.startsWith('/api/claims/'))).toHaveLength(1)
 
     const chests = await db.inventoryContainer.findMany({ where: { kind: 'claim' } })
-    expect(chests).toHaveLength(3)
+    expect(chests).toHaveLength(4)
     expect(chests.every((c) => c.gamePlayerId === null && c.claimName === CLAIM.name)).toBe(true)
     expect(await quantityIn('Baú de madeira', 'item', 1030)).toBe(100)
   })
@@ -341,7 +354,7 @@ describe('inventory sync', () => {
     const mine = { userId: accounts.userId, playerIds: [accounts.playerIds[0]] }
     await countClaim()
     await new InventorySync(bitjitaSource()).run('manual', mine)
-    expect(await claimChests()).toBe(3)
+    expect(await claimChests()).toBe(4)
 
     const responses = recordedResponses()
     const player = bitjitaFixture('player_one')
