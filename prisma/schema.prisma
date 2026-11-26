@@ -84,16 +84,17 @@ model User {
   createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  plansCreated    Plan[]             @relation("PlanCreatedBy")
-  plansUpdated    Plan[]             @relation("PlanUpdatedBy")
+  plansCreated    Plan[]                @relation("PlanCreatedBy")
+  plansUpdated    Plan[]                @relation("PlanUpdatedBy")
   planShares      PlanShare[]
-  groupsOwned     Group[]            @relation("GroupOwner")
+  groupsOwned     Group[]               @relation("GroupOwner")
   groupMembers    GroupMember[]
-  groupInvites    GroupInvite[]      @relation("GroupInvitedBy")
-  invitesReceived GroupInvite[]      @relation("GroupInvitee")
+  groupInvites    GroupInvite[]         @relation("GroupInvitedBy")
+  invitesReceived GroupInvite[]         @relation("GroupInvitee")
   syncRuns        SyncRun[]
   recipeChoices   UserRecipeChoice[]
   planSettings    PlanUserSetting[]
+  taskInventory   TaskInventorySetting?
   countedClaims   CountedClaim[]
   buildingChoices ClaimBuildingChoice[]
 
@@ -416,6 +417,24 @@ model TravelerTask {
   @@map("traveler_tasks")
 }
 
+/// Whose inventory counts in "você tem" on the Tasks page, per account (decided
+/// 26/11/2026): my character unless I leave it out, the characters of people of
+/// my groups I tick (only their character, not their claims) and my counted claims
+/// unless I leave them out. Without a row: my character and my counted claims.
+model TaskInventorySetting {
+  userId           Int      @id @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// My own character left out
+  withoutMine      Boolean  @default(false) @map("without_mine")
+  /// Characters of people of my groups that count; one who left my groups stops counting
+  gamePlayerIds    Int[]    @default([]) @map("game_player_ids")
+  /// My counted claims (counted_claims) left out
+  excludedClaimIds String[] @default([]) @map("excluded_claim_ids")
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("task_inventory_settings")
+}
+
 /// A quest that unlocks a tier of a traveler's tasks in its skill (decided
 /// 26/11/2026): "The Best Ingredients (I)" unlocks Heimlich's (Cooking) T2.
 /// Tier 1 needs no quest. Hunting (Ramparte) has none: it unlocks per creature.
@@ -592,15 +611,15 @@ model PlanShare {
 
 /// What each person chose for themselves on a plan. It doesn't change what others see
 model PlanUserSetting {
-  planId           Int      @map("plan_id")
-  plan             Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  userId           Int      @map("user_id")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// "Usar apenas meu inventário": only my character, without the plan's other people
-  onlyMyInventory  Boolean  @default(false) @map("only_my_inventory")
+  planId                Int      @map("plan_id")
+  plan                  Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId                Int      @map("user_id")
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Characters of the plan's people (mine too) whose inventory I leave out in this plan
+  excludedGamePlayerIds Int[]    @default([]) @map("excluded_game_player_ids")
   /// Counted claims (counted_claims) of the plan's people that I leave out in this plan
-  excludedClaimIds String[] @default([]) @map("excluded_claim_ids")
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  excludedClaimIds      String[] @default([]) @map("excluded_claim_ids")
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@id([planId, userId])
   @@index([userId])

@@ -11,6 +11,32 @@ type Tx = Prisma.TransactionClient
  * theirs, so it is read from BitJita once.
  */
 
+/**
+ * The characters of the people who share a group with the account (any group,
+ * its own or not), not its own; each character once
+ */
+export async function groupPeoplePlayerIds(userId: number) {
+  const people = await db.user.findMany({
+    where: {
+      id: { not: userId },
+      gamePlayerId: { not: null },
+      groupMembers: { some: { group: { members: { some: { userId } } } } },
+    },
+    select: { gamePlayerId: true },
+  })
+  return [...new Set(people.map((person) => person.gamePlayerId!))]
+}
+
+/** The nicks of these characters, in this order */
+export async function playerNames(ids: number[]) {
+  const rows = await db.gamePlayer.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, username: true },
+  })
+  const names = new Map(rows.map((row) => [row.id, row.username]))
+  return ids.map((id) => ({ gamePlayerId: id, name: names.get(id) ?? '?' }))
+}
+
 /** The account's character; null when it has none */
 export async function findAccountPlayer(userId: number) {
   const user = await db.user.findUnique({ where: { id: userId }, select: { gamePlayer: true } })

@@ -13,6 +13,8 @@ interface InventoryStatusProps {
   stale: boolean
   /** Without characters there is nothing to sync: no button */
   hasPlayers: boolean
+  /** On the Tasks page: its characters, not only the account's */
+  tasks?: boolean
 }
 
 /** How the last sync went, its notes and "Sincronizar agora" */
@@ -22,6 +24,7 @@ export function InventoryStatus({
   notices,
   stale,
   hasPlayers,
+  tasks,
 }: InventoryStatusProps) {
   return (
     <Stack gap="3" mb="5" aria-live="polite">
@@ -43,7 +46,7 @@ export function InventoryStatus({
             </Text>
           )}
         </Box>
-        {hasPlayers && <SyncControls stale={stale} />}
+        {hasPlayers && <SyncControls stale={stale} tasks={tasks} />}
       </Flex>
       {notices.length > 0 && (
         <Alert.Root status="warning" size="sm">

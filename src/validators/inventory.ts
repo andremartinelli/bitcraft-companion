@@ -14,4 +14,15 @@ export const inventorySearchSchema = z.object({
 export const inventorySyncSchema = z.object({
   onlyIfStale: z.boolean().default(false),
   planId: z.number().int().positive().max(2_147_483_647).optional(),
+  /** The Tasks page: also the characters ticked in its "Inventários" */
+  tasks: z.boolean().optional(),
 })
+
+/**
+ * PATCH /plans/[id]/setting and /tasks/inventory: whether a character or a
+ * counted claim of the "Inventários" menu counts (BitJita's ids are digits)
+ */
+export const inventoryChoiceSchema = z.union([
+  z.object({ gamePlayerId: z.number().int().positive().max(2_147_483_647), used: z.boolean() }),
+  z.object({ claimEntityId: z.string().regex(/^\d{1,20}$/), used: z.boolean() }),
+])

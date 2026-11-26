@@ -10,6 +10,8 @@ interface SyncControlsProps {
   stale: boolean
   /** In a plan: its characters, not only the account's */
   planId?: number
+  /** On the Tasks page: the characters ticked in its "Inventários" too */
+  tasks?: boolean
 }
 
 const FAILED: SyncResponse = {
@@ -23,12 +25,16 @@ const FAILED: SyncResponse = {
  * the page stays usable while BitJita answers (saves, recipe changes and
  * links don't wait for it). Shows the new data when it is done.
  */
-async function requestSync(onlyIfStale: boolean, planId?: number): Promise<SyncResponse> {
+async function requestSync(
+  onlyIfStale: boolean,
+  planId?: number,
+  tasks?: boolean
+): Promise<SyncResponse> {
   try {
     const response = await fetch('/api/inventory/sync', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ onlyIfStale, planId }),
+      body: JSON.stringify({ onlyIfStale, planId, tasks }),
     })
     return response.ok ? ((await response.json()) as SyncResponse) : FAILED
   } catch {
@@ -41,7 +47,7 @@ async function requestSync(onlyIfStale: boolean, planId?: number): Promise<SyncR
  * inventory opens at once with what is saved and, when that is old, reads
  * BitJita in the background and then shows the new data. No timer.
  */
-export function SyncControls({ stale, planId }: SyncControlsProps) {
+export function SyncControls({ stale, planId, tasks }: SyncControlsProps) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null)
@@ -49,7 +55,7 @@ export function SyncControls({ stale, planId }: SyncControlsProps) {
 
   const sync = async (onlyIfStale: boolean) => {
     setSyncing(true)
-    const result = await requestSync(onlyIfStale, planId)
+    const result = await requestSync(onlyIfStale, planId, tasks)
     setSyncing(false)
     if (result.refresh) router.refresh()
     return result

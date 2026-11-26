@@ -311,18 +311,29 @@ describe('plan actions', () => {
     })
   })
 
-  test('"Usar apenas meu inventário" is mine, only in a plan I can open', async () => {
-    const other = await db.user.create({ data: { email: 'b@example.com', password: '-' } })
-    const mine = await insertPlan({ name: 'Meu', state: emptyState(), userId })
-    const theirs = await insertPlan({ name: 'Dele', state: emptyState(), userId: other.id })
+  test('a character left out in "Inventários" is mine, only of its menu, in a plan I can open', async () => {
+    const [mine, theirs] = await Promise.all(
+      ['1', '2'].map((n) =>
+        db.gamePlayer.create({ data: { username: `P${n}`, entityId: `10000000000000000${n}` } })
+      )
+    )
+    const stranger = await db.gamePlayer.create({ data: { username: 'X', entityId: '3' } })
+    await db.user.update({ where: { id: userId }, data: { gamePlayerId: mine.id } })
+    const other = await db.user.create({
+      data: { email: 'b@example.com', password: '-', gamePlayerId: theirs.id },
+    })
+    const plan = await insertPlan({ name: 'Meu', state: emptyState(), userId })
+    await db.planShare.create({ data: { planId: plan.id, userId: other.id } })
+    const notMine = await insertPlan({ name: 'Dele', state: emptyState(), userId: other.id })
 
-    await updatePlanSetting(mine.id, { onlyMyInventory: true })
-    await updatePlanSetting(theirs.id, { onlyMyInventory: true })
-    await updatePlanSetting(mine.id, { onlyMyInventory: 'yes' })
+    await updatePlanSetting(plan.id, { gamePlayerId: theirs.id, used: false })
+    await updatePlanSetting(plan.id, { gamePlayerId: stranger.id, used: false })
+    await updatePlanSetting(plan.id, { gamePlayerId: 'x', used: false })
+    await updatePlanSetting(notMine.id, { gamePlayerId: theirs.id, used: false })
 
-    expect((await planUserSetting(mine.id, userId)).onlyMyInventory).toBe(true)
-    expect((await planUserSetting(mine.id, other.id)).onlyMyInventory).toBe(false)
-    expect(await db.planUserSetting.count({ where: { planId: theirs.id } })).toBe(0)
+    expect((await planUserSetting(plan.id, userId)).excludedGamePlayerIds).toEqual([theirs.id])
+    expect((await planUserSetting(plan.id, other.id)).excludedGamePlayerIds).toEqual([])
+    expect(await db.planUserSetting.count({ where: { planId: notMine.id } })).toBe(0)
     expect(vi.mocked(refresh)).toHaveBeenCalled()
   })
 
@@ -352,9 +363,9 @@ describe('plan actions', () => {
 
     await updatePlanSetting(plan.id, { claimEntityId: '200000000000000001', used: true })
     const setting = await planUserSetting(plan.id, userId)
-    expect([setting.excludedClaimIds, setting.onlyMyInventory]).toEqual([
+    expect([setting.excludedClaimIds, setting.excludedGamePlayerIds]).toEqual([
       ['200000000000000002'],
-      false,
+      [],
     ])
   })
 })

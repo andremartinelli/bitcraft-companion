@@ -13,7 +13,9 @@ import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/inventory/sync/route'
 import { db } from '@/lib/db'
 import { insertPlan } from '@/models/plan'
-import { saveOnlyMyInventory } from '@/models/plan_user_setting'
+import { insertGroup } from '@/models/group'
+import { savePlanInventoryChoice } from '@/models/plan_user_setting'
+import { saveTaskInventoryChoice } from '@/models/task_inventory_setting'
 import { createUser } from '@/services/auth/create_user'
 import { createSessionToken } from '@/services/auth/session_token'
 import { emptyState } from '@/services/calculator/state_params'
@@ -79,18 +81,34 @@ describe('POST /api/inventory/sync', () => {
   })
 
   test('in a plan: also the characters of the people it is shared with', async () => {
-    const { partnerId } = await addBothPlayers(userId)
+    const { partnerId, playerIds } = await addBothPlayers(userId)
     const plan = await insertPlan({ name: 'Juntos', state: emptyState(), userId: partnerId })
     await db.planShare.create({ data: { planId: plan.id, userId } })
 
     expect((await sync({ planId: plan.id })).body.ok).toBe(true)
     expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, true])
 
-    // "Usar apenas meu inventário": only mine
-    await saveOnlyMyInventory(plan.id, userId, true)
+    // The partner's character left out in "Inventários": only mine
+    await savePlanInventoryChoice(plan.id, userId, { gamePlayerId: playerIds[1], used: false })
     bitjita.fake = fakeBitJita()
     await sync({ planId: plan.id })
     expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, false])
+  })
+
+  test('on the Tasks page: mine, and the people of my groups ticked in "Inventários"', async () => {
+    const { partnerId, playerIds } = await addBothPlayers(userId)
+    const { group } = await insertGroup(userId, 'Guilda')
+    await db.groupMember.create({ data: { groupId: group!.id, userId: partnerId } })
+
+    await sync({ tasks: true })
+    expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, false])
+
+    // Mine stays even when left out of "você tem": its tasks come from the read
+    await saveTaskInventoryChoice(userId, { gamePlayerId: playerIds[0], used: false }, true)
+    await saveTaskInventoryChoice(userId, { gamePlayerId: playerIds[1], used: true }, false)
+    bitjita.fake = fakeBitJita()
+    await sync({ tasks: true })
+    expect([read(PLAYER_ONE.entityId), read(PLAYER_TWO.entityId)]).toEqual([true, true])
   })
 
   test("a plan I can't open is not found, and nothing is read", async () => {
