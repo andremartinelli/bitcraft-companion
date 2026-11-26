@@ -132,6 +132,25 @@ describe('inventory sync', () => {
     expect(await tasksOf(PLAYER_TWO.entityId)).toEqual([])
   })
 
+  test('the tasks failing does not cost the inventory: the previous tasks stay', async () => {
+    await new InventorySync(bitjitaSource()).run('manual')
+    const responses = recordedResponses()
+    responses[`/api/players/${PLAYER_ONE.entityId}/traveler-tasks`] = { status: 500, body: {} }
+    const inventories = bitjitaFixture('player_one_inventories')
+    inventories.inventories.find((i: { inventoryName?: string }) => i.inventoryName === 'Wallet')
+      .pockets[0].contents.quantity++
+    responses[`/api/players/${PLAYER_ONE.entityId}/inventories`] = { body: inventories }
+
+    const run = await new InventorySync(bitjitaSource(fakeBitJita(responses))).run('manual')
+
+    expect(run.status).toBe('ok')
+    expect(await quantityIn('Carteira', 'item', 1060, PLAYER_ONE.entityId)).toBe(8)
+    const tasks = await db.gamePlayerTask.count({
+      where: { gamePlayer: { entityId: PLAYER_ONE.entityId } },
+    })
+    expect(tasks).toBe(2)
+  })
+
   test('BitJita down: the run fails and the previous data stays', async () => {
     await new InventorySync(bitjitaSource()).run('manual')
     const before = await db.inventoryEntry.count()

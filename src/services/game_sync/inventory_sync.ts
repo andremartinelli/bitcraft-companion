@@ -243,7 +243,8 @@ export default class InventorySync {
       await tx.inventoryContainer.deleteMany({
         where: { gamePlayerId: playerId, id: { notIn: keep } },
       })
-      await replaceTasks(tx, playerId, snapshot.tasks)
+      // Without an answer for the tasks, the previous ones stay
+      if (snapshot.tasks) await replaceTasks(tx, playerId, snapshot.tasks)
       await tx.gamePlayer.update({
         where: { id: playerId },
         data: {
@@ -331,7 +332,7 @@ async function upsertContainer(
  * The player's tasks become these. shortcut: a task missing from the game data
  * (a patch newer than the import) is skipped until the next import.
  */
-async function replaceTasks(tx: Tx, playerId: number, tasks: PlayerSnapshot['tasks']) {
+async function replaceTasks(tx: Tx, playerId: number, tasks: NonNullable<PlayerSnapshot['tasks']>) {
   await tx.gamePlayerTask.deleteMany({ where: { gamePlayerId: playerId } })
   const known = await tx.travelerTask.findMany({
     where: { gameId: { in: tasks.map((task) => task.gameId) } },
@@ -341,7 +342,13 @@ async function replaceTasks(tx: Tx, playerId: number, tasks: PlayerSnapshot['tas
   await tx.gamePlayerTask.createMany({
     data: tasks.flatMap((task) =>
       ids.has(task.gameId)
-        ? [{ gamePlayerId: playerId, travelerTaskId: ids.get(task.gameId)!, completed: task.completed }]
+        ? [
+            {
+              gamePlayerId: playerId,
+              travelerTaskId: ids.get(task.gameId)!,
+              completed: task.completed,
+            },
+          ]
         : []
     ),
     skipDuplicates: true,

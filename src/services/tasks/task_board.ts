@@ -8,7 +8,7 @@ import { levelFromXp } from '@/services/tasks/skill_level'
 /**
  * The "Tasks" page (decided 26/11/2026): per traveler, the tasks the
  * account's character has now and the ones that can come at its tier in the
- * traveler's skill, each item with how many the account has (its character and
+ * traveler's skill (up to its level), each item with how many the account has (its character and
  * counted claims, like the rest of the app outside a plan).
  *
  * Travelers only give tasks of the player's level or below. In a sample of
@@ -51,7 +51,7 @@ export async function taskBoard(userId: number) {
   if (!all.length) return { syncedAt: player.lastSyncedAt, travelers: [] }
   const [current, possible, totals] = await Promise.all([
     playerTasks(player.id),
-    tasksAtTiers(all.map(({ skillId, tier }) => ({ skillId, tier }))),
+    tasksAtTiers(all.map(({ skillId, tier, level }) => ({ skillId, tier, level }))),
     inventoryScope(userId).then(stockTotals),
   ])
 

@@ -69,9 +69,9 @@ Os baús de uma claim só contam quando você marca a claim em **Meu personagem*
 
 O app lê a BitJita de três jeitos, e nunca por um timer (o banco do Neon dorme quando ninguém usa o app):
 
-- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da página que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta. Até 20 por vez, os mais antigos primeiro.
-- **"Sincronizar agora"**, nas mesmas páginas, para os personagens da página (até 20). Do PC, `npm run inventory:sync` lê todos.
-- **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET` e lê até 20 personagens que ninguém olhou na última hora.
+- **Ao abrir uma página** que mostra o inventário (o inventário, a calculadora e os planos): os personagens da página que não foram lidos há mais de `INVENTORY_STALE_MINUTES` minutos (1, como o app antigo) são lidos de novo, com a página já aberta. Até 15 por vez, os mais antigos primeiro.
+- **"Sincronizar agora"**, nas mesmas páginas, para os personagens da página (até 15). Do PC, `npm run inventory:sync` lê todos.
+- **Um cron diário** da Vercel (`vercel.json`, às 6h de Brasília) chama `/api/cron/inventory-sync` com a chave `CRON_SECRET` e lê até 15 personagens que ninguém olhou na última hora.
 
 Só um sync roda por vez. Se a BitJita falhar, os dados anteriores ficam, e a página diz quem não foi lido.
 

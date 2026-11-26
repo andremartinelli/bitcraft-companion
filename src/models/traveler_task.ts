@@ -26,10 +26,16 @@ export async function travelers() {
   return rows.map((row) => ({ name: row.traveler!, skillId: row.skillId, skill: row.skill.name }))
 }
 
-/** Every task of these skills at these tiers (at least one) */
-export function tasksAtTiers(tiers: { skillId: number; tier: number }[]) {
+/**
+ * Every task of these skills at these tiers (at least one) that the level
+ * reaches: a tier's first tasks can ask for more than its first level (T2 starts at 20, some ask 25)
+ */
+export function tasksAtTiers(tiers: { skillId: number; tier: number; level: number }[]) {
   return db.travelerTask.findMany({
-    where: { removedAt: null, OR: tiers },
+    where: {
+      removedAt: null,
+      OR: tiers.map(({ skillId, tier, level }) => ({ skillId, tier, minLevel: { lte: level } })),
+    },
     orderBy: [{ minLevel: 'asc' }, { gameId: 'asc' }],
     select: TASK,
   })

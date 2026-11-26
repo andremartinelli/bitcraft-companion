@@ -7,7 +7,7 @@ import InventorySync from '@/services/game_sync/inventory_sync'
 /**
  * Minutes until a character's inventory is old enough to read again
  * (INVENTORY_STALE_MINUTES). 1 by default, as the old app's timer since
- * 24/11/2026: about 4 calls to BitJita per character, far below its 250 a minute.
+ * 24/11/2026: about 5 calls to BitJita per character, far below its 250 a minute.
  */
 export function staleMinutes() {
   const minutes = Number(process.env.INVENTORY_STALE_MINUTES)
@@ -16,8 +16,13 @@ export function staleMinutes() {
 
 /** The daily cron reads characters nobody looked at for this long */
 export const CRON_STALE_MINUTES = 60
-/** At most this many per run: a Vercel function stops at 60 s, and BitJita takes 2 calls a second */
-export const MAX_PLAYERS_PER_SYNC = 20
+/**
+ * At most this many per run: a Vercel function stops at 60 s, and BitJita takes
+ * 2 calls a second. A character is about 5 calls (player, inventories, housing,
+ * the house, traveler tasks): 15 is about 38 s, leaving room for counted claims
+ * (one call each) and the writes.
+ */
+export const MAX_PLAYERS_PER_SYNC = 15
 
 const notTriedSince = (minutes: number, now: Date) => ({
   OR: [

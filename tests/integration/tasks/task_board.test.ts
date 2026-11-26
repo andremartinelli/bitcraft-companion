@@ -4,7 +4,13 @@ import { taskBoard } from '@/services/tasks/task_board'
 import { importTables } from '../../helpers/game_data'
 import { syncBothPlayers } from '../../helpers/inventory'
 
-const summary = (tasks: { tier: number; completed: boolean; lines: { item: { name: string }; quantity: number; have: number }[] }[]) =>
+const summary = (
+  tasks: {
+    tier: number
+    completed: boolean
+    lines: { item: { name: string }; quantity: number; have: number }[]
+  }[]
+) =>
   tasks.map((task) => [
     task.tier,
     task.completed,
@@ -35,6 +41,16 @@ describe("the travelers' tasks page", () => {
     expect(summary(brico.possible)).toEqual([
       [2, false, ['3 Simple Plank (tem 1)', '2 Rough Wood Trunk (tem 3)']],
       [2, false, ['10 Rough Wood Scraps (tem 7)']],
+    ])
+  })
+
+  test("a task of the tier above the character's level does not show", async () => {
+    // 35660 XP = level 21: T2, but task 9003 asks for level 25
+    await db.gamePlayer.updateMany({ data: { skills: { '15': 35660 } } })
+    const [brico] = (await taskBoard(userId))!.travelers
+    expect([brico.level, brico.tier]).toEqual([21, 2])
+    expect(summary(brico.possible)).toEqual([
+      [2, false, ['3 Simple Plank (tem 1)', '2 Rough Wood Trunk (tem 3)']],
     ])
   })
 
