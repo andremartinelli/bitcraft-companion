@@ -140,6 +140,8 @@ export function defaultProducer(graph: RecipeGraph, itemId: number): Producer | 
         Number(takesLostAnimal(ra)) - Number(takesLostAnimal(rb)) ||
         Number(b.deterministic) - Number(a.deterministic) ||
         (ra.skillLevel ?? 0) - (rb.skillLevel ?? 0) ||
+        // Water from a Well (an Empty Bucket) beats boiling Winter Snow, found only in the cold (decided 2026-11-27)
+        Number(rb.stationName === 'Well') - Number(ra.stationName === 'Well') ||
         ra.id - rb.id
       )
     })[0]
