@@ -1,3 +1,4 @@
+import type { OtherStepsMode } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
 
 /**
@@ -45,4 +46,17 @@ export type InventoryChoice =
 export function toggled<T>(list: T[], value: T, on: boolean) {
   const others = list.filter((item) => item !== value)
   return on ? [...others, value] : others
+}
+
+/** "Etapas de outras profissões" in this plan, for this account only */
+export async function savePlanOtherSteps(
+  planId: number,
+  userId: number,
+  otherSteps: OtherStepsMode
+) {
+  return db.planUserSetting.upsert({
+    where: { planId_userId: { planId, userId } },
+    create: { planId, userId, otherSteps },
+    update: { otherSteps },
+  })
 }

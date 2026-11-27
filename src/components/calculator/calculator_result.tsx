@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Flex,
@@ -11,20 +12,28 @@ import {
   Stack,
   Text,
 } from '@chakra-ui/react'
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { LuCircleCheck } from 'react-icons/lu'
 import { RecipePicker } from '@/components/calculator/recipe_picker'
 import { ItemChip, StaticChip } from '@/components/items/item_chip'
 import { EmptyNotice } from '@/components/layout/empty_notice'
+import { OtherStepsSelect } from '@/components/calculator/other_steps_select'
 import { CommitInput } from '@/components/ui/commit_input'
 import { DetailsSummary as Summary, RememberedDetails } from '@/components/ui/remembered_details'
 import { formatNumber } from '@/lib/format'
 import type { CalculatorPanel, PresentedNode } from '@/services/calculator/presenter'
+import {
+  isOtherProfession,
+  mineFirst,
+  type OtherStepsMode,
+  type StepsSetting,
+} from '@/services/calculator/steps_view'
 
 type Round = CalculatorPanel['rounds'][number]
 type Step = Round['steps'][number]
 type Material = CalculatorPanel['materials'][number]
 type Build = NonNullable<CalculatorPanel['buildRound']>['entries'][number]
+type ProfessionSteps = CalculatorPanel['professions'][number]
 
 interface ResultProps {
   panel: CalculatorPanel
@@ -32,6 +41,10 @@ interface ResultProps {
   storageKey: string
   onChoice: (itemId: number, value: string) => void
   onOwned: (itemId: number, value: string) => void
+  /** "Minhas profissões" and what to do with the other professions' steps */
+  stepsSetting: StepsSetting
+  /** In a plan: "Etapas de outras profissões" for this account, in this plan */
+  saveOtherSteps?: (mode: OtherStepsMode) => Promise<void>
 }
 
 function Hint({ children }: { children: ReactNode }) {
@@ -119,9 +132,18 @@ function StepWhere({ step }: { step: Step }) {
   )
 }
 
-function MaterialRow({ row }: { row: Material }) {
+/** "R2": the round of a step, in the view by profession */
+const RoundBadge = ({ round }: { round?: number }) =>
+  round ? (
+    <Badge size="sm" variant="outline" title={`Rodada ${round}`}>
+      R{round}
+    </Badge>
+  ) : null
+
+function MaterialRow({ row, round }: { row: Material; round?: number }) {
   return (
     <Row qty={row.qtyLabel} done={row.complete}>
+      <RoundBadge round={round} />
       <ItemChip item={row.item} />
       {row.holdersLabel && <Muted>{row.holdersLabel}</Muted>}
       {!row.complete ? (
@@ -137,7 +159,15 @@ function MaterialRow({ row }: { row: Material }) {
   )
 }
 
-function StepRow({ step, onChoice }: { step: Step; onChoice: ResultProps['onChoice'] }) {
+function StepRow({
+  step,
+  round,
+  onChoice,
+}: {
+  step: Step
+  round?: number
+  onChoice: ResultProps['onChoice']
+}) {
   const approx = step.approximate ? '≈ ' : ''
   return (
     <Row
@@ -149,6 +179,7 @@ function StepRow({ step, onChoice }: { step: Step; onChoice: ResultProps['onChoi
       done={step.done}
       ready={step.ready}
     >
+      <RoundBadge round={round} />
       <ItemChip item={step.item} />
       {step.recipes.length > 0 && <RecipePicker step={step} onChoice={onChoice} />}
       <StepWhere step={step} />
@@ -193,17 +224,22 @@ function RoundBox({
   count,
   rememberKey,
   complete,
+  collapsed = false,
   children,
 }: {
   title: string
   count: string
   rememberKey: string
   complete: boolean
+  /** Another profession's, with "Colapsar": starts closed (remembered apart) */
+  collapsed?: boolean
   children: ReactNode
 }) {
   return (
     <RememberedDetails
-      rememberKey={rememberKey}
+      key={String(collapsed)}
+      rememberKey={collapsed ? `${rememberKey}:other` : rememberKey}
+      defaultOpen={!collapsed}
       complete={complete}
       borderWidth="1px"
       rounded="l2"
@@ -227,16 +263,24 @@ function ProfessionBox({
   count,
   rememberKey,
   complete,
+  collapsed = false,
   children,
 }: {
   name: string
   count: string
   rememberKey: string
   complete: boolean
+  collapsed?: boolean
   children: ReactNode
 }) {
   return (
-    <RememberedDetails rememberKey={rememberKey} complete={complete} mb="2">
+    <RememberedDetails
+      key={String(collapsed)}
+      rememberKey={collapsed ? `${rememberKey}:other` : rememberKey}
+      defaultOpen={!collapsed}
+      complete={complete}
+      mb="2"
+    >
       <Summary py="1">
         <Text textStyle="sm" fontWeight="semibold">
           {name}
@@ -355,45 +399,150 @@ function TreeNode({
 const noSubscribe = () => () => {}
 
 /**
- * "Esconder concluídos", remembered by this browser for each calculation
- * (each plan, the calculator). The server draws it off and the browser's
- * choice follows when the page hydrates. With storage blocked it still
- * toggles, without memory.
+ * A choice of the Steps remembered by this browser for each calculation
+ * (each plan, the calculator): "Esconder concluídos", "Por profissão". The
+ * server draws the fallback and the browser's choice follows when the page
+ * hydrates. With storage blocked it still changes, without memory.
  */
-function useHideDone(storageKey: string) {
-  const key = `hide-done:${storageKey}`
+function useStoredChoice<T extends string>(key: string, fallback: T, values: readonly T[]) {
   const stored = useSyncExternalStore(
     noSubscribe,
     () => {
       try {
-        return localStorage.getItem(key) === '1'
+        const saved = localStorage.getItem(key) as T | null
+        return saved !== null && values.includes(saved) ? saved : fallback
       } catch {
-        return false
+        return fallback
       }
     },
-    () => false
+    () => fallback
   )
-  // What was clicked here, for this calculation only (another plan reuses the component)
-  const [chosen, setChosen] = useState<{ key: string; hide: boolean } | null>(null)
-  const hide = chosen?.key === key ? chosen.hide : stored
-  const toggle = () => {
-    setChosen({ key, hide: !hide })
+  // What was chosen here, for this calculation only (another plan reuses the component)
+  const [chosen, setChosen] = useState<{ key: string; value: T } | null>(null)
+  const value = chosen?.key === key ? chosen.value : stored
+  const choose = (next: T) => {
+    setChosen({ key, value: next })
     try {
-      localStorage.setItem(key, hide ? '0' : '1')
+      localStorage.setItem(key, next)
     } catch {
       // Storage blocked: nothing to remember with
     }
   }
-  return [hide, toggle] as const
+  return [value, choose] as const
 }
+
+const ON_OFF = ['0', '1'] as const
+const VIEWS = ['round', 'profession'] as const
 
 /**
  * The calculation: round 1 gathers the raw materials; the next ones make
  * each item once, in an order that works; buildings last. The full tree, to
  * change recipes and "já tenho", stays folded at the end.
  */
-export function CalculatorResult({ panel, storageKey, onChoice, onOwned }: ResultProps) {
-  const [hideDone, toggleHideDone] = useHideDone(storageKey)
+export function CalculatorResult({
+  panel,
+  storageKey,
+  onChoice,
+  onOwned,
+  stepsSetting,
+  saveOtherSteps,
+}: ResultProps) {
+  const [hideDoneValue, setHideDone] = useStoredChoice(`hide-done:${storageKey}`, '0', ON_OFF)
+  const hideDone = hideDoneValue === '1'
+  const [view, setView] = useStoredChoice(`steps-view:${storageKey}`, 'round', VIEWS)
+  const steps = useRef<HTMLElement>(null)
+  // Closing a box is remembered like a click on it (RememberedDetails)
+  const collapseCompleted = () =>
+    steps.current
+      ?.querySelectorAll<HTMLDetailsElement>('details[data-complete]')
+      .forEach((details) => (details.open = false))
+
+  const mine = stepsSetting.professions
+  const mode = stepsSetting.otherSteps
+  const other = (skill: string | null) => isOtherProfession(skill, mine)
+  /** The professions to draw, the account's first; with "Esconder", without the others */
+  const visible = <T extends { skill: string | null }>(groups: T[]) =>
+    mineFirst(mode === 'hide' ? groups.filter((g) => !other(g.skill)) : groups, mine)
+  const collapsed = (skill: string | null) => mode === 'collapse' && other(skill)
+  /** What "Esconder" leaves out that is still to do: said, so the plan doesn't look complete */
+  const hiddenCount =
+    mode === 'hide'
+      ? panel.professions
+          .filter((group) => other(group.skill))
+          .flatMap((group) => group.entries)
+          .filter((entry) => (entry.kind === 'material' ? !entry.row.complete : !entry.step.done))
+          .length
+      : 0
+
+  /** "Por rodada": gathering by profession, then each round's crafts by profession */
+  const renderRounds = () => (
+    <>
+      <RoundBox
+        title="Rodada 1 · Coletar"
+        count={
+          panel.materials.length
+            ? `${panel.materialsDone} de ${panel.materials.length} completas`
+            : 'nada a coletar'
+        }
+        rememberKey={`${storageKey}:round:1`}
+        complete={panel.gatherComplete}
+      >
+        {visible(panel.materialGroups).map((group) => (
+          <ProfessionBox
+            key={group.key}
+            name={group.name}
+            count={`${group.entries.length} ${group.entries.length === 1 ? 'item' : 'itens'}${
+              group.doneCount
+                ? ` · ${group.doneCount} ${group.doneCount === 1 ? 'completo' : 'completos'}`
+                : ''
+            }`}
+            rememberKey={`${storageKey}:round:1:${group.key}`}
+            complete={group.complete}
+            collapsed={collapsed(group.skill)}
+          >
+            {group.entries.map((row) => (
+              <MaterialRow key={row.itemId} row={row} />
+            ))}
+          </ProfessionBox>
+        ))}
+        <Hint>
+          {panel.materials.length
+            ? 'À esquerda, o que vocês têm / o que o plano precisa; ao lado do item, com quem está. Riscado com "já têm em": já foi usado em algo pronto que vocês têm.'
+            : 'Nada para coletar: vocês já têm tudo.'}
+        </Hint>
+      </RoundBox>
+
+      {panel.rounds.map((round: Round) => {
+        const professions = visible(round.professions)
+        // Every profession of the round hidden: nothing to draw
+        if (!professions.length) return null
+        return (
+          <RoundBox
+            key={round.round}
+            title={`Rodada ${round.round}`}
+            count={round.countLabel}
+            rememberKey={`${storageKey}:round:${round.round}`}
+            complete={round.complete}
+          >
+            {professions.map((profession) => (
+              <ProfessionBox
+                key={profession.key}
+                name={profession.name}
+                count={profession.countLabel}
+                rememberKey={`${storageKey}:round:${round.round}:${profession.key}`}
+                complete={profession.complete}
+                collapsed={collapsed(profession.skill)}
+              >
+                {profession.entries.map((step) => (
+                  <StepRow key={step.itemId} step={step} onChoice={onChoice} />
+                ))}
+              </ProfessionBox>
+            ))}
+          </RoundBox>
+        )
+      })}
+    </>
+  )
 
   if (panel.empty) {
     return (
@@ -419,87 +568,93 @@ export function CalculatorResult({ panel, storageKey, onChoice, onOwned }: Resul
 
       <Box
         as="section"
+        ref={steps}
         aria-labelledby="calc-steps"
         data-hide-done={hideDone ? '' : undefined}
         // Done lines, and rounds or professions with nothing left
         css={{ '&[data-hide-done] :is([data-done], details[data-complete])': { display: 'none' } }}
       >
-        <Flex align="center" justify="space-between" gap="3" mb="1">
+        <Flex align="center" justify="space-between" gap="3" mb="1" wrap="wrap">
           <Heading id="calc-steps" size="lg">
             Etapas
           </Heading>
-          {panel.doneCount > 0 && (
-            <Button size="xs" variant="ghost" onClick={toggleHideDone} aria-pressed={hideDone}>
-              {hideDone ? 'Mostrar' : 'Esconder'} concluídos ({panel.doneCount})
-            </Button>
-          )}
+          <HStack gap="1" wrap="wrap">
+            <HStack gap="0" role="group" aria-label="Agrupar as etapas" mr="2">
+              {VIEWS.map((value) => (
+                <Button
+                  key={value}
+                  size="xs"
+                  variant={view === value ? 'subtle' : 'ghost'}
+                  aria-pressed={view === value}
+                  onClick={() => setView(value)}
+                >
+                  {value === 'round' ? 'Por rodada' : 'Por profissão'}
+                </Button>
+              ))}
+            </HStack>
+            {panel.doneCount > 0 && (
+              <>
+                <Button size="xs" variant="ghost" onClick={collapseCompleted}>
+                  Colapsar concluídos
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setHideDone(hideDone ? '0' : '1')}
+                  aria-pressed={hideDone}
+                >
+                  {hideDone ? 'Mostrar' : 'Esconder'} concluídos ({panel.doneCount})
+                </Button>
+              </>
+            )}
+          </HStack>
         </Flex>
-        <Box mb="3">
+        <Flex mb="3" gap="3" wrap="wrap" justify="space-between" align="baseline">
           <Hint>
-            Primeiro, coletar a matéria-prima. Depois, cada item uma vez, somando a árvore inteira:
-            uma rodada só depende das anteriores e, dentro dela, vai por estação.{' '}
+            {view === 'round'
+              ? 'Primeiro, coletar a matéria-prima. Depois, cada item uma vez, somando a árvore inteira: uma rodada só depende das anteriores e, dentro dela, vai por estação. '
+              : 'Cada profissão com a coleta e a fabricação dela, na ordem das rodadas (R1 é a coleta). '}
             <strong>Riscado é o que vocês já têm:</strong> não precisa fazer nem coletar o que vai
             nele.
           </Hint>
-        </Box>
+          {saveOtherSteps && mine.length > 0 && (
+            <OtherStepsSelect value={mode} save={saveOtherSteps} />
+          )}
+        </Flex>
+        {hiddenCount > 0 && (
+          <Box mb="3" px="3" py="2" rounded="l2" bg="orange.subtle" textStyle="sm">
+            {hiddenCount} {hiddenCount === 1 ? 'etapa' : 'etapas'} de outras profissões{' '}
+            {hiddenCount === 1 ? 'escondida' : 'escondidas'}: o plano ainda não está completo.
+          </Box>
+        )}
 
-        <RoundBox
-          title="Rodada 1 · Coletar"
-          count={
-            panel.materials.length
-              ? `${panel.materialsDone} de ${panel.materials.length} completas`
-              : 'nada a coletar'
-          }
-          rememberKey={`${storageKey}:round:1`}
-          complete={panel.gatherComplete}
-        >
-          {panel.materialGroups.map((group) => (
-            <ProfessionBox
-              key={group.key}
-              name={group.name}
-              count={`${group.entries.length} ${group.entries.length === 1 ? 'item' : 'itens'}${
-                group.doneCount
-                  ? ` · ${group.doneCount} ${group.doneCount === 1 ? 'completo' : 'completos'}`
-                  : ''
-              }`}
-              rememberKey={`${storageKey}:round:1:${group.key}`}
-              complete={group.complete}
-            >
-              {group.entries.map((row) => (
-                <MaterialRow key={row.itemId} row={row} />
-              ))}
-            </ProfessionBox>
-          ))}
-          <Hint>
-            {panel.materials.length
-              ? 'À esquerda, o que vocês têm / o que o plano precisa; ao lado do item, com quem está. Riscado com "já têm em": já foi usado em algo pronto que vocês têm.'
-              : 'Nada para coletar: vocês já têm tudo.'}
-          </Hint>
-        </RoundBox>
-
-        {panel.rounds.map((round: Round) => (
-          <RoundBox
-            key={round.round}
-            title={`Rodada ${round.round}`}
-            count={round.countLabel}
-            rememberKey={`${storageKey}:round:${round.round}`}
-            complete={round.complete}
-          >
-            {round.professions.map((profession) => (
-              <ProfessionBox
+        {view === 'profession'
+          ? visible(panel.professions).map((profession: ProfessionSteps) => (
+              <RoundBox
                 key={profession.key}
-                name={profession.name}
+                title={profession.name}
                 count={profession.countLabel}
-                rememberKey={`${storageKey}:round:${round.round}:${profession.key}`}
+                rememberKey={`${storageKey}:profession:${profession.key}`}
                 complete={profession.complete}
+                collapsed={collapsed(profession.skill)}
               >
-                {profession.entries.map((step) => (
-                  <StepRow key={step.itemId} step={step} onChoice={onChoice} />
-                ))}
-              </ProfessionBox>
-            ))}
-          </RoundBox>
-        ))}
+                <Box as="ul" listStyleType="none">
+                  {profession.entries.map((entry) =>
+                    entry.kind === 'material' ? (
+                      <MaterialRow key={`m${entry.row.itemId}`} row={entry.row} round={1} />
+                    ) : (
+                      <StepRow
+                        key={`s${entry.step.itemId}`}
+                        step={entry.step}
+                        round={entry.round}
+                        onChoice={onChoice}
+                      />
+                    )
+                  )}
+                </Box>
+              </RoundBox>
+            ))
+          : renderRounds()}
         {!panel.rounds.length && !panel.buildRound && (
           <Hint>Nada para fabricar: vocês já têm tudo.</Hint>
         )}

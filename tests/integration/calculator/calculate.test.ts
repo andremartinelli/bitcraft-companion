@@ -38,6 +38,19 @@ describe('calculation as the page shows it', () => {
       ['Carpentry'],
       ['Carpentry'],
     ])
+    // "Por profissão": each profession's gathering and crafts, in round order
+    expect(
+      panel.professions.map((p) => [
+        p.name,
+        p.skill,
+        p.entries.map(
+          (e) => `R${e.round} ${e.kind === 'material' ? e.row.item.name : e.step.item.name}`
+        ),
+      ])
+    ).toEqual([
+      ['Carpentry', 'Carpentry', ['R3 Rough Stripped Wood', 'R4 Rough Plank']],
+      ['Forestry', 'Forestry', ['R1 Rough Wood Trunk', 'R2 Rough Wood Log']],
+    ])
     expect(panel.rounds[0].steps[0].waitingLabel).toBe('10 Rough Wood Trunk')
     // Nothing done yet: nothing to hide
     expect(panel.doneCount).toBe(0)

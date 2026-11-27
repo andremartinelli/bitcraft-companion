@@ -13,6 +13,8 @@ import {
   removeMember,
   setAutoShare,
 } from '@/models/group'
+import { saveOtherSteps, saveProfession } from '@/models/user_profession'
+import { otherStepsSchema, professionChoiceSchema } from '@/validators/profession'
 import { groupInviteSchema, groupNameSchema, idSchema, inviteTokenSchema } from '@/validators/group'
 
 export interface GroupFormState {
@@ -117,5 +119,21 @@ export async function destroyGroupMember(id: number, userId: number) {
   if (groupId.success && memberId.success) {
     await removeMember(groupId.data, user.id, memberId.data)
   }
+  refresh()
+}
+
+/** PATCH /account/professions: marks or unmarks one of "Minhas profissões" */
+export async function updateProfession(input: unknown) {
+  const user = await requireUser()
+  const choice = professionChoiceSchema.safeParse(input)
+  if (choice.success) await saveProfession(user.id, choice.data.skillId, choice.data.on)
+  refresh()
+}
+
+/** PATCH /account/other_steps: the account's default for the steps of other professions */
+export async function updateOtherSteps(input: unknown) {
+  const user = await requireUser()
+  const mode = otherStepsSchema.safeParse(input)
+  if (mode.success) await saveOtherSteps(user.id, mode.data)
   refresh()
 }

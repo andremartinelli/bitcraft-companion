@@ -43,7 +43,13 @@ function byProfession<T>(list: T[], nameOf: (entry: T) => string) {
   }
   return [...groups]
     .sort(([a], [b]) => professionRank(a) - professionRank(b) || a.localeCompare(b))
-    .map(([name, entries]) => ({ name, key: slug(name), entries }))
+    .map(([name, entries]) => ({
+      name,
+      key: slug(name),
+      /** A named profession; null for "any", none or other sources, which always show */
+      skill: professionRank(name) === 0 ? name : null,
+      entries,
+    }))
 }
 
 /** "Outras fontes: loja, drop ou criatura" → "outras-fontes-loja-drop-ou-criatura", for storage keys */
@@ -303,6 +309,7 @@ export function present(
     professions: {
       name: string
       key: string
+      skill: string | null
       entries: PresentedStep[]
       countLabel: string
       complete: boolean
@@ -326,14 +333,71 @@ export function present(
     }))
   }
 
-  const materialGroups = byProfession(materials, (m) =>
-    professionName(graph.gatherers.get(m.itemId), OTHER_SOURCES)
-  ).map((profession) => ({
+  const materialGroupsOf = () =>
+    byProfession(materials, (m) => professionName(graph.gatherers.get(m.itemId), OTHER_SOURCES))
+  const materialGroups = materialGroupsOf().map((profession) => ({
     ...profession,
     doneCount: profession.entries.filter((m) => m.complete).length,
     complete: profession.entries.every((m) => m.complete),
   }))
   const gatherComplete = materials.every((m) => m.complete)
+
+  type PresentedMaterial = (typeof materials)[number]
+  /**
+   * "Por profissão": each profession's gathering (round 1) and crafts, in
+   * round order; the same profession order as the rounds
+   */
+  const byProfessionView = new Map<
+    string,
+    {
+      name: string
+      key: string
+      skill: string | null
+      entries: (
+        | { kind: 'material'; round: 1; row: PresentedMaterial }
+        | { kind: 'step'; round: number; step: PresentedStep }
+      )[]
+    }
+  >()
+  const viewGroup = (group: { name: string; key: string; skill: string | null }) => {
+    const found = byProfessionView.get(group.name)
+    if (found) return found
+    const created = { name: group.name, key: group.key, skill: group.skill, entries: [] }
+    byProfessionView.set(group.name, created)
+    return created
+  }
+  for (const group of materialGroupsOf()) {
+    viewGroup(group).entries.push(
+      ...group.entries.map((row) => ({ kind: 'material' as const, round: 1 as const, row }))
+    )
+  }
+  for (const round of rounds) {
+    for (const group of round.professions) {
+      viewGroup(group).entries.push(
+        ...group.entries.map((step) => ({ kind: 'step' as const, round: round.round, step }))
+      )
+    }
+  }
+  const professions = [...byProfessionView.values()]
+    .sort((a, b) => professionRank(a.name) - professionRank(b.name) || a.name.localeCompare(b.name))
+    .map((group) => {
+      const done = group.entries.filter((e) =>
+        e.kind === 'material' ? e.row.complete : e.step.done
+      ).length
+      const ready = group.entries.filter((e) => e.kind === 'step' && e.step.ready).length
+      return {
+        ...group,
+        /** "5 etapas · 1 pronta · 2 completas" */
+        countLabel: [
+          `${group.entries.length} ${group.entries.length === 1 ? 'etapa' : 'etapas'}`,
+          ready ? `${ready} ${ready === 1 ? 'pronta' : 'prontas'}` : null,
+          done ? `${done} ${done === 1 ? 'completa' : 'completas'}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        complete: done === group.entries.length,
+      }
+    })
   /** Lines they have all of, gathered or made: "Esconder concluídos" says how many */
   const doneCount = materials.filter((m) => m.complete).length + steps.filter((s) => s.done).length
 
@@ -449,6 +513,8 @@ export function present(
     doneCount,
     /** "Etapas": the crafts by round, from round 2 (round 1 is `materials`) */
     rounds,
+    /** "Por profissão": gathering and crafts together, per profession */
+    professions,
     warnings: result.warnings,
     choices: Object.entries(state.choices).map(([itemId, value]) => ({
       itemId,

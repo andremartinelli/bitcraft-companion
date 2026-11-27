@@ -23,6 +23,15 @@ enum RecipeKind {
 }
 
 /// resource: tree, vein, plant. enemy: a hunted animal.
+/// What the Steps do with the steps of professions that are not the account's ("Minhas profissões")
+enum OtherStepsMode {
+  show
+  collapse
+  hide
+
+  @@map("other_steps_mode")
+}
+
 enum ExtractionSource {
   resource
   enemy
@@ -71,18 +80,20 @@ enum SyncStatus {
 // ---------------------------------------------------------------- accounts
 
 model User {
-  id           Int         @id @default(autoincrement())
-  fullName     String?     @map("full_name")
-  email        String      @unique @db.VarChar(254)
+  id           Int            @id @default(autoincrement())
+  fullName     String?        @map("full_name")
+  email        String         @unique @db.VarChar(254)
   /// scrypt hash (node:crypto), never the password
   password     String
   /// Where the page sign-up came from: limits new accounts per IP
-  signupIp     String?     @map("signup_ip")
+  signupIp     String?        @map("signup_ip")
   /// The account's character ("Meu personagem"). Two accounts can claim the same one
-  gamePlayerId Int?        @map("game_player_id")
-  gamePlayer   GamePlayer? @relation(fields: [gamePlayerId], references: [id], onDelete: SetNull)
-  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  gamePlayerId Int?           @map("game_player_id")
+  gamePlayer   GamePlayer?    @relation(fields: [gamePlayerId], references: [id], onDelete: SetNull)
+  /// Default for the steps of other professions: plans start with it, the quick calculator uses it
+  otherSteps   OtherStepsMode @default(show) @map("other_steps")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   plansCreated    Plan[]                @relation("PlanCreatedBy")
   plansUpdated    Plan[]                @relation("PlanUpdatedBy")
@@ -97,6 +108,7 @@ model User {
   taskInventory   TaskInventorySetting?
   countedClaims   CountedClaim[]
   buildingChoices ClaimBuildingChoice[]
+  professions     UserProfession[]
 
   @@index([signupIp, createdAt])
   @@index([gamePlayerId])
@@ -166,6 +178,7 @@ model Skill {
   extractionRecipes ExtractionRecipe[]
   travelerTasks     TravelerTask[]
   taskTierUnlocks   TaskTierUnlock[]
+  userProfessions   UserProfession[]
 
   @@map("skills")
 }
@@ -611,15 +624,17 @@ model PlanShare {
 
 /// What each person chose for themselves on a plan. It doesn't change what others see
 model PlanUserSetting {
-  planId                Int      @map("plan_id")
-  plan                  Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  userId                Int      @map("user_id")
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                Int             @map("plan_id")
+  plan                  Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId                Int             @map("user_id")
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Characters of the plan's people (mine too) whose inventory I leave out in this plan
-  excludedGamePlayerIds Int[]    @default([]) @map("excluded_game_player_ids")
+  excludedGamePlayerIds Int[]           @default([]) @map("excluded_game_player_ids")
   /// Counted claims (counted_claims) of the plan's people that I leave out in this plan
-  excludedClaimIds      String[] @default([]) @map("excluded_claim_ids")
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  excludedClaimIds      String[]        @default([]) @map("excluded_claim_ids")
+  /// The steps of other professions in this plan, for me; null: my account's default
+  otherSteps            OtherStepsMode? @map("other_steps")
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@id([planId, userId])
   @@index([userId])
@@ -832,4 +847,16 @@ model SyncRun {
   @@index([startedAt])
   @@index([userId, startedAt])
   @@map("sync_runs")
+}
+
+/// "Minhas profissões": the professions an account does (decided 2026-11-27).
+/// The Steps put them first and can collapse or hide the others (users.other_steps)
+model UserProfession {
+  userId  Int   @map("user_id")
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillId Int   @map("skill_id")
+  skill   Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+  @@map("user_professions")
 }

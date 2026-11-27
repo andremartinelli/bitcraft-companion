@@ -22,6 +22,7 @@ import { CommitInput } from '@/components/ui/commit_input'
 import { formatAgo } from '@/lib/format'
 import type { CalculatorState } from '@/services/calculator/production_planner'
 import type { CalculatorPanel } from '@/services/calculator/presenter'
+import type { OtherStepsMode, StepsSetting } from '@/services/calculator/steps_view'
 import {
   addBuilding,
   addTarget,
@@ -51,6 +52,10 @@ export interface CalculatorViewProps {
   inventoryControls?: ReactNode
   /** Next to the search: "Planos rápidos" in a plan */
   pickerActions?: ReactNode
+  /** "Minhas profissões" and what to do with the others' steps */
+  stepsSetting: StepsSetting
+  /** In a plan: this account's "Etapas de outras profissões" there */
+  saveOtherSteps?: (mode: OtherStepsMode) => Promise<void>
 }
 
 /** A quantity from a field; a blank one changes nothing */
@@ -72,6 +77,8 @@ export function CalculatorView({
   actions,
   inventoryControls,
   pickerActions,
+  stepsSetting,
+  saveOtherSteps,
 }: CalculatorViewProps) {
   const change = (next: CalculatorState) => {
     if (next !== state) onChange(next)
@@ -261,6 +268,8 @@ export function CalculatorView({
       <CalculatorResult
         panel={panel}
         storageKey={storageKey}
+        stepsSetting={stepsSetting}
+        saveOtherSteps={saveOtherSteps}
         onChoice={(itemId, value) => {
           change(setChoice(state, itemId, value))
           // A recipe (not "Automático" or raw material) becomes the account's default
