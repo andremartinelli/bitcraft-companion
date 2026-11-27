@@ -440,6 +440,9 @@ function useStoredChoice<T extends string>(key: string, fallback: T, values: rea
 const countOf = (total: number, done: number) =>
   `${total} ${total === 1 ? 'item' : 'itens'}${done ? ` · ${done} ${done === 1 ? 'completo' : 'completos'}` : ''}`
 
+/** The verb of planting recipes (Farming): their own "Plantar" box */
+const PLANT_VERB = 'Grow'
+
 const DONE_MODES = ['show', 'collapse', 'hide'] as const
 const VIEWS = ['round', 'profession'] as const
 
@@ -634,9 +637,14 @@ export function CalculatorResult({
           {view === 'profession'
             ? visible(panel.professions, true).map((profession: ProfessionSteps) => {
                 const gather = profession.entries.flatMap((e) => (e.kind === 'material' ? [e] : []))
-                const craft = profession.entries.flatMap((e) => (e.kind === 'step' ? [e] : []))
+                const steps = profession.entries.flatMap((e) => (e.kind === 'step' ? [e] : []))
+                const planted = (e: (typeof steps)[number]) => e.step.recipe?.verb === PLANT_VERB
+                // Farming: first what is made, then what is planted (decided 2026-11-27)
+                const stepBoxes = [
+                  { key: 'craft', name: 'Fabricar', entries: steps.filter((e) => !planted(e)) },
+                  { key: 'plant', name: 'Plantar', entries: steps.filter(planted) },
+                ]
                 const gatherDone = gather.filter((e) => e.row.complete).length
-                const craftDone = craft.filter((e) => e.step.done).length
                 return (
                   <RoundBox
                     key={profession.key}
@@ -658,23 +666,28 @@ export function CalculatorResult({
                         ))}
                       </ProfessionBox>
                     )}
-                    {craft.length > 0 && (
-                      <ProfessionBox
-                        name="Fabricar"
-                        count={countOf(craft.length, craftDone)}
-                        rememberKey={`${storageKey}:profession:${profession.key}:craft`}
-                        complete={craftDone === craft.length}
-                      >
-                        {craft.map((entry) => (
-                          <StepRow
-                            key={entry.step.itemId}
-                            step={entry.step}
-                            round={entry.round}
-                            onChoice={onChoice}
-                          />
-                        ))}
-                      </ProfessionBox>
-                    )}
+                    {stepBoxes.map((box) => {
+                      if (!box.entries.length) return null
+                      const done = box.entries.filter((e) => e.step.done).length
+                      return (
+                        <ProfessionBox
+                          key={box.key}
+                          name={box.name}
+                          count={countOf(box.entries.length, done)}
+                          rememberKey={`${storageKey}:profession:${profession.key}:${box.key}`}
+                          complete={done === box.entries.length}
+                        >
+                          {box.entries.map((entry) => (
+                            <StepRow
+                              key={entry.step.itemId}
+                              step={entry.step}
+                              round={entry.round}
+                              onChoice={onChoice}
+                            />
+                          ))}
+                        </ProfessionBox>
+                      )
+                    })}
                   </RoundBox>
                 )
               })
