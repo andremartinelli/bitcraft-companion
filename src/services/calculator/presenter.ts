@@ -303,7 +303,7 @@ export function present(
     round: number
     steps: PresentedStep[]
     countLabel: string
-    /** Everything in it is done: "Esconder concluídos" hides it */
+    /** Everything in it is done: "Concluídos" collapses or hides it */
     complete: boolean
     /** The round's steps by the profession that makes them */
     professions: {
@@ -398,7 +398,7 @@ export function present(
         complete: done === group.entries.length,
       }
     })
-  /** Lines they have all of, gathered or made: "Esconder concluídos" says how many */
+  /** Lines they have all of, gathered or made: "Concluídos (N)" says how many */
   const doneCount = materials.filter((m) => m.complete).length + steps.filter((s) => s.done).length
 
   const node = (n: PlanNode): PresentedNode => {
