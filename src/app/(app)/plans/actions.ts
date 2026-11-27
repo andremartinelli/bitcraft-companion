@@ -16,11 +16,12 @@ import {
   sharePlanWithGroup,
   updatePlanName,
 } from '@/models/plan'
-import { savePlanInventoryChoice } from '@/models/plan_user_setting'
+import { savePlanInventoryChoice, savePlanOtherSteps } from '@/models/plan_user_setting'
 import { readStateFromQuery, validateState } from '@/services/calculator/state_params'
 import { inMenu, inventoryScope } from '@/services/inventory/scope'
 import QuickPlans, { METAL_STYLES } from '@/services/plans/quick_plans'
 import { idSchema } from '@/validators/group'
+import { otherStepsSchema } from '@/validators/profession'
 import {
   planIdSchema,
   planNameSchema,
@@ -121,6 +122,20 @@ export async function updatePlanSetting(id: number, input: unknown) {
     if (inMenu(await inventoryScope(user.id, planId.data), setting.data)) {
       await savePlanInventoryChoice(planId.data, user.id, setting.data)
     }
+  }
+  refresh()
+}
+
+/**
+ * PATCH /plans/[id]/setting/other_steps: "Etapas de outras profissões" in
+ * this plan for this account; the plan's other people see no change
+ */
+export async function updatePlanOtherSteps(id: number, input: unknown) {
+  const user = await requireUser()
+  const planId = planIdSchema.safeParse(id)
+  const mode = otherStepsSchema.safeParse(input)
+  if (planId.success && mode.success && (await canEditPlan(planId.data, user.id))) {
+    await savePlanOtherSteps(planId.data, user.id, mode.data)
   }
   refresh()
 }

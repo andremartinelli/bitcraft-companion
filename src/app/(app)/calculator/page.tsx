@@ -4,6 +4,7 @@ import { NoCharacterNotice } from '@/components/game_players/no_character_notice
 import { SyncControls } from '@/components/inventory/sync_controls'
 import { PageHeader } from '@/components/layout/page_header'
 import { requireUser } from '@/lib/session'
+import { stepsSettingOf } from '@/models/user_profession'
 import { withRecipeChoices } from '@/models/user_recipe_choice'
 import { calculate } from '@/services/calculator/calculate'
 import { readStateFromQuery } from '@/services/calculator/state_params'
@@ -28,10 +29,12 @@ export default async function CalculatorPage({
   const { state, errors } = readStateFromQuery(await searchParams)
   const scope = await inventoryScope(user.id)
   const { playerIds, hasMine } = scope
-  const [panel, freshness] = await Promise.all([
+  const [panel, freshness, stepsSetting] = await Promise.all([
     // The account's recipes where the URL chose none; the URL keeps only its own
     withRecipeChoices(state, user.id).then((withChoices) => calculate(withChoices, scope)),
     inventoryFreshness(playerIds),
+    // The account's default: nothing to choose per calculation
+    stepsSettingOf(user.id),
   ])
   return (
     <>
@@ -42,6 +45,7 @@ export default async function CalculatorPage({
       <UrlCalculator
         state={state}
         panel={panel}
+        stepsSetting={stepsSetting}
         errors={errors}
         inventoryControls={
           // Keyed: a fragment from a server component reaches the client as a list

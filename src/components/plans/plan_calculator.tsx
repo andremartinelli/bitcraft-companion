@@ -5,6 +5,7 @@ import { updatePlan } from '@/app/(app)/plans/actions'
 import { CalculatorView, type CalculatorViewProps } from '@/components/calculator/calculator_view'
 import type { CalculatorState } from '@/services/calculator/production_planner'
 import type { CalculatorPanel } from '@/services/calculator/presenter'
+import type { OtherStepsMode, StepsSetting } from '@/services/calculator/steps_view'
 
 interface PlanCalculatorProps {
   planId: number
@@ -13,6 +14,8 @@ interface PlanCalculatorProps {
   panel: CalculatorPanel
   inventoryControls?: CalculatorViewProps['inventoryControls']
   pickerActions?: CalculatorViewProps['pickerActions']
+  stepsSetting: StepsSetting
+  saveOtherSteps: (mode: OtherStepsMode) => Promise<void>
 }
 
 /**
@@ -26,6 +29,8 @@ export function PlanCalculator({
   panel,
   inventoryControls,
   pickerActions,
+  stepsSetting,
+  saveOtherSteps,
 }: PlanCalculatorProps) {
   const [pending, startTransition] = useTransition()
   const [latest, setLatest] = useOptimistic(state)
@@ -44,6 +49,8 @@ export function PlanCalculator({
       pendingLabel="Salvando…"
       inventoryControls={inventoryControls}
       pickerActions={pickerActions}
+      stepsSetting={stepsSetting}
+      saveOtherSteps={saveOtherSteps}
       onChange={(next) =>
         startTransition(async () => {
           setLatest(next)

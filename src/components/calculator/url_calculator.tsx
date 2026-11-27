@@ -8,7 +8,7 @@ import { stateToQuery } from '@/services/calculator/state_params'
 
 type UrlCalculatorProps = Pick<
   CalculatorViewProps,
-  'state' | 'panel' | 'errors' | 'inventoryControls'
+  'state' | 'panel' | 'errors' | 'inventoryControls' | 'stepsSetting'
 >
 
 /**
