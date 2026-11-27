@@ -1,5 +1,6 @@
 import type { OtherStepsMode } from '@/generated/prisma/client.ts'
 import { db } from '@/lib/db'
+import type { StepsSetting } from '@/services/calculator/steps_view'
 
 /**
  * "Minhas profissões" (decided 2026-11-27): the professions an account does.
@@ -10,8 +11,8 @@ import { db } from '@/lib/db'
 
 /**
  * Skills that craft or gather something but are not a profession to pick:
- * buildings, pets, boats, monsters and the Hexite reserve. "ANY" is no
- * profession either: its steps always show.
+ * buildings, pets, boats, monsters and the Hexite reserve; nor is "ANY". Their
+ * steps always show, for everyone.
  */
 const NOT_PROFESSIONS = ['ANY', 'Construction', 'Taming', 'Sailing', 'Slayer', 'Hexite Gathering']
 
@@ -56,18 +57,12 @@ export async function saveOtherSteps(userId: number, otherSteps: OtherStepsMode)
   await db.user.update({ where: { id: userId }, data: { otherSteps } })
 }
 
-/** What the Steps need: the account's profession names and what to do with the others */
-export interface StepsSetting {
-  professions: string[]
-  otherSteps: OtherStepsMode
-}
-
 /**
  * The Steps' setting for an account: in a plan, its own choice there when it
  * made one, else the account's default
  */
 export async function stepsSettingOf(userId: number, planId?: number): Promise<StepsSetting> {
-  const [user, planSetting] = await Promise.all([
+  const [user, planSetting, all] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       select: { otherSteps: true, professions: { select: { skill: { select: { name: true } } } } },
@@ -78,9 +73,11 @@ export async function stepsSettingOf(userId: number, planId?: number): Promise<S
           select: { otherSteps: true },
         })
       : null,
+    professionChoices(),
   ])
   return {
     professions: user.professions.map((p) => p.skill.name),
+    allProfessions: all.map((skill) => skill.name),
     otherSteps: planSetting?.otherSteps ?? user.otherSteps,
   }
 }

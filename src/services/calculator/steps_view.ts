@@ -9,16 +9,19 @@ export type OtherStepsMode = 'show' | 'collapse' | 'hide'
 /** The account's profession names and what to do with the others */
 export interface StepsSetting {
   professions: string[]
+  /** Every profession of "Minhas profissões": other skills (Construction, Taming...) always show */
+  allProfessions: string[]
   otherSteps: OtherStepsMode
 }
 
 /**
- * Someone else's profession: a named one the account doesn't do. "Any
- * profession" and no recipe (skill null) never are, and an account with no
+ * Someone else's profession: one of the professions the account doesn't do.
+ * "Any profession", no recipe (skill null) and skills that are not
+ * professions (Construction, Taming...) never are, and an account with no
  * profession marked has none.
  */
-export const isOtherProfession = (skill: string | null, mine: string[]) =>
-  mine.length > 0 && skill !== null && !mine.includes(skill)
+export const isOtherProfession = (skill: string | null, mine: string[], all: string[]) =>
+  mine.length > 0 && skill !== null && all.includes(skill) && !mine.includes(skill)
 
 /** The account's professions first, then the others, keeping the order within each */
 export function mineFirst<T extends { skill: string | null }>(groups: T[], mine: string[]) {

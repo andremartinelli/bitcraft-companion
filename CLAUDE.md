@@ -123,7 +123,7 @@ The project follows Rails conventions. When in doubt, do what Rails would do.
   - "Minhas profissões" on `/account`: one checkbox per profession, per account (`user_professions`). The list comes from the data: skills with active crafting or gathering recipes, without `NOT_PROFESSIONS` (ANY, Construction, Taming, Sailing, Slayer, Hexite Gathering);
   - the Steps (plan and quick calculator) have "Por rodada | Por profissão". By profession, each profession has its gathering and crafts in round order, each step with its round ("R2"); the buildings stay last. The view is remembered per plan in the browser (`steps-view:<storageKey>`), like "Esconder concluídos" (`hide-done:<storageKey>`);
   - the account's professions come first. "Etapas de outras profissões": Mostrar, Colapsar (their boxes start closed) or Esconder (they leave, and a line says how many still to do). The default is per account (`users.other_steps`); in a plan, each person changes it only for themselves (`plan_user_settings.other_steps`, null = the account's default). The quick calculator uses the default;
-  - "Qualquer profissão" and no recipe or other sources always show; an account with no profession marked filters nothing. A skill outside the list (Construction, Taming...) counts as another profession;
+  - "Qualquer profissão" and no recipe or other sources always show; an account with no profession marked filters nothing. Skills that are not professions (Construction, Taming, Sailing...: outside the list) always show for everyone (decided 2026-11-27);
   - "Colapsar concluídos" closes the finished boxes and "Esconder concluídos" hides the finished lines, in both views.
 
 Details that already cost time:

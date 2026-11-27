@@ -459,7 +459,7 @@ export function CalculatorResult({
 
   const mine = stepsSetting.professions
   const mode = stepsSetting.otherSteps
-  const other = (skill: string | null) => isOtherProfession(skill, mine)
+  const other = (skill: string | null) => isOtherProfession(skill, mine, stepsSetting.allProfessions)
   /** The professions to draw, the account's first; with "Esconder", without the others */
   const visible = <T extends { skill: string | null }>(groups: T[]) =>
     mineFirst(mode === 'hide' ? groups.filter((g) => !other(g.skill)) : groups, mine)

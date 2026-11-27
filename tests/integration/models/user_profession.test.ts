@@ -36,7 +36,11 @@ describe('"Minhas profissões"', () => {
     expect((await professionIdsOf(userId)).sort()).toEqual([2, 3])
     await saveProfession(userId, 3, false)
     expect(await professionIdsOf(userId)).toEqual([2])
-    expect((await stepsSettingOf(userId)).professions).toEqual(['Forestry'])
+    expect(await stepsSettingOf(userId)).toEqual({
+      professions: ['Forestry'],
+      allProfessions: ['Carpentry', 'Forestry'],
+      otherSteps: 'show',
+    })
   })
 
   test('a plan starts with the account default; each person changes it only for them', async () => {
