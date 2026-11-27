@@ -1,6 +1,7 @@
 import { HIDDEN_VERBS } from '@/models/recipe'
 import type { RecipeGraph } from '@/services/calculator/recipe_graph'
 import type { GraphRecipe, Producer } from '@/services/calculator/recipe_graph'
+import { recipePenalty } from '@/services/calculator/recipe_preferences'
 
 /**
  * What the user asked: items to make, recipe choices and what they already have.
@@ -124,8 +125,9 @@ export function producersOf(graph: RecipeGraph, itemId: number): Producer[] {
 /**
  * The recipe used when the user made no choice: no scrap/recraft/unpack and
  * friends, then visible before hidden, none that takes an animal no hunt
- * leaves (see RecipeGraph.isLostAnimal), fixed output before random, lowest
- * skill level, lowest id.
+ * leaves (see RecipeGraph.isLostAnimal), the way players normally make it
+ * (recipe_preferences), fixed output before random, lowest skill level, a
+ * Well, lowest id.
  */
 export function defaultProducer(graph: RecipeGraph, itemId: number): Producer | undefined {
   const takesLostAnimal = (recipe: GraphRecipe) =>
@@ -138,6 +140,7 @@ export function defaultProducer(graph: RecipeGraph, itemId: number): Producer | 
       return (
         Number(ra.hidden) - Number(rb.hidden) ||
         Number(takesLostAnimal(ra)) - Number(takesLostAnimal(rb)) ||
+        recipePenalty(graph, itemId, ra) - recipePenalty(graph, itemId, rb) ||
         Number(b.deterministic) - Number(a.deterministic) ||
         (ra.skillLevel ?? 0) - (rb.skillLevel ?? 0) ||
         // Water from a Well (an Empty Bucket) beats boiling Winter Snow, found only in the cold (decided 2026-11-27)
