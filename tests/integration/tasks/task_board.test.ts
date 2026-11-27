@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { db } from '@/lib/db'
+import { holdersLabel } from '@/services/inventory/professions'
 import { taskBoard } from '@/services/tasks/task_board'
 import { importTables } from '../../helpers/game_data'
 import { syncBothPlayers } from '../../helpers/inventory'
@@ -43,9 +44,11 @@ describe("the travelers' tasks page", () => {
       [2, false, ['3 Simple Plank (tem 1)', '2 Rough Wood Trunk (tem 3)']],
       [2, false, ['10 Rough Wood Scraps (tem 7)']],
     ])
-    // Where each item is, like the plan's "Coletar"
-    expect(brico.current[0].lines[0].holders).toEqual([{ owner: 'Nimbus', quantity: 50 }])
-    expect(brico.current[1].lines[0].holders).toEqual([{ owner: 'Nimbus', quantity: 1 }])
+    // Where each item is, and in which places, like the plan's "Coletar"
+    expect(holdersLabel(brico.current[0].lines[0].holders)).toBe(
+      'Nimbus 50 (Settlement Stash 40, Banco 10)'
+    )
+    expect(holdersLabel(brico.current[1].lines[0].holders)).toMatch(/^Nimbus 1 \([^,]+\)$/)
   })
 
   test("a task of the tier above the character's level does not show", async () => {

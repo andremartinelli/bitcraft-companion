@@ -3,6 +3,7 @@
 import { Badge, Box, Heading, HStack, Stack, Text } from '@chakra-ui/react'
 import { ItemChip } from '@/components/items/item_chip'
 import { formatNumber } from '@/lib/format'
+import { holdersLabel } from '@/services/inventory/professions'
 import type { BoardTask, TravelerBoard } from '@/services/tasks/task_board'
 
 /** One task: each item it asks for, and how many the account has */
@@ -23,8 +24,8 @@ function TaskRow({ task }: { task: BoardTask }) {
             </HStack>
             {line.holders.length > 0 && (
               <Text textStyle="xs" color="fg.muted">
-                {/* "Nimbus 40 · Claim Aurora 100", like the plan's "Coletar" */}
-                {line.holders.map((h) => `${h.owner} ${formatNumber(h.quantity)}`).join(' · ')}
+                {/* "Nimbus 40 (Banco 30, Mochila 10) · Claim Aurora 100 (Baú Grande)", like the plan's "Coletar" */}
+                {holdersLabel(line.holders)}
               </Text>
             )}
           </Stack>

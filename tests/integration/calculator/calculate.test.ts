@@ -141,7 +141,7 @@ describe('calculation as the page shows it', () => {
     )
 
     const logs = panel.materials.find((m) => m.item.id === log)!
-    expect(logs.holdersLabel).toMatch(/^Nimbus \d+ · Quartz \d+$/)
+    expect(logs.holdersLabel).toMatch(/^Nimbus \d+ \(.+\) · Quartz \d+ \(.+\)$/)
   })
 
   test('a building: what it takes, then building it as the last round', async () => {
