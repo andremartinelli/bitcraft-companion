@@ -23,9 +23,21 @@ export interface StepsSetting {
 export const isOtherProfession = (skill: string | null, mine: string[], all: string[]) =>
   mine.length > 0 && skill !== null && all.includes(skill) && !mine.includes(skill)
 
-/** The account's professions first, then the others, keeping the order within each */
-export function mineFirst<T extends { skill: string | null }>(groups: T[], mine: string[]) {
-  const rank = (group: T) => (group.skill !== null && mine.includes(group.skill) ? 0 : 1)
+/** The gathering professions: first in the view by profession (decided 2026-11-27) */
+export const GATHERING_PROFESSIONS = ['Fishing', 'Foraging', 'Hunting', 'Mining', 'Forestry']
+
+/**
+ * The account's professions first, then the others, keeping the order within
+ * each. `gatheringFirst`: within each, the gathering professions first
+ */
+export function mineFirst<T extends { skill: string | null }>(
+  groups: T[],
+  mine: string[],
+  gatheringFirst = false
+) {
+  const rank = (group: T) =>
+    (group.skill !== null && mine.includes(group.skill) ? 0 : 2) +
+    (gatheringFirst && GATHERING_PROFESSIONS.includes(group.skill ?? '') ? 0 : 1)
   return groups
     .map((group, index) => ({ group, index }))
     .sort((a, b) => rank(a.group) - rank(b.group) || a.index - b.index)

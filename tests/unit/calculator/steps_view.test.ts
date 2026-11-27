@@ -30,4 +30,15 @@ describe('the steps of other professions', () => {
       null,
     ])
   })
+
+  test('by profession, the gathering professions first within mine and within the others', () => {
+    const groups = ['Carpentry', 'Fishing', 'Mining', 'Smithing', null].map((skill) => ({ skill }))
+    expect(mineFirst(groups, ['Smithing', 'Mining'], true).map((g) => g.skill)).toEqual([
+      'Mining',
+      'Smithing',
+      'Fishing',
+      'Carpentry',
+      null,
+    ])
+  })
 })

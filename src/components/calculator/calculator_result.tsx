@@ -431,6 +431,10 @@ function useStoredChoice<T extends string>(key: string, fallback: T, values: rea
   return [value, choose] as const
 }
 
+/** "3 itens · 1 completo" */
+const countOf = (total: number, done: number) =>
+  `${total} ${total === 1 ? 'item' : 'itens'}${done ? ` · ${done} ${done === 1 ? 'completo' : 'completos'}` : ''}`
+
 const ON_OFF = ['0', '1'] as const
 const VIEWS = ['round', 'profession'] as const
 
@@ -459,10 +463,15 @@ export function CalculatorResult({
 
   const mine = stepsSetting.professions
   const mode = stepsSetting.otherSteps
-  const other = (skill: string | null) => isOtherProfession(skill, mine, stepsSetting.allProfessions)
+  const other = (skill: string | null) =>
+    isOtherProfession(skill, mine, stepsSetting.allProfessions)
   /** The professions to draw, the account's first; with "Esconder", without the others */
-  const visible = <T extends { skill: string | null }>(groups: T[]) =>
-    mineFirst(mode === 'hide' ? groups.filter((g) => !other(g.skill)) : groups, mine)
+  const visible = <T extends { skill: string | null }>(groups: T[], gatheringFirst = false) =>
+    mineFirst(
+      mode === 'hide' ? groups.filter((g) => !other(g.skill)) : groups,
+      mine,
+      gatheringFirst
+    )
   const collapsed = (skill: string | null) => mode === 'collapse' && other(skill)
   /** What "Esconder" leaves out that is still to do: said, so the plan doesn't look complete */
   const hiddenCount =
@@ -575,11 +584,11 @@ export function CalculatorResult({
         css={{ '&[data-hide-done] :is([data-done], details[data-complete])': { display: 'none' } }}
       >
         <Flex align="center" justify="space-between" gap="3" mb="1" wrap="wrap">
-          <Heading id="calc-steps" size="lg">
-            Etapas
-          </Heading>
-          <HStack gap="1" wrap="wrap">
-            <HStack gap="0" role="group" aria-label="Agrupar as etapas" mr="2">
+          <HStack gap="3" wrap="wrap">
+            <Heading id="calc-steps" size="lg">
+              Etapas
+            </Heading>
+            <HStack gap="0" role="group" aria-label="Agrupar as etapas">
               {VIEWS.map((value) => (
                 <Button
                   key={value}
@@ -592,6 +601,8 @@ export function CalculatorResult({
                 </Button>
               ))}
             </HStack>
+          </HStack>
+          <HStack gap="1" wrap="wrap">
             {panel.doneCount > 0 && (
               <>
                 <Button size="xs" variant="ghost" onClick={collapseCompleted}>
@@ -629,31 +640,52 @@ export function CalculatorResult({
         )}
 
         {view === 'profession'
-          ? visible(panel.professions).map((profession: ProfessionSteps) => (
-              <RoundBox
-                key={profession.key}
-                title={profession.name}
-                count={profession.countLabel}
-                rememberKey={`${storageKey}:profession:${profession.key}`}
-                complete={profession.complete}
-                collapsed={collapsed(profession.skill)}
-              >
-                <Box as="ul" listStyleType="none">
-                  {profession.entries.map((entry) =>
-                    entry.kind === 'material' ? (
-                      <MaterialRow key={`m${entry.row.itemId}`} row={entry.row} round={1} />
-                    ) : (
-                      <StepRow
-                        key={`s${entry.step.itemId}`}
-                        step={entry.step}
-                        round={entry.round}
-                        onChoice={onChoice}
-                      />
-                    )
+          ? visible(panel.professions, true).map((profession: ProfessionSteps) => {
+              const gather = profession.entries.flatMap((e) => (e.kind === 'material' ? [e] : []))
+              const craft = profession.entries.flatMap((e) => (e.kind === 'step' ? [e] : []))
+              const gatherDone = gather.filter((e) => e.row.complete).length
+              const craftDone = craft.filter((e) => e.step.done).length
+              return (
+                <RoundBox
+                  key={profession.key}
+                  title={profession.name}
+                  count={profession.countLabel}
+                  rememberKey={`${storageKey}:profession:${profession.key}`}
+                  complete={profession.complete}
+                  collapsed={collapsed(profession.skill)}
+                >
+                  {gather.length > 0 && (
+                    <ProfessionBox
+                      name="Coletar"
+                      count={countOf(gather.length, gatherDone)}
+                      rememberKey={`${storageKey}:profession:${profession.key}:gather`}
+                      complete={gatherDone === gather.length}
+                    >
+                      {gather.map((entry) => (
+                        <MaterialRow key={entry.row.itemId} row={entry.row} round={1} />
+                      ))}
+                    </ProfessionBox>
                   )}
-                </Box>
-              </RoundBox>
-            ))
+                  {craft.length > 0 && (
+                    <ProfessionBox
+                      name="Fabricar"
+                      count={countOf(craft.length, craftDone)}
+                      rememberKey={`${storageKey}:profession:${profession.key}:craft`}
+                      complete={craftDone === craft.length}
+                    >
+                      {craft.map((entry) => (
+                        <StepRow
+                          key={entry.step.itemId}
+                          step={entry.step}
+                          round={entry.round}
+                          onChoice={onChoice}
+                        />
+                      ))}
+                    </ProfessionBox>
+                  )}
+                </RoundBox>
+              )
+            })
           : renderRounds()}
         {!panel.rounds.length && !panel.buildRound && (
           <Hint>Nada para fabricar: vocês já têm tudo.</Hint>
