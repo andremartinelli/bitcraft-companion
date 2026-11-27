@@ -11,10 +11,18 @@ import type { StepsSetting } from '@/services/calculator/steps_view'
 
 /**
  * Skills that craft or gather something but are not a profession to pick:
- * buildings, pets, boats, monsters and the Hexite reserve; nor is "ANY". Their
- * steps always show, for everyone.
+ * buildings, pets, boats, monsters, the Hexite reserve and Cooking (decided
+ * 2026-11-27); nor is "ANY". Their steps always show, for everyone.
  */
-const NOT_PROFESSIONS = ['ANY', 'Construction', 'Taming', 'Sailing', 'Slayer', 'Hexite Gathering']
+const NOT_PROFESSIONS = [
+  'ANY',
+  'Construction',
+  'Taming',
+  'Sailing',
+  'Slayer',
+  'Hexite Gathering',
+  'Cooking',
+]
 
 /** The professions to pick from: the skills of active recipes or gatherings, by name */
 export async function professionChoices() {
@@ -75,9 +83,13 @@ export async function stepsSettingOf(userId: number, planId?: number): Promise<S
       : null,
     professionChoices(),
   ])
+  const allProfessions = all.map((skill) => skill.name)
   return {
-    professions: user.professions.map((p) => p.skill.name),
-    allProfessions: all.map((skill) => skill.name),
+    // A skill marked before it left the list (Cooking) is no profession any more
+    professions: user.professions
+      .map((p) => p.skill.name)
+      .filter((name) => allProfessions.includes(name)),
+    allProfessions,
     otherSteps: planSetting?.otherSteps ?? user.otherSteps,
   }
 }

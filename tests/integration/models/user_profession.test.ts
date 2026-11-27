@@ -43,6 +43,13 @@ describe('"Minhas profissões"', () => {
     })
   })
 
+  test('a skill marked before it left the list is no profession any more', async () => {
+    await saveProfession(userId, 2, true)
+    // As if Construction was a profession when it was marked
+    await db.userProfession.create({ data: { userId, skillId: 15 } })
+    expect((await stepsSettingOf(userId)).professions).toEqual(['Forestry'])
+  })
+
   test('a plan starts with the account default; each person changes it only for them', async () => {
     const other = (await user('ana@example.com')).id
     const plan = await insertPlan({ name: 'Tábuas', userId, state: emptyState() })
